@@ -5,6 +5,7 @@
     "author": "",
     "private": true,
     "license": "MIT",
+    "packageManager": "pnpm@11.0.8",
     "scripts": {
         "build": "nest build",
         "start": "node dist/src/main.jst",

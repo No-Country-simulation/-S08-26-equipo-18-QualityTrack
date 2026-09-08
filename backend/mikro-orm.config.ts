@@ -1,7 +1,6 @@
 import { ReflectMetadataProvider } from "@mikro-orm/decorators/legacy";
 import { defineConfig } from "@mikro-orm/postgresql";
 import { Migrator } from "@mikro-orm/migrations";
-import "dotenv/config";
 
 const useSsl = process.env.DB_SSL !== "false";
 
