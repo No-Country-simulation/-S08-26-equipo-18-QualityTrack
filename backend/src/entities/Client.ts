@@ -33,5 +33,9 @@ export class Client extends BaseEntity {
     @Property({type: "varchar", length: 5000})
     notes: string;
     
+    // TODO revisar: definir estrategia de desactivación del cliente.
+    // Evaluar soft delete mediante un campo isActive para conservar
+    // la trazabilidad histórica de solicitudes, cotizaciones y OT.
+    
     /* TODO is_active -> soft delete??  */
 }

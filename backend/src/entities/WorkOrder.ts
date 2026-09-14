@@ -1,5 +1,8 @@
-import { Entity, PrimaryKey, Property } from "@mikro-orm/decorators/legacy";
+import { Entity, ManyToOne, PrimaryKey, Property } from "@mikro-orm/decorators/legacy";
 import { BaseEntity } from "./BaseEntity";
+import { WorkOrderStatus } from "./WorkOrderStatus";
+import { WorkOrderPriority } from "./WorkOrderPriority";
+import { User } from "./User";
 
 @Entity()
 export class WorkOrder extends BaseEntity {
@@ -15,10 +18,20 @@ export class WorkOrder extends BaseEntity {
     @Property({type: "varchar", length: 5000})
     description: string;
 
-    /* TODO Definir status, priority */
+    // Se incorporó un enum para establecer niveles de prioridad
+    // definidos y evitar valores inconsistentes.
+    @Property({type:"enum", items: () => WorkOrderPriority})
+    priority: WorkOrderPriority;
 
-    @Property({type: "integer"})
-    createdBy: number;
+    // Se reemplazó el estado libre por un enum para controlar los estados
+    // válidos de una Orden de Trabajo y evitar valores arbitrarios.
+    @Property({type: "enum", items: () => WorkOrderStatus,})
+    status: WorkOrderStatus;
+
+    // Se reemplazó el campo integer por una relación con User,
+    // ya que createdBy identifica al usuario que creó la Orden de Trabajo.
+    @ManyToOne(() => User)
+    createdBy: User;
 
     @Property({type: "timestamptz"})
     plannedStartDate: Date;
@@ -26,9 +39,11 @@ export class WorkOrder extends BaseEntity {
     @Property({type: "timestamptz"})
     plannedEndDate: Date;
 
-    @Property({type: "timestamptz"})
-    actualStartDate: Date;
- 
-    @Property({type: "timestamptz"})
-    actualEndDate: Date;
+    // Estas fechas son nullable porque al crear una OT todavía puede
+    // no haber comenzado ni finalizado.
+    @Property({type: "timestamptz", nullable: true})
+    actualStartDate?: Date;
+
+    @Property({type: "timestamptz", nullable: true})
+    actualEndDate?: Date;
 }

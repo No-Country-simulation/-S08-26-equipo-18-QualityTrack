@@ -13,7 +13,10 @@ export class WorkOrderUser {
     @ManyToOne(() => User)
     user: User;
 
-    // TODO revisar: role (posible enum de rol dentro de la OT, sin definir en el diagrama)
+    // TODO revisar: definir el rol del usuario dentro de la WorkOrder.
+    // Este rol es independiente del Role general del sistema.
+    // Los valores y si corresponde utilizar un enum deben definirse
+    // según el modelo funcional de la OT.
     // @Property({ type: "varchar" })
     // role: string;
 

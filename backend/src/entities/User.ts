@@ -1,6 +1,6 @@
-import { Entity, ManyToMany, PrimaryKey, Property, Unique } from "@mikro-orm/decorators/legacy";
+import { Entity, ManyToOne, PrimaryKey, Property, Unique } from "@mikro-orm/decorators/legacy";
 import { BaseEntity } from "./BaseEntity";
-import {  Role } from "./Role";
+import { Role } from "./Role";
 
 @Entity()
 export class User extends BaseEntity {
@@ -13,10 +13,11 @@ export class User extends BaseEntity {
     @Property({ type: "varchar" })
     lastName: string;
 
-    @Property({ type: "integer" })
-    roleId: Role["id"];
-    @ManyToMany(() => Role)
-    role?: Role;
+    // Se estableció una relación ManyToOne porque un rol general
+    // puede estar asignado a múltiples usuarios, mientras que cada
+    // usuario tiene un único rol dentro del sistema.
+    @ManyToOne(() => Role)
+    role: Role;
     
     @Unique()
     @Property({ type: "varchar" }) 

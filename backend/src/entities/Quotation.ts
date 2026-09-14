@@ -32,6 +32,10 @@ export class Quotation extends BaseEntity {
     taxAmount: string;
 
     // TODO revisar: currency (posible enum de monedas ISO, sin definir en el diagrama)
+
+    // TODO revisar: definir monedas soportadas mediante un enum.
+    // Evaluar códigos ISO 4217 (por ejemplo ARS, USD, EUR) según
+    // las necesidades comerciales de QualityTrack.
     @Property({ type: "varchar", length: 3 })
     currency: string;
 

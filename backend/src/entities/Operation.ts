@@ -21,7 +21,9 @@ export class Operation {
     @Property({ type: "varchar", length: 500, nullable: true })
     machine?: string;
 
-    // TODO revisar: status (posible enum, sin definir en el diagrama)
+    // TODO revisar: definir el ciclo de vida de la operación mediante un enum.
+    // Los estados deben representar las etapas por las que pasa una operación
+    // desde su planificación hasta su finalización o cancelación.
     // @Property({ type: "varchar" })
     // status: string;
 
