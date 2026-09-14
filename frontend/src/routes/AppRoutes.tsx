@@ -6,9 +6,12 @@ import ClientsPage from "../pages/ClientsPage";
 import RequestsPage from "../pages/RequestsPage";
 import QuotationsPage from "../pages/QuotationsPage";
 import WorkOrderDetailPage from "../pages/WorkOrderDetailPage";
-import WorkOrdersPage from "../pages/WorkOrdersPage";   
+import WorkOrdersPage from "../pages/WorkOrdersPage";
 import QualityPage from "../pages/QualityPage";
 import DeliveriesPage from "../pages/DeliveriesPage";
+import DashboardLayout from "../layouts/DashboardLayout";
+import ProtectedRoute from "./guards/ProtectedRoute";
+import PublicRoute from "./guards/PublicRoute";
 
 const router = createBrowserRouter([
     {
@@ -16,40 +19,31 @@ const router = createBrowserRouter([
         element: <Navigate to="/dashboard" replace />,
     },
     {
-        path: '/login',
-        element: <LoginPage />,
+        element: <PublicRoute />,
+        children: [
+            {
+                path: '/login',
+                element: <LoginPage />,
+            },
+        ],
     },
     {
-        path: '/dashboard',
-        element: <DashboardPage />,
-    },
-    {
-        path: '/clients',
-        element: <ClientsPage />,
-    },
-    {
-        path: '/requests',
-        element: <RequestsPage />,
-    },
-    {
-        path: '/quotations',
-        element: <QuotationsPage />,
-    },
-    {
-        path: '/work-orders',
-        element: <WorkOrdersPage />,
-    },
-    {
-        path: '/work-orders/:id',
-        element: <WorkOrderDetailPage />,
-    },
-    {
-        path: '/quality',
-        element: <QualityPage />,
-    },
-    {
-        path: '/deliveries',
-        element: <DeliveriesPage />,
+        element: <ProtectedRoute />,
+        children: [
+            {
+                element: <DashboardLayout />,
+                children: [
+                    { path: '/dashboard', element: <DashboardPage /> },
+                    { path: '/clients', element: <ClientsPage /> },
+                    { path: '/requests', element: <RequestsPage /> },
+                    { path: '/quotations', element: <QuotationsPage /> },
+                    { path: '/work-orders', element: <WorkOrdersPage /> },
+                    { path: '/work-orders/:id', element: <WorkOrderDetailPage /> },
+                    { path: '/quality', element: <QualityPage /> },
+                    { path: '/deliveries', element: <DeliveriesPage /> },
+                ],
+            },
+        ],
     },
     {
         path: '*',

@@ -1,10 +1,10 @@
-import './App.css'
 import AppRoutes from './routes/AppRoutes'
-import {ChakraProvider, defaultSystem } from '@chakra-ui/react'
+import { ChakraProvider } from '@chakra-ui/react'
+import { system } from './theme/theme'
 
 function App() {
     return (
-        <ChakraProvider value={defaultSystem}>
+        <ChakraProvider value={system}>
         <AppRoutes/>
         </ChakraProvider>
     )
