@@ -19,7 +19,9 @@ export class WorkOrderMaterial {
     @Property({ type: "decimal", precision: 14, scale: 2 })
     quantity: string;
 
-    // TODO revisar: unit (posible enum de unidades de medida, sin definir en el diagrama)
+    // TODO revisar: definir las unidades de medida mediante un enum.
+    // Los valores deben establecerse según las unidades utilizadas
+    // para cuantificar materiales en las Órdenes de Trabajo.
     @Property({ type: "varchar", length: 20, nullable: true })
     unit?: string;
 

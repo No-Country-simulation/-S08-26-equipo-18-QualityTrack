@@ -15,7 +15,9 @@ export class RouteSheet extends BaseEntity {
     @Property({ type: "varchar", length: 100 })
     routeNumber: string;
 
-    // TODO revisar: status (posible enum, sin definir en el diagrama)
+    // TODO revisar: definir el ciclo de vida de la hoja de ruta mediante un enum.
+    // Los estados deben representar las etapas por las que pasa una hoja de ruta
+    // desde su creación hasta su cierre o cancelación.
     // @Property({ type: "varchar" })
     // status: string;
 
