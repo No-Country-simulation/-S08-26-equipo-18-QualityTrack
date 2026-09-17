@@ -13,10 +13,13 @@ const config = defineConfig({
         tokens: {
             fonts: {
                 heading: {
-                    value: `'Helvetica Neue', Helvetica, Inter, Arial, sans-serif`,
+                    value: `'Plus Jakarta Sans', sans-serif`,
                 },
                 body: {
-                    value: `'Helvetica Neue', Helvetica, Inter, Arial, sans-serif`,
+                    value: `'Plus Jakarta Sans', sans-serif`,
+                },
+                mono: {
+                    value: `'JetBrains Mono', monospace`,
                 },
             },
             colors: {
@@ -100,6 +103,7 @@ const config = defineConfig({
     globalCss: {
         'html, body': {
             backgroundColor: 'bg.canvas',
+            letterSpacing: '0.02em',
         },
     },
 })
