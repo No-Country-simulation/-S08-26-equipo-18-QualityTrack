@@ -12,6 +12,8 @@ import {
   LuTruck,
   LuWrench,
 } from "react-icons/lu";
+import { Can } from "../components/Can";
+import type { Permission } from "../types/permissions";
 
 const SIDEBAR_WIDTH_EXPANDED = "250px";
 const SIDEBAR_WIDTH_COLLAPSED = "72px";
@@ -25,6 +27,7 @@ interface NavItem {
   label: string;
   to: string;
   icon: IconType;
+  permission?: Permission;
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -35,6 +38,12 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Órdenes de trabajo", to: "/work-orders", icon: LuWrench },
   { label: "Calidad", to: "/quality", icon: LuShieldCheck },
   { label: "Entregas", to: "/deliveries", icon: LuTruck },
+  { label: "Clientes", to: "/clients", icon: LuBuilding2, permission: "clients:view" },
+  { label: "Solicitudes", to: "/requests", icon: LuFileText, permission: "requests:view" },
+  { label: "Cotizaciones", to: "/quotations", icon: LuCircleDollarSign, permission: "quotations:view" },
+  { label: "Órdenes de trabajo", to: "/work-orders", icon: LuWrench, permission: "workOrders:view" },
+  { label: "Calidad", to: "/quality", icon: LuShieldCheck, permission: "quality:view" },
+  { label: "Entregas", to: "/deliveries", icon: LuTruck, permission: "deliveries:view" },
 ];
 
 export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
@@ -94,38 +103,39 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
       {/* Lista de navegación */}
       <Stack gap={1} px={collapsed ? 2 : 3} py={4} flex="1" overflowY="auto">
         {NAV_ITEMS.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            style={{ textDecoration: "none" }}
-          >
-            {({ isActive }) => (
-              <Flex
-                align="center"
-                gap={3}
-                px={collapsed ? 0 : 3}
-                py={2.5}
-                borderRadius="lg"
-                fontSize="sm"
-                fontWeight={isActive ? "semibold" : "medium"}
-                color={isActive ? "brand.700" : "gray.600"}
-                bg={isActive ? "brand.50" : "transparent"}
-                justify={collapsed ? "center" : "flex-start"}
-                _hover={{
-                  bg: isActive ? "brand.50" : "gray.100",
-                  color: isActive ? "brand.700" : "gray.900",
-                }}
-                transition="background-color 0.15s ease"
-              >
-                <item.icon size={20} />
-                {!collapsed && (
-                  <Text as="span" whiteSpace="nowrap">
-                    {item.label}
-                  </Text>
-                )}
-              </Flex>
-            )}
-          </NavLink>
+          <Can key={item.to} perform={item.permission}>
+            <NavLink
+              to={item.to}
+              style={{ textDecoration: "none" }}
+            >
+              {({ isActive }) => (
+                <Flex
+                  align="center"
+                  gap={3}
+                  px={collapsed ? 0 : 3}
+                  py={2.5}
+                  borderRadius="lg"
+                  fontSize="sm"
+                  fontWeight={isActive ? "semibold" : "medium"}
+                  color={isActive ? "brand.700" : "gray.600"}
+                  bg={isActive ? "brand.50" : "transparent"}
+                  justify={collapsed ? "center" : "flex-start"}
+                  _hover={{
+                    bg: isActive ? "brand.50" : "gray.100",
+                    color: isActive ? "brand.700" : "gray.900",
+                  }}
+                  transition="background-color 0.15s ease"
+                >
+                  <item.icon size={20} />
+                  {!collapsed && (
+                    <Text as="span" whiteSpace="nowrap">
+                      {item.label}
+                    </Text>
+                  )}
+                </Flex>
+              )}
+            </NavLink>
+          </Can>
         ))}
       </Stack>
 
