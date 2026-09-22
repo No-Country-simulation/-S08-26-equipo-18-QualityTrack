@@ -134,7 +134,7 @@ export default function ClientsPage() {
           <Can perform="clients:create">
             <Button colorPalette="blue" size="sm" onClick={handleOpenCreate}>
               <LuPlus style={{ marginRight: "6px" }} />
-              Nuevo Cliente
+              Nuevo cliente
             </Button>
           </Can>
         }
@@ -183,7 +183,7 @@ export default function ClientsPage() {
         onOpenChange={({ open }) => {
           if (!open) setDeleteCandidate(null);
         }}
-        title="Eliminar Cliente"
+        title="Eliminar cliente"
         description={`Estas seguro de que deseas eliminar el cliente "${deleteCandidate?.businessName}"? Esta accion no se puede deshacer.`}
         confirmText="Eliminar"
         cancelText="Cancelar"
