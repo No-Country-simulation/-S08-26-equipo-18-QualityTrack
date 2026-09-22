@@ -14,3 +14,4 @@ export * from "./ApiStateBoundary";
 export * from "./DataTable";
 export * from "./FormField";
 export * from "./Can";
+export * from "./ErrorBoundary";

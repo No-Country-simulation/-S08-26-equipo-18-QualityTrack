@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom'
 import { Box, Flex } from '@chakra-ui/react'
 import Sidebar from './Sidebar'
 import Navbar from './Navbar'
+import { ErrorBoundary } from '../components/ErrorBoundary'
 
 export default function DashboardLayout() {
     const [collapsed, setCollapsed] = useState(false)
@@ -20,9 +21,11 @@ export default function DashboardLayout() {
                 {/* Navbar modular */}
                 <Navbar />
 
-                {/* Contenido inyectado por las rutas */}
+                {/* Contenido inyectado por las rutas protegido por ErrorBoundary */}
                 <Box as="main" flex="1" p={6}>
-                    <Outlet />
+                    <ErrorBoundary>
+                        <Outlet />
+                    </ErrorBoundary>
                 </Box>
             </Flex>
         </Flex>
