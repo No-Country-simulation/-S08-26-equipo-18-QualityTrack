@@ -32,18 +32,42 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { label: "Dashboard", to: "/dashboard", icon: LuLayoutDashboard },
-  { label: "Clientes", to: "/clients", icon: LuBuilding2 },
-  { label: "Solicitudes", to: "/requests", icon: LuFileText },
-  { label: "Cotizaciones", to: "/quotations", icon: LuCircleDollarSign },
-  { label: "Órdenes de trabajo", to: "/work-orders", icon: LuWrench },
-  { label: "Calidad", to: "/quality", icon: LuShieldCheck },
-  { label: "Entregas", to: "/deliveries", icon: LuTruck },
-  { label: "Clientes", to: "/clients", icon: LuBuilding2, permission: "clients:view" },
-  { label: "Solicitudes", to: "/requests", icon: LuFileText, permission: "requests:view" },
-  { label: "Cotizaciones", to: "/quotations", icon: LuCircleDollarSign, permission: "quotations:view" },
-  { label: "Órdenes de trabajo", to: "/work-orders", icon: LuWrench, permission: "workOrders:view" },
-  { label: "Calidad", to: "/quality", icon: LuShieldCheck, permission: "quality:view" },
-  { label: "Entregas", to: "/deliveries", icon: LuTruck, permission: "deliveries:view" },
+  {
+    label: "Clientes",
+    to: "/clients",
+    icon: LuBuilding2,
+    permission: "clients:view",
+  },
+  {
+    label: "Solicitudes",
+    to: "/requests",
+    icon: LuFileText,
+    permission: "requests:view",
+  },
+  {
+    label: "Cotizaciones",
+    to: "/quotations",
+    icon: LuCircleDollarSign,
+    permission: "quotations:view",
+  },
+  {
+    label: "Órdenes de trabajo",
+    to: "/work-orders",
+    icon: LuWrench,
+    permission: "workOrders:view",
+  },
+  {
+    label: "Calidad",
+    to: "/quality",
+    icon: LuShieldCheck,
+    permission: "quality:view",
+  },
+  {
+    label: "Entregas",
+    to: "/deliveries",
+    icon: LuTruck,
+    permission: "deliveries:view",
+  },
 ];
 
 export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
@@ -104,10 +128,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
       <Stack gap={1} px={collapsed ? 2 : 3} py={4} flex="1" overflowY="auto">
         {NAV_ITEMS.map((item) => (
           <Can key={item.to} perform={item.permission}>
-            <NavLink
-              to={item.to}
-              style={{ textDecoration: "none" }}
-            >
+            <NavLink to={item.to} style={{ textDecoration: "none" }}>
               {({ isActive }) => (
                 <Flex
                   align="center"
