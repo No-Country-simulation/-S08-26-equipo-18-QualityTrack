@@ -3,7 +3,7 @@ import { ApiError } from "../services/api";
 import { validateField, type ValidatorFn } from "../utils/validators";
 
 export type ValidationRules<T> = Partial<{
-  [K in keyof T]: ValidatorFn<T[K]>[];
+  [K in keyof T]: ValidatorFn<any>[];
 }>;
 
 export interface UseFormOptions<T> {
@@ -42,7 +42,7 @@ export interface UseFormReturn<T> {
  * Hook universal para gestión y validación de formularios (Issue #43).
  * Maneja valores reactivos, validaciones instantáneas por campo, estados de envío y captura de errores de backend.
  */
-export function useForm<T extends Record<string, unknown>>({
+export function useForm<T extends Record<string, any>>({
   initialValues,
   rules = {},
   onSubmit,

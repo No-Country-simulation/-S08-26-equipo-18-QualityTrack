@@ -1,4 +1,3 @@
-import React from "react";
 import { Box, Text } from "@chakra-ui/react";
 import type { ColumnDef } from "../../components/DataTable";
 import type { Client } from "../../services/clientService";
@@ -11,7 +10,7 @@ export function formatCuit(taxId: number | string): string {
 
 export const CLIENT_COLUMNS: ColumnDef<Client>[] = [
   {
-    header: "Razon Social",
+    header: "Razon social",
     accessorKey: "businessName",
     sortable: true,
     cell: (item: Client) => (
@@ -20,7 +19,7 @@ export const CLIENT_COLUMNS: ColumnDef<Client>[] = [
           {item.businessName}
         </Text>
         {item.notes && (
-          <Text fontSize="xs" color="gray.500" noOfLines={1}>
+          <Text fontSize="xs" color="gray.500" lineClamp={1}>
             {item.notes}
           </Text>
         )}
@@ -41,9 +40,7 @@ export const CLIENT_COLUMNS: ColumnDef<Client>[] = [
     header: "Contacto",
     accessorKey: "contactName",
     sortable: true,
-    cell: (item: Client) => (
-      <Text color="gray.700">{item.contactName}</Text>
-    ),
+    cell: (item: Client) => <Text color="gray.700">{item.contactName}</Text>,
   },
   {
     header: "Email",
@@ -72,4 +69,3 @@ export const CLIENT_COLUMNS: ColumnDef<Client>[] = [
     ),
   },
 ];
-
