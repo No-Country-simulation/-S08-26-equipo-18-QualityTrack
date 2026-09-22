@@ -111,9 +111,11 @@ El archivo `.env` almacena la configuración de conexión del cliente web. Por s
 | Variable | Descripción | Valor por defecto |
 | :--- | :--- | :--- |
 | `VITE_API_URL` | URL base de la API Backend de QualityTrack | `http://localhost:3000` |
+| `VITE_API_TIMEOUT_MS` | Tiempo máximo de espera para peticiones HTTP en milisegundos | `15000` |
 | `VITE_APP_ENV` | Entorno de ejecución (`development`, `production`, `test`) | `development` |
 
 > **Nota técnica sobre Vite:** En Vite, toda variable de entorno que deba ser accesible desde el código del navegador **debe comenzar obligatoriamente con el prefijo `VITE_`** y se consume a través de `import.meta.env.VITE_NOMBRE_VARIABLE` o mediante el módulo centralizado `src/config/env.ts`.
+> **Nota técnica sobre Vite:** En Vite, toda variable de entorno que deba ser accesible desde el código del navegador **debe comenzar obligatoriamente con el prefijo `VITE_`** y se consume centralizadamente a través del módulo `src/config/index.ts` (`config.api.baseUrl`, `config.env`, etc.).
 
 ---
 
