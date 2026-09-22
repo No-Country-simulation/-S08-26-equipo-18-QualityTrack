@@ -6,7 +6,7 @@ export class QuotationItem {
     @PrimaryKey({ type: "integer" })
     id: number;
 
-    @ManyToOne(() => Quotation)
+    @ManyToOne(() => Quotation, { index: true })
     quotation: Quotation;
 
     @Property({ type: "varchar", length: 5000 })

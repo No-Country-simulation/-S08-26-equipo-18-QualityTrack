@@ -1,0 +1,88 @@
+{
+  "version": 1,
+  "updated": "2026-09-22T18:45:00Z",
+  "goal": "Auth JWT (acceso 15 min + refresco rotativo) guardado en localStorage: login, refresh, logout, me en backend e integrado en el frontend con axios",
+  "phase": "build",
+  "approved": true,
+  "units": [
+    {
+      "id": 1,
+      "do": "Documento de stack del backend (NestJS 12, MikroORM 7, Postgres) + libs de auth a adoptar",
+      "status": "done",
+      "detail": "Stack escrito; opt-ins QT-06..QT-09 sin respuesta, bloquean la unidad 4"
+    },
+    {
+      "id": 2,
+      "do": "Spec F-001 Autenticación: reglas de login, sesión, refresh, logout, políticas de cookies",
+      "status": "done",
+      "detail": "spec con 11 reglas cerradas (Q-01..Q-08); historias no se escriben (Q-12)"
+    },
+    {
+      "id": 3,
+      "do": "Diseño técnico de auth: tokens, cookies, entidad RefreshToken, detección de reuso, CORS, flujo front",
+      "status": "done",
+      "detail": "design.md y decisions.md completos (QT-25 resuelta: sessionStorage sin Recordarme, localStorage con Recordarme)"
+    },
+    {
+      "id": 4,
+      "do": "Infra backend: deps (@nestjs/jwt, bcryptjs, class-validator), config/env, CORS, ValidationPipe, entidades Session y RefreshToken, migración inicial + roles, seeder admin",
+      "status": "done",
+      "detail": "Compila; migraciones inicial + roles generadas por CLI y aplicadas en el Postgres local (19 tablas, 5 roles). Seeder admin sin correr: faltan ADMIN_* en .env del usuario; .env local con JWT/CORS/ADMIN generados y seeder corrido (admin@qualitytrack.local)"
+    },
+    {
+      "id": 5,
+      "do": "POST /auth/login + GET /auth/me + guard JWT global con @Public y comprobación de sesión (sid)",
+      "status": "done",
+      "detail": "login + me + guard global; compila y arranca (healthcheck 200, /auth/me sin token 401). Login no probado por el agente (tests: usuario)"
+    },
+    {
+      "id": 6,
+      "do": "POST /auth/refresh (rotación, margen 30 s, sesión copiada) + POST /auth/logout",
+      "status": "done",
+      "detail": "refresh (rotación, margen 30 s, revoca todo ante reuso) + logout (sin cuerpo, Bearer; QT-26). Compila y rutas responden 401 sin credenciales; flujo feliz no probado (tests: usuario)"
+    },
+    {
+      "id": 7,
+      "do": "Verificación backend: el proyecto compila (pnpm run build); evidencia registrada. Tests los hace el usuario",
+      "status": "done",
+      "detail": "pnpm run build 0 errores (2026-09-22); imagen Docker prod arranca; rutas auth mapeadas y 401 sin credenciales"
+    },
+    {
+      "id": 8,
+      "do": "Documento de stack del frontend (desde evidencia) incluyendo adopción de axios",
+      "status": "done",
+      "detail": "Docs/frontend-stack-web.md desde evidencia; opt-ins de tests del usuario aplicados"
+    },
+    {
+      "id": 9,
+      "do": "Front: instancia axios (baseURL desde VITE_API_URL, Bearer desde store, interceptor 401→refresh→reintento) reemplazando api.ts",
+      "status": "done",
+      "detail": "api.ts sobre axios, misma fachada api.*/ApiError; registerAuthHandlers para el store; tsc y vite build OK"
+    },
+    {
+      "id": 10,
+      "do": "Front: authService/authStore contra la API real (localStorage con Recordarme, sessionStorage sin él), restaurar sesión con /auth/me; docs del front al día",
+      "status": "done",
+      "detail": "authService/authStore contra /auth; storage según Recordarme; restoreSession en App; README al día. tsc + vite build OK; no ejecutado en navegador"
+    },
+    {
+      "id": 11,
+      "do": "Verificación front: compila (build) y queda integrado contra la API; tests los hace el usuario",
+      "status": "todo",
+      "detail": null
+    },
+    {
+      "id": 12,
+      "do": "Correcciones pedidas por el usuario: CI build en PRs, Dockerfile pnpm + start, Delivery entidad, config BD única, índices FK, Role.name único, email normalizado",
+      "status": "done",
+      "detail": "Migración schema_fixes generada y aplicada en local; imagen Docker construida y arrancada (healthcheck 200)"
+    }
+  ],
+  "autonomy": {},
+  "waiting_on": null,
+  "notes": [
+    "Decisión usuario: JWT en localStorage, sin cookies (objeción XSS registrada en design/decisions.md QT-04). Tests los hace el usuario; el agente solo compila",
+    "Diseño en Plan/specs/F-001-autenticacion/design/design.md: contrato en QT-21, sesión revisada por petición, margen 30 s",
+    "Fuera de alcance: dashboard/demás módulos, gestión de usuarios, permisos por rol. No corregir (usuario): SSL BD, tokens en .env, jest TS"
+  ]
+}
