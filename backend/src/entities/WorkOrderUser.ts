@@ -7,10 +7,10 @@ export class WorkOrderUser {
     @PrimaryKey({ type: "integer" })
     id: number;
 
-    @ManyToOne(() => WorkOrder)
+    @ManyToOne(() => WorkOrder, { index: true })
     workOrder: WorkOrder;
 
-    @ManyToOne(() => User)
+    @ManyToOne(() => User, { index: true })
     user: User;
 
     // TODO revisar: definir el rol del usuario dentro de la WorkOrder.

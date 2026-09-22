@@ -10,16 +10,16 @@ export class Document {
     @PrimaryKey({ type: "integer" })
     id: number;
 
-    @ManyToOne(() => WorkOrder, { nullable: true })
+    @ManyToOne(() => WorkOrder, { nullable: true, index: true })
     workOrder?: WorkOrder;
 
-    @ManyToOne(() => Request, { nullable: true })
+    @ManyToOne(() => Request, { nullable: true, index: true })
     request?: Request;
 
-    @ManyToOne(() => Quotation, { nullable: true })
+    @ManyToOne(() => Quotation, { nullable: true, index: true })
     quotation?: Quotation;
 
-    @ManyToOne(() => DocumentType)
+    @ManyToOne(() => DocumentType, { index: true })
     documentType: DocumentType;
 
     @Property({ type: "varchar", length: 500 })
@@ -37,7 +37,7 @@ export class Document {
     @Property({ type: "integer", default: 1 })
     version: number;
 
-    @ManyToOne(() => User)
+    @ManyToOne(() => User, { index: true })
     uploadedBy: User;
 
     @Property({ type: "timestamptz", onCreate: () => new Date() })

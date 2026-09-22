@@ -1,4 +1,4 @@
-import { Entity, ManyToOne, PrimaryKey, Property } from "@mikro-orm/decorators/legacy";
+import { Entity, Enum, ManyToOne, PrimaryKey, Property } from "@mikro-orm/decorators/legacy";
 import { WorkOrder } from "./WorkOrder";
 import { User } from "./User";
 import { ApprovalStatus } from "./ApprovalStatus";
@@ -10,17 +10,17 @@ export class Approval {
 
     // La aprobación pasó a estar asociada a la WorkOrder,
     // ya que representa una decisión interna sobre la ejecución de la OT.
-    @ManyToOne(() => WorkOrder)
+    @ManyToOne(() => WorkOrder, { index: true })
     workorder: WorkOrder;
 
     // approvedBy pasó a decidedBy, ya que una decisión puede terminar 
     // tanto en aprobación como en rechazo.
-    @ManyToOne(() => User)
+    @ManyToOne(() => User, { index: true })
     decidedBy: User;
 
     // Se incorporó un enum ApprovalStatus para limitar los estados 
     // posibles de una aprobación y evitar valores libres.
-    @Property({type:"enum", items: () => ApprovalStatus})
+    @Enum(() => ApprovalStatus)
     status: ApprovalStatus;
 
     // approvedAt pasó a decisionAt porque la fecha corresponde 

@@ -276,12 +276,20 @@ describe('MiComponente', () => {
 La comunicación con el backend (NestJS) está totalmente centralizada:
 
 1. **Cliente HTTP Base (`src/services/api.ts`):**  
-   Abstrae la función nativa `fetch` agregando:
-   - Inyección automática del encabezado `Authorization: Bearer <token>` a partir de la sesión en `useAuthStore`.
-   - Manejo centralizado de Content-Type `application/json`.
-   - Conversión automática de errores HTTP en instancias de `ApiError` con código de estado (`status`) y datos detallados.
+   Instancia única de **axios** (`apiClient`) configurada desde `src/config/appConfig.ts`:
+   - `baseURL` desde `VITE_API_URL` y `timeout` desde `VITE_API_TIMEOUT_MS`.
+   - Inyección automática del encabezado `Authorization: Bearer <accessToken>` a partir de la sesión en `useAuthStore`.
+   - Ante un `401`, pide un token nuevo a `POST /auth/refresh` (una sola vez aunque fallen varias peticiones a la vez) y reintenta la petición. Si no se puede renovar, cierra la sesión local.
+   - Conversión de errores HTTP en instancias de `ApiError` con código de estado (`status`) y datos detallados; sin respuesta del servidor, `status` es `0`.
+   - Los servicios usan la fachada `api.get/post/put/patch/delete`, que devuelve directamente el cuerpo de la respuesta.
 
-2. **Servicios de Dominio (`src/services/`):**  
+2. **Sesión (`src/store/authStore.ts` y `src/services/authService.ts`):**  
+   - `POST /auth/login` devuelve `{ user, accessToken, refreshToken, expiresIn }`.
+   - Con "Recordarme" la sesión se guarda en `localStorage`; sin él, en `sessionStorage` (termina al cerrar la pestaña).
+   - Al arrancar, la app valida la sesión guardada con `GET /auth/me`.
+   - `POST /auth/logout` cierra la sesión de ese dispositivo en el servidor.
+
+3. **Servicios de Dominio (`src/services/`):**  
    Cada módulo de negocio cuenta con su propio servicio tipado:
    - `clientService.ts`: CRUD de Clientes (`getClients`, `getClientById`, `createClient`, etc.).
    - `requestService.ts`: Gestión de Solicitudes de mecanizado.
@@ -290,7 +298,7 @@ La comunicación con el backend (NestJS) está totalmente centralizada:
    - `qualityService.ts`: Registro de controles dimensionales e inspecciones.
    - `deliveryService.ts`: Remitos y despachos.
 
-3. **Consumo reactivo en UI:**  
+4. **Consumo reactivo en UI:**  
    Los componentes consumen estos servicios utilizando el custom hook `useApi`:
    ```tsx
    const { data, loading, error, execute } = useApi(clientService.getClients)

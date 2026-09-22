@@ -1,4 +1,4 @@
-import { Entity, OneToMany, PrimaryKey, Property } from "@mikro-orm/decorators/legacy";
+import { Entity, OneToMany, PrimaryKey, Property, Unique } from "@mikro-orm/decorators/legacy";
 import { User } from "./User";
 import { Collection } from "@mikro-orm/postgresql";
 
@@ -7,6 +7,7 @@ export class Role {
     @PrimaryKey({ type: "integer" })
     id: number;
 
+    @Unique()
     @Property({ type: "varchar" })
     name: string;
 

@@ -9,10 +9,10 @@ export class Quotation extends BaseEntity {
     @PrimaryKey({ type: "integer" })
     id: number;
 
-    @ManyToOne(() => Client)
+    @ManyToOne(() => Client, { index: true })
     client: Client;
 
-    @ManyToOne(() => Request)
+    @ManyToOne(() => Request, { index: true })
     request: Request;
 
     @Unique()
@@ -46,6 +46,6 @@ export class Quotation extends BaseEntity {
     // @Property({ type: "varchar" })
     // status: string;
 
-    @ManyToOne(() => User)
+    @ManyToOne(() => User, { index: true })
     createdBy: User;
 }

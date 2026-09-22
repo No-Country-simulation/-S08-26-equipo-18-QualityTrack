@@ -1,7 +1,5 @@
 /**
- * Tipos alineados al DER del backend (entidades ROLE y USER) para que el
- * store y el servicio de autenticación no requieran cambios de forma
- * cuando se conecte la API real.
+ * Tipos alineados al contrato de /auth del backend (entidades ROLE y USER).
  */
 export interface Role {
     id: number
@@ -25,6 +23,10 @@ export interface LoginCredentials {
 
 export interface AuthSession {
     user: AuthUser
-    /** Token de acceso (JWT) devuelto por el backend. */
-    token: string
+    /** Token de acceso (JWT, vida corta) que viaja en `Authorization: Bearer`. */
+    accessToken: string
+    /** Token opaco para renovar la sesión; el backend lo invalida en cada uso. */
+    refreshToken: string
+    /** Segundos de vida del token de acceso. */
+    expiresIn: number
 }
