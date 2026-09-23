@@ -9,6 +9,8 @@ on:
 jobs:
   deploy: 
     runs-on: ubuntu-latest
+    env:
+      VITE_API_URL: ${{ secrets.VITE_API_URL }}
     environment: production
 
     defaults:
