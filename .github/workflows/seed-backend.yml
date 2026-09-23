@@ -1,0 +1,66 @@
+name: Seed Backend Admin
+
+# Crea el administrador inicial en la base de producción.
+# No hay registro público: sin este usuario nadie puede entrar al sistema.
+#
+# Solo manual (workflow_dispatch), a propósito: no cuelga del deploy.
+# Un seeder que corre en cada despliegue es una puerta abierta a crear usuarios
+# sin que nadie lo pida. Se ejecuta una vez, después de las migraciones.
+#
+# Es idempotente: si ya existe un usuario con ADMIN_EMAIL, no hace nada.
+# Para cambiar la contraseña del administrador NO sirve: hay que hacerlo desde
+# la aplicación, porque el seeder sale sin tocar al usuario existente.
+on:
+  workflow_dispatch:
+
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    environment: production
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "lts/*"
+          cache: pnpm
+          cache-dependency-path: backend/pnpm-lock.yaml
+
+      # Sin --prod: el CLI de MikroORM necesita @swc/core para leer la
+      # configuración y los seeders en TypeScript.
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      # El seeder descubre las entidades desde dist/src/entities.
+      - name: Build
+        run: pnpm run build
+
+      - name: Run MikroORM seeder
+        run: pnpm seed
+        env:
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_SSL: "true"
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          # Obligatorias: el seeder falla si faltan, en lugar de crear un
+          # administrador con credenciales inventadas.
+          ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+          # El valor por omisión se pone acá: un secret que no existe llega como
+          # texto vacío, y el `??` del seeder solo cubre el caso indefinido.
+          ADMIN_FIRST_NAME: ${{ vars.ADMIN_FIRST_NAME || 'Administrador' }}
+          ADMIN_LAST_NAME: ${{ vars.ADMIN_LAST_NAME || 'QualityTrack' }}
