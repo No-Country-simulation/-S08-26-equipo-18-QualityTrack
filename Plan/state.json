@@ -139,9 +139,9 @@
     },
     {
       "id": 23,
-      "do": "Analisis de variables de entorno vs deploy automatico (solo lectura, sin cambios)",
+      "do": "Analisis de variables de entorno vs deploy automatico + verificacion del CLI de MikroORM en CI",
       "status": "done",
-      "detail": "Inventario completo y 4 bloqueantes identificados: JWT_ACCESS_SECRET y CORS_ORIGINS faltan en Render (no verificable desde el repo), VITE_API_URL no se pasa al build del front en deploy-frontend.yml, y no hay seed de admin en produccion"
+      "detail": "Inventario completo y 4 bloqueantes: JWT_ACCESS_SECRET y CORS_ORIGINS faltan en Render (no verificable desde el repo), VITE_API_URL no se pasa al build del front en deploy-frontend.yml, y no habia seed de admin. Verificado que el CLI lee migrations/ y seeders/ en TS via swc aunque dist no los contenga (prueba con migracion temporal, ya borrada)"
     },
     {
       "id": 24,
@@ -163,9 +163,9 @@
     },
     {
       "id": 27,
-      "do": "Alta del admin en produccion: decidir entre paso manual unico o step opcional con workflow_dispatch en migrate-backend.yml (ADMIN_EMAIL/ADMIN_PASSWORD)",
-      "status": "todo",
-      "detail": "Propuesto, sin aprobar. Decision del usuario pendiente; hoy el pipeline corre migration:up pero nunca el seeder"
+      "do": "Alta del admin en produccion: workflow seed-backend.yml separado, solo manual (workflow_dispatch)",
+      "status": "done",
+      "detail": "Ejecutada a pedido explicito del usuario (el resto del plan sigue sin aprobar). Creado .github/workflows/seed-backend.yml con DB_* + ADMIN_*; falta que el usuario cargue los secrets ADMIN_EMAIL y ADMIN_PASSWORD en el entorno production"
     },
     {
       "id": 28,
@@ -189,7 +189,7 @@
       21
     ]
   },
-  "waiting_on": "Aprobacion del plan de unidades 24-28 (deploy y variables de entorno) + que el usuario cargue las variables en Render/Netlify y acepte F-002",
+  "waiting_on": "Aprobacion de las unidades 24-26 y 28 + que el usuario cargue ADMIN_EMAIL/ADMIN_PASSWORD en el entorno production de GitHub y JWT_ACCESS_SECRET/CORS_ORIGINS en Render, y acepte F-002",
   "notes": [
     "Decisión usuario: JWT en localStorage, sin cookies (objeción XSS registrada en design/decisions.md QT-04). Tests los hace el usuario; el agente solo compila",
     "Decisión usuario 2026-09-22: docs de API visibles sin restricción (opción B). Plan aprobado con autonomía salvo stops en 15 y 20",
