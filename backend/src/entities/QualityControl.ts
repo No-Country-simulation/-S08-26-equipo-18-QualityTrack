@@ -8,10 +8,10 @@ export class QualityControl {
     @PrimaryKey({ type: "integer" })
     id: number;
 
-    @ManyToOne(() => WorkOrder)
+    @ManyToOne(() => WorkOrder, { index: true })
     workOrder: WorkOrder;
 
-    @ManyToOne(() => Operation, { nullable: true })
+    @ManyToOne(() => Operation, { nullable: true, index: true })
     operation?: Operation;
 
     // TODO revisar: control_type (posible enum, sin definir en el diagrama)
@@ -37,7 +37,7 @@ export class QualityControl {
     @Property({ type: "varchar", length: 5000, nullable: true })
     observations?: string;
 
-    @ManyToOne(() => User)
+    @ManyToOne(() => User, { index: true })
     performedBy: User;
 
     @Property({ type: "timestamptz", nullable: true })

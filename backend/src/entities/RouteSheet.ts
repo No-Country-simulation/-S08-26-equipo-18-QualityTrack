@@ -8,7 +8,7 @@ export class RouteSheet extends BaseEntity {
     @PrimaryKey({ type: "integer" })
     id: number;
 
-    @ManyToOne(() => WorkOrder)
+    @ManyToOne(() => WorkOrder, { index: true })
     workOrder: WorkOrder;
 
     @Unique()
@@ -24,6 +24,6 @@ export class RouteSheet extends BaseEntity {
     @Property({ type: "varchar", length: 5000, nullable: true })
     instructions?: string;
 
-    @ManyToOne(() => User)
+    @ManyToOne(() => User, { index: true })
     createdBy: User;
 }

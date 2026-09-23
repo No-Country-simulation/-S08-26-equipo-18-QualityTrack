@@ -6,7 +6,7 @@ export class Operation {
     @PrimaryKey({ type: "integer" })
     id: number;
 
-    @ManyToOne(() => RouteSheet)
+    @ManyToOne(() => RouteSheet, { index: true })
     routeSheet: RouteSheet;
 
     @Property({ type: "varchar", length: 100 })

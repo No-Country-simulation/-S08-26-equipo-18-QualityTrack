@@ -19,9 +19,10 @@
     "strictPropertyInitialization": false,
     "strict": true,
     "resolveJsonModule": true,
+    "skipLibCheck": true,
     "outDir": "./dist",
     "rootDir": "."
   },
-  "include": ["src/**/*", "migrations/**/*", "mikro-orm.config.ts"],
+  "include": ["src/**/*", "migrations/**/*", "seeders/**/*", "mikro-orm.config.ts"],
   "exclude": ["node_modules", "dist"]
 }

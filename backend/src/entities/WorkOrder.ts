@@ -1,4 +1,4 @@
-import { Entity, ManyToOne, PrimaryKey, Property } from "@mikro-orm/decorators/legacy";
+import { Entity, Enum, ManyToOne, PrimaryKey, Property } from "@mikro-orm/decorators/legacy";
 import { BaseEntity } from "./BaseEntity";
 import { WorkOrderStatus } from "./WorkOrderStatus";
 import { WorkOrderPriority } from "./WorkOrderPriority";
@@ -20,17 +20,17 @@ export class WorkOrder extends BaseEntity {
 
     // Se incorporó un enum para establecer niveles de prioridad
     // definidos y evitar valores inconsistentes.
-    @Property({type:"enum", items: () => WorkOrderPriority})
+    @Enum(() => WorkOrderPriority)
     priority: WorkOrderPriority;
 
     // Se reemplazó el estado libre por un enum para controlar los estados
     // válidos de una Orden de Trabajo y evitar valores arbitrarios.
-    @Property({type: "enum", items: () => WorkOrderStatus,})
+    @Enum(() => WorkOrderStatus)
     status: WorkOrderStatus;
 
     // Se reemplazó el campo integer por una relación con User,
     // ya que createdBy identifica al usuario que creó la Orden de Trabajo.
-    @ManyToOne(() => User)
+    @ManyToOne(() => User, { index: true })
     createdBy: User;
 
     @Property({type: "timestamptz"})

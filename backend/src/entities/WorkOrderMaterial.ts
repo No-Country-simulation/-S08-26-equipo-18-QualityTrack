@@ -7,10 +7,10 @@ export class WorkOrderMaterial {
     @PrimaryKey({ type: "integer" })
     id: number;
 
-    @ManyToOne(() => WorkOrder)
+    @ManyToOne(() => WorkOrder, { index: true })
     workOrder: WorkOrder;
 
-    @ManyToOne(() => Material)
+    @ManyToOne(() => Material, { index: true })
     material: Material;
 
     @Property({ type: "varchar", length: 100, nullable: true })

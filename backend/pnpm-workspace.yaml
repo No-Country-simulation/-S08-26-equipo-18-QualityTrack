@@ -1,3 +1,5 @@
 allowBuilds:
+  # Telemetría de instalación que arrastra @scalar: no se ejecuta.
+  '@scarf/scarf': false
   '@swc/core': false
   unrs-resolver: false

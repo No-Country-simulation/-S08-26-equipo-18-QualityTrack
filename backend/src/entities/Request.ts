@@ -8,7 +8,7 @@ export class Request extends BaseEntity {
     @PrimaryKey({ type: "integer" })
     id: number;
 
-    @ManyToOne(() => Client)
+    @ManyToOne(() => Client, { index: true })
     client: Client;
 
     @Unique()
@@ -31,6 +31,6 @@ export class Request extends BaseEntity {
     // @Property({ type: "varchar" })
     // status: string;
 
-    @ManyToOne(() => User)
+    @ManyToOne(() => User, { index: true })
     createdBy: User;
 }
