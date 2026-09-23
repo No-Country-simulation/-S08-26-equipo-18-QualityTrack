@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated": "2026-09-23T00:20:00Z",
+  "updated": "2026-09-23T00:55:00Z",
   "goal": "Cerrar F-002 clientes y dejar el deploy automatico coherente con las variables de entorno nuevas (auth, CORS, API del front)",
   "phase": "ship",
   "approved": false,
@@ -169,9 +169,9 @@
     },
     {
       "id": 28,
-      "do": "DB_SSL: descomentar driverOptions en database.config.ts o eliminar la variable; verificar contra la documentacion de Supabase",
+      "do": "Conexion a Supabase desde CI: host del pooler en sesion (IPv4) + DB_SSL efectivo (descomentar driverOptions en database.config.ts)",
       "status": "todo",
-      "detail": "Propuesto, sin aprobar. La variable se lee pero no tiene efecto (ya anotado en Docs/backend-stack-api.md:65)"
+      "detail": "Sin aprobar. El job de migraciones fallo en GitHub Actions con getaddrinfo ENOTFOUND: el runner es IPv4 y la conexion directa db.<ref>.supabase.co es IPv6 salvo con add-on (doc Supabase). Hay que cambiar el secret DB_HOST al pooler en modo sesion (5432) y POSTGRES_USER a postgres.<project-ref>. SSL sigue inerte y sera el proximo error"
     }
   ],
   "autonomy": {

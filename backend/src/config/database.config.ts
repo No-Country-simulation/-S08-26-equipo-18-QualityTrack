@@ -26,10 +26,10 @@ export default defineConfig({
     dbName: process.env.POSTGRES_DB ?? "qualitytrack",
     user: process.env.POSTGRES_USER ?? "qualitytrack",
     password: process.env.POSTGRES_PASSWORD ?? "qualitytrack_dev",
-/* 
+
     driverOptions: useSsl
         ? { connection: { ssl: { rejectUnauthorized: false } } }
-        : {}, */
+        : {},
         
 
     migrations: {
