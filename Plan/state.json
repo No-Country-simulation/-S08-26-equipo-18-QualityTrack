@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated": "2026-09-23T00:55:00Z",
+  "updated": "2026-09-23T01:15:00Z",
   "goal": "Cerrar F-002 clientes y dejar el deploy automatico coherente con las variables de entorno nuevas (auth, CORS, API del front)",
   "phase": "ship",
   "approved": false,
@@ -170,8 +170,8 @@
     {
       "id": 28,
       "do": "Conexion a Supabase desde CI: host del pooler en sesion (IPv4) + DB_SSL efectivo (descomentar driverOptions en database.config.ts)",
-      "status": "todo",
-      "detail": "Sin aprobar. El job de migraciones fallo en GitHub Actions con getaddrinfo ENOTFOUND: el runner es IPv4 y la conexion directa db.<ref>.supabase.co es IPv6 salvo con add-on (doc Supabase). Hay que cambiar el secret DB_HOST al pooler en modo sesion (5432) y POSTGRES_USER a postgres.<project-ref>. SSL sigue inerte y sera el proximo error"
+      "status": "done",
+      "detail": "driverOptions descomentado por el usuario: DB_SSL ya tiene efecto. Sin DB_SSL=false la conexion local se cuelga (TLS contra el Postgres del compose, que no lo soporta): agregado a backend/.env y a backend/.env.template; verificado con mikro-orm debug. Falta del lado del usuario cambiar el secret DB_HOST al pooler en modo sesion (5432) y POSTGRES_USER a postgres.<project-ref>: el job seguira fallando con ENOTFOUND hasta eso"
     }
   ],
   "autonomy": {
