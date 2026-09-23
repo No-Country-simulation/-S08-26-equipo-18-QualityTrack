@@ -18,6 +18,7 @@ componente: `backend/` · área: backend
 | Configuración obligatoria | validada al arrancar (`src/config/env.validation.ts`): la app no inicia sin `JWT_ACCESS_SECRET` | 2026-09 |
 | Autenticación | guard JWT global (`APP_GUARD`), rutas abiertas con `@Public()`; sesión comprobada en BD en cada petición | 2026-09 |
 | Datos iniciales | seeder de MikroORM (`backend/seeders/`, `pnpm seed`) | 2026-09 |
+| Documentación de la API | OpenAPI generado por `@nestjs/swagger` desde los decoradores; Scalar sirve la referencia en `/docs` y el documento crudo en `/openapi.json`, ambos abiertos (decisión del usuario 2026-09-22) | 2026-09 |
 | Tests | Jest 30.4.2 + supertest 7.2.2 | anterior a 2026-09 |
 
 ## Opt-ins
@@ -35,6 +36,11 @@ Decididos por el usuario el 2026-09-22 (QT-06 a QT-09).
 - Los comentarios del código explican el porqué de cada relación (estilo existente en las entidades).
 - `mikro-orm.config.ts` carga `.env` con `process.loadEnvFile()` si existe (el CLI no lo hace solo).
 - Variables de entorno de la BD: `DB_HOST`, `DB_PORT`, `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `DB_SSL`.
+- Cada endpoint declara en OpenAPI lo que devuelve: `@ApiOperation`, la respuesta con su clase, y `@ApiBearerAuth("access-token")` si el guard global lo protege.
+- Las clases `*ResponseDto` existen solo para publicar la forma de la respuesta; el servicio devuelve objetos planos.
+- `skipLibCheck: true` en `tsconfig.json`: los tipos de Scalar importan `fastify`, `har-format` y tipos del DOM, que este proyecto no instala. TypeScript sigue verificando el código propio, no los `.d.ts` de dependencias.
+- `allowBuilds` de `pnpm-workspace.yaml` niega `@scarf/scarf` (telemetría de instalación que llega con Scalar).
+- `/docs` se dibuja en el navegador con el bundle de Scalar traído desde jsDelivr: sin internet la página carga vacía. El contrato en sí no depende del CDN, está entero en `/openapi.json`.
 
 ## Paquetes
 | Paquete | Versión | Por qué está |
@@ -49,6 +55,8 @@ Decididos por el usuario el 2026-09-22 (QT-06 a QT-09).
 | bcryptjs | 3.0.3 | Hash de contraseñas, JS puro (QT-05) |
 | class-validator / class-transformer | 0.15.1 / 0.5.1 | Validación de DTOs |
 | jest, supertest, @nestjs/testing | 30.4.2 / 7.2.2 / 12.0.1 | Tests |
+| @nestjs/swagger | 12.0.1 | Genera el documento OpenAPI desde los decoradores (MIT; peer `@nestjs/core` ^12, coincide con el instalado) |
+| @scalar/nestjs-api-reference | 1.2.21 | Sirve la referencia navegable en `/docs` (MIT; única dependencia propia: `@scalar/client-side-rendering`) |
 
 ## Planificado (no adoptado)
 - Nada pendiente de F-001 en el backend.

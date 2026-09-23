@@ -27,6 +27,8 @@ Decididos por el usuario el 2026-09-22 (F-001 Q-12, aplicado a todo el proyecto)
 - Los servicios de dominio (`clientService`, `workOrderService`, …) llaman a `api.*` y nunca al cliente HTTP directamente.
 - Comentarios en español que explican el porqué; los archivos alternan comillas simples y dobles (se respeta la del archivo).
 - La visibilidad por rol (`usePermissions`, `Can`) es solo UX; la autorización real vive en el backend.
+- `DataTable` tiene dos modos: por omisión busca y pagina en memoria; con la propiedad `server` la API decide la página, la búsqueda y el orden, y la tabla solo muestra lo que recibe (la búsqueda espera 300 ms antes de consultar). Las pantallas que no la pasan no cambian.
+- Toda pantalla que carga datos pasa `loading`, `error` y `onRetry`: cargando, vacío y error se ven desde la primera versión.
 
 ## Paquetes
 | Paquete | Versión | Por qué está |
@@ -44,6 +46,7 @@ Decididos por el usuario el 2026-09-22 (F-001 Q-12, aplicado a todo el proyecto)
 ## Observaciones fuera de alcance (reportadas, no corregidas)
 - `README.md` tiene contenido duplicado y restos de la plantilla de Vite (dos títulos, dos tablas de contenido).
 - `checkHealth()` en `services/api.ts` llama a `/health`, pero el backend expone `/healthcheck` y responde texto, no JSON.
+- `npm run build` (vite) **no verifica tipos**: los errores de TypeScript solo aparecen corriendo `npx tsc --noEmit -p tsconfig.app.json`. Al 2026-09-22 hay 3 errores previos en `ClientFormModal.tsx` y `clientColumns.tsx`.
 - `eslint.config.js` ignora los `.ts`/`.tsx` ("File ignored because no matching configuration"): el lint no revisa el código TypeScript.
 - La pantalla de login muestra datos fijos ("Ping 12ms", "v4.8", botón RFID) que no vienen del sistema.
 

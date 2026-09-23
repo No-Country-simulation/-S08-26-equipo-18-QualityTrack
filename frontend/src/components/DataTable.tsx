@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import { Box, Flex, HStack, IconButton, Text } from "@chakra-ui/react";
 import {
   LuArrowDown,
@@ -23,6 +24,18 @@ export interface ColumnDef<T> {
   width?: string;
 }
 
+/**
+ * Paginación y búsqueda resueltas por la API en lugar de en memoria.
+ * Con esto, `data` es la página que ya vino del servidor y no se filtra de nuevo.
+ * El orden lo decide la API, así que las columnas dejan de ser ordenables.
+ */
+export interface ServerTableConfig {
+  /** Total de coincidencias en el servidor, no las filas de esta página. */
+  total: number;
+  pageSize: number;
+  onChange: (query: { page: number; search: string }) => void;
+}
+
 export interface DataTableProps<T extends Record<string, unknown>> {
   columns: ColumnDef<T>[];
   data?: T[] | null;
@@ -36,6 +49,7 @@ export interface DataTableProps<T extends Record<string, unknown>> {
   emptyTitle?: string;
   emptyDescription?: string;
   initialPageSize?: number;
+  server?: ServerTableConfig;
 }
 
 /**
@@ -43,7 +57,7 @@ export interface DataTableProps<T extends Record<string, unknown>> {
  * Incluye buscador reactivo, ordenamiento por columnas, paginación y acciones por fila.
  */
 export function DataTable<T extends Record<string, unknown>>({
-  columns,
+  columns: givenColumns,
   data = [],
   loading = false,
   error = null,
@@ -55,30 +69,88 @@ export function DataTable<T extends Record<string, unknown>>({
   emptyTitle = "No hay registros disponibles",
   emptyDescription = "Todavía no se han cargado datos para esta sección.",
   initialPageSize = 10,
+  server,
 }: DataTableProps<T>) {
   const tableData = data ?? [];
+  const isServer = Boolean(server);
 
   const {
-    searchTerm,
-    setSearchTerm,
-    sortField,
-    sortDirection,
-    handleSort,
-    currentPage,
-    totalPages,
-    totalItems,
-    startIndex,
-    endIndex,
-    nextPage,
-    prevPage,
-    canNextPage,
-    canPrevPage,
-    paginatedData,
+    searchTerm: localSearchTerm,
+    setSearchTerm: setLocalSearchTerm,
+    sortField: localSortField,
+    sortDirection: localSortDirection,
+    handleSort: localHandleSort,
+    currentPage: localCurrentPage,
+    totalPages: localTotalPages,
+    totalItems: localTotalItems,
+    startIndex: localStartIndex,
+    endIndex: localEndIndex,
+    nextPage: localNextPage,
+    prevPage: localPrevPage,
+    canNextPage: localCanNextPage,
+    canPrevPage: localCanPrevPage,
+    paginatedData: localPaginatedData,
   } = useDataTable<T>({
     data: tableData,
     searchFields,
     initialPageSize,
   });
+
+  const [serverPage, setServerPage] = useState(1);
+  const [serverSearch, setServerSearch] = useState("");
+
+  // La referencia evita que un `server` creado en cada render vuelva a disparar
+  // el efecto y con él una consulta infinita.
+  const onChangeRef = useRef(server?.onChange);
+  onChangeRef.current = server?.onChange;
+
+  useEffect(() => {
+    if (!isServer) return;
+    // Espera a que la persona deje de tipear antes de consultar.
+    const timer = setTimeout(() => {
+      onChangeRef.current?.({ page: serverPage, search: serverSearch });
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [isServer, serverPage, serverSearch]);
+
+  const serverPageSize = server?.pageSize ?? initialPageSize;
+  const serverTotal = server?.total ?? 0;
+  const serverTotalPages = Math.max(1, Math.ceil(serverTotal / serverPageSize));
+
+  const columns = isServer
+    ? givenColumns.map((col) => ({ ...col, sortable: false }))
+    : givenColumns;
+
+  const searchTerm = isServer ? serverSearch : localSearchTerm;
+  const setSearchTerm = isServer
+    ? (term: string) => {
+        setServerSearch(term);
+        setServerPage(1);
+      }
+    : setLocalSearchTerm;
+  const sortField = isServer ? null : localSortField;
+  const sortDirection = isServer ? null : localSortDirection;
+  const handleSort = isServer ? () => {} : localHandleSort;
+  const currentPage = isServer ? serverPage : localCurrentPage;
+  const totalPages = isServer ? serverTotalPages : localTotalPages;
+  const totalItems = isServer ? serverTotal : localTotalItems;
+  const startIndex = isServer
+    ? serverTotal === 0
+      ? 0
+      : (serverPage - 1) * serverPageSize + 1
+    : localStartIndex;
+  const endIndex = isServer
+    ? Math.min(serverPage * serverPageSize, serverTotal)
+    : localEndIndex;
+  const paginatedData = isServer ? tableData : localPaginatedData;
+  const canPrevPage = isServer ? serverPage > 1 : localCanPrevPage;
+  const canNextPage = isServer ? serverPage < serverTotalPages : localCanNextPage;
+  const prevPage = isServer
+    ? () => setServerPage((page) => Math.max(1, page - 1))
+    : localPrevPage;
+  const nextPage = isServer
+    ? () => setServerPage((page) => Math.min(serverTotalPages, page + 1))
+    : localNextPage;
 
   return (
     <Box
@@ -318,7 +390,7 @@ export function DataTable<T extends Record<string, unknown>>({
               {totalItems}
             </Text>{" "}
             registros
-            {searchTerm && ` (filtrados de ${tableData.length})`}
+            {!isServer && searchTerm && ` (filtrados de ${tableData.length})`}
           </Text>
 
           <HStack gap={1.5}>

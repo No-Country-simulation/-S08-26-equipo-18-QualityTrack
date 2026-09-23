@@ -1,9 +1,9 @@
 {
   "version": 1,
-  "updated": "2026-09-22T18:45:00Z",
-  "goal": "Auth JWT (acceso 15 min + refresco rotativo) guardado en localStorage: login, refresh, logout, me en backend e integrado en el frontend con axios",
-  "phase": "build",
-  "approved": true,
+  "updated": "2026-09-23T00:20:00Z",
+  "goal": "Cerrar F-002 clientes y dejar el deploy automatico coherente con las variables de entorno nuevas (auth, CORS, API del front)",
+  "phase": "ship",
+  "approved": false,
   "units": [
     {
       "id": 1,
@@ -68,21 +68,131 @@
     {
       "id": 11,
       "do": "Verificación front: compila (build) y queda integrado contra la API; tests los hace el usuario",
-      "status": "todo",
-      "detail": null
+      "status": "done",
+      "detail": "Verificado por el usuario el 2026-09-22 (\"verifiqué que anda\")"
     },
     {
       "id": 12,
       "do": "Correcciones pedidas por el usuario: CI build en PRs, Dockerfile pnpm + start, Delivery entidad, config BD única, índices FK, Role.name único, email normalizado",
       "status": "done",
       "detail": "Migración schema_fixes generada y aplicada en local; imagen Docker construida y arrancada (healthcheck 200)"
+    },
+    {
+      "id": 13,
+      "do": "Cerrar F-001: barrer marcas, documentos al día, entrada de historial (aceptada por el usuario)",
+      "status": "done",
+      "detail": "Sin marcas que barrer; stack verificado contra el lockfile; Docs/history.md creado con la entrada de F-001. Q-09/Q-10/Q-11 quedan fuera, anotado en la spec"
+    },
+    {
+      "id": 14,
+      "do": "Scalar: @nestjs/swagger + @scalar/nestjs-api-reference, OpenAPI con Bearer en /docs, endpoints y DTOs de auth documentados",
+      "status": "done",
+      "detail": "/docs (Scalar) y /openapi.json responden 200 sin token con la app corriendo; 6 rutas y 7 esquemas publicados. Adoptado skipLibCheck y @scarf/scarf negado en allowBuilds"
+    },
+    {
+      "id": 15,
+      "do": "Spec F-002 Clientes: identidad (taxId/CUIT), campos obligatorios, unicidad, baja (soft delete), búsqueda y orden",
+      "status": "done",
+      "detail": "spec.md con 13 reglas (Q-01..Q-04) y analysis.md; historias indexadas US-005..US-008 sin escribir"
+    },
+    {
+      "id": 16,
+      "do": "Diseño técnico F-002: contrato de endpoints, paginación/filtros, estrategia de baja",
+      "status": "done",
+      "detail": "design.md con flujos, tabla de reglas y estados; decisions.md con QT-01..QT-14, modo propuestas, ninguna abierta"
+    },
+    {
+      "id": 17,
+      "do": "Backend: ajustes de entidad Client segun la spec (taxId, unicidad, isActive, indices) + migracion por CLI",
+      "status": "done",
+      "detail": "taxId varchar(11) unico, isActive por omision true, opcionales nullable, indice de razon social. Migration20260922180709 generada por CLI y aplicada en local (tabla verificada con \\d client)"
+    },
+    {
+      "id": 18,
+      "do": "Backend: CRUD /clients (controller, service, DTOs con class-validator, guard global, documentado en OpenAPI)",
+      "status": "done",
+      "detail": "GET/POST/PUT /clients + PATCH /clients/:id/status; validacion de CUIT con digito verificador; 18 comprobaciones ejecutadas contra la API real, todas OK"
+    },
+    {
+      "id": 19,
+      "do": "Front: clientService y ClientFormModal alineados al contrato real (taxId texto, opcionales, estado, sin borrado)",
+      "status": "done",
+      "detail": "Contrato del servicio reescrito (list paginado, setStatus); formulario y mocks al dia. tsc limpio de errores propios"
+    },
+    {
+      "id": 20,
+      "do": "Verificación F-002: build backend y frontend, evidencia registrada. Tests funcionales los hace el usuario",
+      "status": "done",
+      "detail": "backend pnpm build 0 errores; front vite build OK y tsc sin errores propios (3 previos, ajenos); 18 comprobaciones de API ejecutadas en la unidad 18. Pantalla no abierta en navegador: lo prueba el usuario"
+    },
+    {
+      "id": 21,
+      "do": "Front: ClientsPage contra la API real (carga, vacio, error, alta, edicion, desactivar/reactivar, filtro de inactivos)",
+      "status": "done",
+      "detail": "DataTable con modo servidor opcional (busqueda con espera de 300 ms, orden de la API); ClientsPage contra /clients con carga, vacio, error y reintento; baja/alta con confirmacion"
+    },
+    {
+      "id": 22,
+      "do": "Correccion pedida por el usuario: obligatoriedad de los campos del formulario de clientes alineada a RN-datos-minimos-del-cliente",
+      "status": "done",
+      "detail": "Telefono pasa a obligatorio (asterisco + validacion); Persona de Contacto deja de estar marcado obligatorio (la spec y el DTO lo tienen opcional). vite build OK; los 3 errores de tsc siguen siendo los previos"
+    },
+    {
+      "id": 23,
+      "do": "Analisis de variables de entorno vs deploy automatico (solo lectura, sin cambios)",
+      "status": "done",
+      "detail": "Inventario completo y 4 bloqueantes identificados: JWT_ACCESS_SECRET y CORS_ORIGINS faltan en Render (no verificable desde el repo), VITE_API_URL no se pasa al build del front en deploy-frontend.yml, y no hay seed de admin en produccion"
+    },
+    {
+      "id": 24,
+      "do": ".env.example raiz al dia: JWT_ACCESS_SECRET, JWT_ACCESS_TTL, CORS_ORIGINS, ADMIN_*, marcando obligatorias y opcionales",
+      "status": "todo",
+      "detail": "Propuesto, sin aprobar. Hoy solo documenta POSTGRES_*, DB_HOST/PORT/SSL"
+    },
+    {
+      "id": 25,
+      "do": "deploy-frontend.yml: pasar VITE_API_URL (y VITE_API_TIMEOUT_MS) al paso de build desde variables del entorno production",
+      "status": "todo",
+      "detail": "Propuesto, sin aprobar. Sin esto el bundle de produccion apunta a http://localhost:3000 (appConfig.ts:60)"
+    },
+    {
+      "id": 26,
+      "do": "docker-compose: env_file para el servicio backend, para que arranque en local con JWT_ACCESS_SECRET y CORS_ORIGINS",
+      "status": "todo",
+      "detail": "Propuesto, sin aprobar. Hoy el backend de compose solo recibe NODE_ENV y PORT"
+    },
+    {
+      "id": 27,
+      "do": "Alta del admin en produccion: decidir entre paso manual unico o step opcional con workflow_dispatch en migrate-backend.yml (ADMIN_EMAIL/ADMIN_PASSWORD)",
+      "status": "todo",
+      "detail": "Propuesto, sin aprobar. Decision del usuario pendiente; hoy el pipeline corre migration:up pero nunca el seeder"
+    },
+    {
+      "id": 28,
+      "do": "DB_SSL: descomentar driverOptions en database.config.ts o eliminar la variable; verificar contra la documentacion de Supabase",
+      "status": "todo",
+      "detail": "Propuesto, sin aprobar. La variable se lee pero no tiene efecto (ya anotado en Docs/backend-stack-api.md:65)"
     }
   ],
-  "autonomy": {},
-  "waiting_on": null,
+  "autonomy": {
+    "units": [
+      13,
+      14,
+      16,
+      17,
+      18,
+      19
+    ],
+    "keep_stops": [
+      15,
+      20,
+      21
+    ]
+  },
+  "waiting_on": "Aprobacion del plan de unidades 24-28 (deploy y variables de entorno) + que el usuario cargue las variables en Render/Netlify y acepte F-002",
   "notes": [
     "Decisión usuario: JWT en localStorage, sin cookies (objeción XSS registrada en design/decisions.md QT-04). Tests los hace el usuario; el agente solo compila",
-    "Diseño en Plan/specs/F-001-autenticacion/design/design.md: contrato en QT-21, sesión revisada por petición, margen 30 s",
-    "Fuera de alcance: dashboard/demás módulos, gestión de usuarios, permisos por rol. No corregir (usuario): SSL BD, tokens en .env, jest TS"
+    "Decisión usuario 2026-09-22: docs de API visibles sin restricción (opción B). Plan aprobado con autonomía salvo stops en 15 y 20",
+    "No corregir (usuario): SSL BD, tokens en .env, jest TS. Hallazgo 2026-09-22: vite build no verifica tipos, el front tiene 3 errores de TS previos"
   ]
 }

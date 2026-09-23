@@ -192,7 +192,7 @@
           "unsigned": false,
           "autoincrement": false,
           "primary": false,
-          "nullable": false,
+          "nullable": true,
           "unique": false,
           "length": 255,
           "precision": null,
@@ -226,7 +226,7 @@
           "unsigned": false,
           "autoincrement": false,
           "primary": false,
-          "nullable": false,
+          "nullable": true,
           "unique": false,
           "length": 255,
           "precision": null,
@@ -243,7 +243,7 @@
           "unsigned": false,
           "autoincrement": false,
           "primary": false,
-          "nullable": false,
+          "nullable": true,
           "unique": false,
           "length": 255,
           "precision": null,
@@ -305,13 +305,30 @@
           "enumItems": [],
           "mappedType": "integer"
         },
+        "is_active": {
+          "name": "is_active",
+          "type": "boolean",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": "true",
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "boolean"
+        },
         "notes": {
           "name": "notes",
           "type": "varchar(5000)",
           "unsigned": false,
           "autoincrement": false,
           "primary": false,
-          "nullable": false,
+          "nullable": true,
           "unique": false,
           "length": 5000,
           "precision": null,
@@ -345,7 +362,7 @@
           "unsigned": false,
           "autoincrement": false,
           "primary": false,
-          "nullable": false,
+          "nullable": true,
           "unique": false,
           "length": 255,
           "precision": null,
@@ -358,20 +375,20 @@
         },
         "tax_id": {
           "name": "tax_id",
-          "type": "int",
+          "type": "varchar(11)",
           "unsigned": false,
           "autoincrement": false,
           "primary": false,
           "nullable": false,
-          "unique": false,
-          "length": null,
+          "unique": true,
+          "length": 11,
           "precision": null,
           "scale": null,
           "default": null,
           "comment": null,
           "collation": null,
           "enumItems": [],
-          "mappedType": "integer"
+          "mappedType": "string"
         },
         "updated_at": {
           "name": "updated_at",
@@ -394,12 +411,32 @@
       "indexes": [
         {
           "columnNames": [
+            "business_name"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "client_business_name_index",
+          "primary": false,
+          "unique": false
+        },
+        {
+          "columnNames": [
             "id"
           ],
           "composite": false,
           "constraint": true,
           "keyName": "client_pkey",
           "primary": true,
+          "unique": true
+        },
+        {
+          "columnNames": [
+            "tax_id"
+          ],
+          "composite": false,
+          "constraint": true,
+          "keyName": "client_tax_id_unique",
+          "primary": false,
           "unique": true
         }
       ],

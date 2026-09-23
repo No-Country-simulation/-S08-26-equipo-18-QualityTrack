@@ -68,4 +68,4 @@ No existe registro público: solo pueden entrar las personas cuya cuenta ya exis
 Las historias no se escriben en esta ronda: el usuario hace los tests (Q-12) y el plan no las incluye.
 
 ## Abierto
-- Q-09, Q-10, Q-11 · Propuestos fuera de alcance; falta confirmación del usuario.
+- Q-09, Q-10, Q-11 · Propuestos por el agente y nunca confirmados: quedan fuera de F-001, que se cerró el 2026-09-22 sin ellos (ver `Docs/history.md`). Si el usuario los pide, entran con su propia feature.

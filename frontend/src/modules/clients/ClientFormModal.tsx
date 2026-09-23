@@ -67,24 +67,26 @@ export function ClientFormModal({
         validators.required("El CUIT es obligatorio"),
         validators.cuit("El CUIT debe tener 11 digitos numericos"),
       ],
-      contactName: [validators.required("El nombre de contacto es obligatorio")],
       email: [
         validators.required("El email es obligatorio"),
         validators.email("Ingresa un correo electronico valido"),
       ],
+      phone: [validators.required("El telefono es obligatorio")],
     },
     onSubmit: async (formValues) => {
-      const numericTaxId = Number(formValues.taxId.replace(/\D/g, ""));
+      // Los opcionales vacios viajan ausentes, no como texto vacio: "no lo se" y
+      // "esta vacio" no son lo mismo.
+      const optional = (value: string) => value.trim() || undefined;
       await onSave({
         businessName: formValues.businessName.trim(),
-        taxId: numericTaxId,
-        contactName: formValues.contactName.trim(),
+        taxId: formValues.taxId.replace(/\D/g, ""),
         email: formValues.email.trim(),
         phone: formValues.phone.trim(),
-        address: formValues.address.trim(),
-        city: formValues.city.trim(),
-        province: formValues.province.trim(),
-        notes: formValues.notes.trim() || undefined,
+        contactName: optional(formValues.contactName),
+        address: optional(formValues.address),
+        city: optional(formValues.city),
+        province: optional(formValues.province),
+        notes: optional(formValues.notes),
       });
       onOpenChange({ open: false });
     },
@@ -95,8 +97,8 @@ export function ClientFormModal({
       if (client) {
         reset({
           businessName: client.businessName,
-          taxId: String(client.taxId),
-          contactName: client.contactName,
+          taxId: client.taxId,
+          contactName: client.contactName || "",
           email: client.email,
           phone: client.phone || "",
           address: client.address || "",
@@ -179,7 +181,6 @@ export function ClientFormModal({
         <SimpleGrid columns={{ base: 1, md: 2 }} gap={3}>
           <FormField
             label="Persona de Contacto"
-            required
             error={touched.contactName ? errors.contactName : null}
           >
             <Input
@@ -206,7 +207,11 @@ export function ClientFormModal({
         </SimpleGrid>
 
         <SimpleGrid columns={{ base: 1, md: 3 }} gap={3}>
-          <FormField label="Telefono">
+          <FormField
+            label="Telefono"
+            required
+            error={touched.phone ? errors.phone : null}
+          >
             <Input
               placeholder="+54 11 4522-8900"
               value={values.phone}

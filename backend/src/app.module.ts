@@ -6,6 +6,7 @@ import { ConfigModule } from '@nestjs/config';
 import databaseConfig from './config/database.config';
 import { validateEnv } from './config/env.validation';
 import { AuthModule } from './auth/auth.module';
+import { ClientsModule } from './clients/clients.module';
 
 @Module({
     imports: [
@@ -15,6 +16,7 @@ import { AuthModule } from './auth/auth.module';
         }),
         MikroOrmModule.forRoot(databaseConfig),
         AuthModule,
+        ClientsModule,
     ],
     controllers: [AppController],
     providers: [AppService],
