@@ -120,7 +120,7 @@ export function ClientFormModal({
     <Modal
       open={open}
       onOpenChange={onOpenChange}
-      title={isEditing ? "Editar Cliente" : "Nuevo Cliente"}
+      title={isEditing ? "Editar cliente" : "Nuevo cliente"}
       footer={
         <HStack gap={2} justify="flex-end" w="full">
           <Button
@@ -135,7 +135,7 @@ export function ClientFormModal({
             onClick={() => handleSubmit()}
             loading={isSubmitting}
           >
-            {isEditing ? "Guardar Cambios" : "Crear Cliente"}
+            {isEditing ? "Guardar cambios" : "Crear cliente"}
           </Button>
         </HStack>
       }
@@ -151,7 +151,7 @@ export function ClientFormModal({
 
         <SimpleGrid columns={{ base: 1, md: 2 }} gap={3}>
           <FormField
-            label="Razon Social"
+            label="Razon social"
             required
             error={touched.businessName ? errors.businessName : null}
           >
@@ -180,7 +180,12 @@ export function ClientFormModal({
 
         <SimpleGrid columns={{ base: 1, md: 2 }} gap={3}>
           <FormField
+<<<<<<< HEAD
             label="Persona de Contacto"
+=======
+            label="Persona de contacto"
+            required
+>>>>>>> e0ff62b10f7534858d4fe77a6e69f5c6d21d7232
             error={touched.contactName ? errors.contactName : null}
           >
             <Input
@@ -192,7 +197,7 @@ export function ClientFormModal({
           </FormField>
 
           <FormField
-            label="Correo Electronico"
+            label="Correo electronico"
             required
             error={touched.email ? errors.email : null}
           >
@@ -248,7 +253,7 @@ export function ClientFormModal({
           />
         </FormField>
 
-        <FormField label="Notas u Observaciones">
+        <FormField label="Notas u observaciones">
           <Textarea
             placeholder="Informacion adicional sobre el cliente, requerimientos especiales de calidad, etc."
             value={values.notes}
