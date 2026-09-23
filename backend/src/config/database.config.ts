@@ -10,7 +10,7 @@ import { SeedManager } from "@mikro-orm/seeder";
 // y las variables llegan del entorno, por eso su ausencia no es un error.
 try {
     process.loadEnvFile();
-} catch {}
+} catch { }
 
 const useSsl = process.env.DB_SSL !== "false";
 
@@ -28,9 +28,9 @@ export default defineConfig({
     password: process.env.POSTGRES_PASSWORD ?? "qualitytrack_dev",
 
     driverOptions: useSsl
-        ? { connection: { ssl: { rejectUnauthorized: false } } }
-        : {},
-        
+        ? { ssl: { rejectUnauthorized: false } }
+        : { ssl: false },
+
 
     migrations: {
         path: "./dist/migrations",
