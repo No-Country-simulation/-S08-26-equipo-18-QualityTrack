@@ -180,12 +180,7 @@ export function ClientFormModal({
 
         <SimpleGrid columns={{ base: 1, md: 2 }} gap={3}>
           <FormField
-<<<<<<< HEAD
             label="Persona de Contacto"
-=======
-            label="Persona de contacto"
-            required
->>>>>>> e0ff62b10f7534858d4fe77a6e69f5c6d21d7232
             error={touched.contactName ? errors.contactName : null}
           >
             <Input
