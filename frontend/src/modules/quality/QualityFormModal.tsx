@@ -8,7 +8,7 @@ import { Modal } from "../../components/Modal";
 import { Select } from "../../components/Select";
 import { Textarea } from "../../components/Textarea";
 import { useForm } from "../../hooks/useForm";
-import { validators } from "../../utils/validators";
+import { toDateIso, validators } from "../../utils";
 import type {
   CreateQualityControlDto,
   QualityControl,
@@ -96,7 +96,7 @@ export function QualityFormModal({
     },
     onSubmit: async (formValues) => {
       const numericWoId = Number(formValues.workOrderId);
-      const performedAtIso = new Date(formValues.performedAt).toISOString();
+      const performedAtIso = toDateIso(formValues.performedAt) ?? new Date().toISOString();
 
       await onSave({
         workOrderId: numericWoId,

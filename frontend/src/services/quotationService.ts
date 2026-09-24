@@ -2,6 +2,16 @@ import { api } from "./api";
 import type { Client } from "./clientService";
 import type { Request } from "./requestService";
 
+export interface QuotationItem {
+  id?: number;
+  quotationId?: number;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  subtotal: number;
+  notes?: string;
+}
+
 export interface Quotation {
   id: number;
   clientId: number;
@@ -15,6 +25,7 @@ export interface Quotation {
   taxAmount: string;
   currency: string;
   validUntil?: string;
+  items?: QuotationItem[];
   createdById?: number;
   createdAt: string;
   updatedAt: string;

@@ -8,7 +8,7 @@ import { Modal } from "../../components/Modal";
 import { Select } from "../../components/Select";
 import { Textarea } from "../../components/Textarea";
 import { useForm } from "../../hooks/useForm";
-import { validators } from "../../utils/validators";
+import { toDateIso, validators } from "../../utils";
 import type {
   CreateWorkOrderDto,
   WorkOrder,
@@ -93,16 +93,10 @@ export function WorkOrderFormModal({
     },
     onSubmit: async (formValues) => {
       const numericWoNumber = parseInt(formValues.workOrderNumber, 10);
-      const plannedStartIso = new Date(
-        formValues.plannedStartDate,
-      ).toISOString();
-      const plannedEndIso = new Date(formValues.plannedEndDate).toISOString();
-      const actualStartIso = formValues.actualStartDate
-        ? new Date(formValues.actualStartDate).toISOString()
-        : undefined;
-      const actualEndIso = formValues.actualEndDate
-        ? new Date(formValues.actualEndDate).toISOString()
-        : undefined;
+      const plannedStartIso = toDateIso(formValues.plannedStartDate) ?? new Date().toISOString();
+      const plannedEndIso = toDateIso(formValues.plannedEndDate) ?? new Date().toISOString();
+      const actualStartIso = toDateIso(formValues.actualStartDate);
+      const actualEndIso = toDateIso(formValues.actualEndDate);
 
       await onSave({
         workOrderNumber: numericWoNumber,
