@@ -18,7 +18,7 @@ import { Table } from "../../components/Table";
 import { Textarea } from "../../components/Textarea";
 import { useForm } from "../../hooks/useForm";
 import { formatCurrency } from "./quotationColumns";
-import { validators } from "../../utils/validators";
+import { toDateIso, validators } from "../../utils";
 import type { Client } from "../../services/clientService";
 import type {
   CreateQuotationDto,
@@ -109,12 +109,16 @@ export function QuotationFormModal({
       subtotal: [validators.required("El subtotal es obligatorio")],
     },
     onSubmit: async (formValues) => {
+      if (items.length === 0) {
+        setItemError("Debes agregar al menos un item a la cotizacion");
+        return;
+      }
+      setItemError(null);
+
       const numericClientId = Number(formValues.clientId);
       const numericRequestId = Number(formValues.requestId);
       const numericVersion = parseInt(formValues.version, 10) || 1;
-      const validUntilIso = formValues.validUntil
-        ? new Date(formValues.validUntil).toISOString()
-        : undefined;
+      const validUntilIso = toDateIso(formValues.validUntil);
 
       await onSave({
         quotationNumber: formValues.quotationNumber.trim(),
@@ -126,6 +130,12 @@ export function QuotationFormModal({
         description: formValues.description.trim(),
         subtotal: Number(formValues.subtotal || 0).toFixed(2),
         taxAmount: Number(formValues.taxAmount || 0).toFixed(2),
+        items: items.map((it) => ({
+          description: it.description,
+          quantity: it.quantity,
+          unitPrice: it.unitPrice,
+          subtotal: it.subtotal,
+        })),
       });
       onOpenChange({ open: false });
     },
@@ -153,7 +163,19 @@ export function QuotationFormModal({
           subtotal: quotation.subtotal || "0.00",
           taxAmount: quotation.taxAmount || "0.00",
         });
-        setItems([]);
+        if (quotation.items && quotation.items.length > 0) {
+          setItems(
+            quotation.items.map((it, idx) => ({
+              id: String(it.id ?? idx + 1),
+              description: it.description,
+              quantity: it.quantity,
+              unitPrice: it.unitPrice,
+              subtotal: it.subtotal,
+            })),
+          );
+        } else {
+          setItems([]);
+        }
       } else {
         reset(DEFAULT_VALUES);
         setItems([]);

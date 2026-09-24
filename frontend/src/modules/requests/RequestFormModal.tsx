@@ -8,7 +8,7 @@ import { Select } from "../../components/Select";
 import { Textarea } from "../../components/Textarea";
 import { Alert } from "../../components/Alert";
 import { useForm } from "../../hooks/useForm";
-import { validators } from "../../utils/validators";
+import { toDateIso, validators } from "../../utils";
 import type { Client } from "../../services/clientService";
 import type { CreateRequestDto, Request } from "../../services/requestService";
 
@@ -74,10 +74,8 @@ export function RequestFormModal({
     },
     onSubmit: async (formValues) => {
       const numericClientId = Number(formValues.clientId);
-      const receivedAtIso = new Date(formValues.receivedAt).toISOString();
-      const requestedDeliveryDateIso = formValues.requestedDeliveryDate
-        ? new Date(formValues.requestedDeliveryDate).toISOString()
-        : undefined;
+      const receivedAtIso = toDateIso(formValues.receivedAt) ?? new Date().toISOString();
+      const requestedDeliveryDateIso = toDateIso(formValues.requestedDeliveryDate);
 
       await onSave({
         requestNumber: formValues.requestNumber.trim(),

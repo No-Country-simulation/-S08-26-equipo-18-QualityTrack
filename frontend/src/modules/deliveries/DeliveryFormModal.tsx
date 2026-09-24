@@ -8,7 +8,7 @@ import { Modal } from "../../components/Modal";
 import { Select } from "../../components/Select";
 import { Textarea } from "../../components/Textarea";
 import { useForm } from "../../hooks/useForm";
-import { validators } from "../../utils/validators";
+import { toDateIso, validators } from "../../utils";
 import type { Client } from "../../services/clientService";
 import type {
   CreateDeliveryDto,
@@ -79,9 +79,7 @@ export function DeliveryFormModal({
       const dto: CreateDeliveryDto = {
         workOrderId: Number(formValues.workOrderId),
         clientId: formValues.clientId ? Number(formValues.clientId) : undefined,
-        deliveryDate: formValues.deliveryDate
-          ? new Date(formValues.deliveryDate).toISOString()
-          : new Date().toISOString(),
+        deliveryDate: toDateIso(formValues.deliveryDate) ?? new Date().toISOString(),
         quantity: Number(formValues.quantity),
         notes: formValues.notes.trim() || undefined,
       };

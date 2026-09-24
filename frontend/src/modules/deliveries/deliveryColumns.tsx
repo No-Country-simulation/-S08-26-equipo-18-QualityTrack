@@ -3,20 +3,9 @@ import { Badge } from "../../components/Badge";
 import type { ColumnDef } from "../../components/DataTable";
 import type { Delivery } from "../../services/deliveryService";
 
-export function formatDate(isoString?: string): string {
-  if (!isoString) return "—";
-  try {
-    const d = new Date(isoString);
-    if (isNaN(d.getTime())) return isoString;
-    return d.toLocaleDateString("es-AR", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    });
-  } catch {
-    return isoString;
-  }
-}
+import { formatDate } from "../../utils";
+
+export { formatDate };
 
 export const DELIVERY_COLUMNS: ColumnDef<Delivery>[] = [
   {
