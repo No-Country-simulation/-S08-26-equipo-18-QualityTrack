@@ -92,6 +92,7 @@ export function QualityFormModal({
       unit: [validators.required("La unidad de medida es obligatoria")],
       performedAt: [
         validators.required("La fecha de inspeccion es obligatoria"),
+        validators.date("La fecha de inspeccion debe estar completa (DD/MM/AAAA)"),
       ],
     },
     onSubmit: async (formValues) => {
