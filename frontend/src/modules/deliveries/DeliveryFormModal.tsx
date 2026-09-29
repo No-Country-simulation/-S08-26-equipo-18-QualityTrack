@@ -69,7 +69,10 @@ export function DeliveryFormModal({
       workOrderId: [
         validators.required("Debes seleccionar una orden de trabajo"),
       ],
-      deliveryDate: [validators.required("La fecha de entrega es obligatoria")],
+      deliveryDate: [
+        validators.required("La fecha de entrega es obligatoria"),
+        validators.date("La fecha de entrega debe estar completa (DD/MM/AAAA)"),
+      ],
       quantity: [
         validators.required("La cantidad de piezas es obligatoria"),
         validators.positiveNumber("La cantidad debe ser un numero mayor a 0"),
@@ -156,7 +159,14 @@ export function DeliveryFormModal({
           >
             <Select
               value={values.workOrderId}
-              onChange={(e) => handleChange("workOrderId", e.target.value)}
+              onChange={(e) => {
+                const selectedWoId = e.target.value;
+                handleChange("workOrderId", selectedWoId);
+                const matchedWo = workOrders.find((wo) => String(wo.id) === selectedWoId);
+                if (matchedWo?.clientId) {
+                  handleChange("clientId", String(matchedWo.clientId));
+                }
+              }}
               onBlur={() => handleBlur("workOrderId")}
             >
               <option value="">-- Seleccionar orden de trabajo --</option>
