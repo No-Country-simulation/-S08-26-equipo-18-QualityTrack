@@ -23,6 +23,22 @@ describe('Motor de validadores (Prueba de lógica y validaciones)', () => {
         expect(validate('30712345678')).toBeNull()
     })
 
+    it('date: debe validar formato YYYY-MM-DD y fecha válida', () => {
+        const validate = validators.date('Fecha inválida')
+        expect(validate('')).toBeNull()
+        expect(validate('2026-03-15')).toBeNull()
+        expect(validate('15/03/2026')).toBe('Fecha inválida')
+        expect(validate('2026-02-31')).toBe('Fecha inválida')
+    })
+
+    it('dateAfterOrEqual: debe rechazar fechas anteriores a la fecha inicial', () => {
+        let start = '2026-03-10'
+        const validate = validators.dateAfterOrEqual(() => start, 'No puede ser anterior')
+        expect(validate('2026-03-10')).toBeNull()
+        expect(validate('2026-03-15')).toBeNull()
+        expect(validate('2026-03-05')).toBe('No puede ser anterior')
+    })
+
     it('positiveNumber: debe aceptar números positivos y rechazar negativos o cero', () => {
         const validate = validators.positiveNumber('Debe ser mayor a cero')
         expect(validate(-5)).toBe('Debe ser mayor a cero')

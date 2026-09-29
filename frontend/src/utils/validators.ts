@@ -54,6 +54,38 @@ export const validators = {
         }
     },
 
+    date(message = 'Ingresa una fecha válida y completa'): ValidatorFn<string> {
+        return (value) => {
+            if (!value) return null
+            const trimmed = String(value).trim()
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+                return message
+            }
+            const [y, m, d] = trimmed.split('-').map(Number)
+            const dateObj = new Date(y, m - 1, d)
+            if (
+                dateObj.getFullYear() !== y ||
+                dateObj.getMonth() !== m - 1 ||
+                dateObj.getDate() !== d
+            ) {
+                return message
+            }
+            return null
+        }
+    },
+
+    dateAfterOrEqual(getCompareDate: () => string | undefined, message = 'La fecha debe ser igual o posterior a la fecha inicial'): ValidatorFn<string> {
+        return (value) => {
+            if (!value) return null
+            const compare = getCompareDate()
+            if (!compare || !compare.trim()) return null
+            if (value < compare) {
+                return message
+            }
+            return null
+        }
+    },
+
     pattern(regex: RegExp, message: string): ValidatorFn<string> {
         return (value) => {
             if (!value) return null
