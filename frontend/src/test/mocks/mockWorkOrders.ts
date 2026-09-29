@@ -1,4 +1,7 @@
 import type { WorkOrder } from "../../services/workOrderService";
+import { MOCK_CLIENTS } from "./mockClients";
+import { MOCK_REQUESTS } from "./mockRequests";
+import { MOCK_QUOTATIONS } from "./mockQuotations";
 
 export const MOCK_WORK_ORDERS: WorkOrder[] = [
   {
@@ -9,6 +12,12 @@ export const MOCK_WORK_ORDERS: WorkOrder[] = [
       "Mecanizado integral de 20 ejes en acero SAE 4140 bonificado con templado por induccion en zonas de apoyo y rectificado de acabado.",
     priority: "HIGH",
     status: "IN_PROGRESS",
+    clientId: 1,
+    client: MOCK_CLIENTS[0],
+    requestId: 1,
+    request: MOCK_REQUESTS[0],
+    quotationId: 1,
+    quotation: MOCK_QUOTATIONS[0],
     plannedStartDate: "2026-03-01T08:00:00Z",
     plannedEndDate: "2026-03-15T17:00:00Z",
     actualStartDate: "2026-03-02T08:30:00Z",
@@ -23,6 +32,12 @@ export const MOCK_WORK_ORDERS: WorkOrder[] = [
       "Torneado y fresado CNC de 50 bridas segun plano ME-BR-08. Agujereado con plantilla y control dimensional de concentricidad.",
     priority: "MEDIUM",
     status: "COMPLETED",
+    clientId: 2,
+    client: MOCK_CLIENTS[1],
+    requestId: 2,
+    request: MOCK_REQUESTS[1],
+    quotationId: 2,
+    quotation: MOCK_QUOTATIONS[1],
     plannedStartDate: "2026-02-15T08:00:00Z",
     plannedEndDate: "2026-02-28T17:00:00Z",
     actualStartDate: "2026-02-15T08:00:00Z",
@@ -38,6 +53,12 @@ export const MOCK_WORK_ORDERS: WorkOrder[] = [
       "Roscado por laminacion de 120 pernos M24 x 350mm en acero grado 8.8 con recubrimiento de galvanizado en caliente.",
     priority: "LOW",
     status: "PENDING",
+    clientId: 3,
+    client: MOCK_CLIENTS[2],
+    requestId: 3,
+    request: MOCK_REQUESTS[2],
+    quotationId: 3,
+    quotation: MOCK_QUOTATIONS[2],
     plannedStartDate: "2026-03-20T08:00:00Z",
     plannedEndDate: "2026-04-05T17:00:00Z",
     createdAt: "2026-02-28T09:30:00Z",
@@ -51,6 +72,12 @@ export const MOCK_WORK_ORDERS: WorkOrder[] = [
       "Tallado por generacion y rectificado de perfiles de dientes. Ensayo de particulas magneticas para deteccion de microfisuras.",
     priority: "URGENT",
     status: "IN_PROGRESS",
+    clientId: 4,
+    client: MOCK_CLIENTS[3],
+    requestId: 4,
+    request: MOCK_REQUESTS[3],
+    quotationId: 4,
+    quotation: MOCK_QUOTATIONS[3],
     plannedStartDate: "2026-03-05T08:00:00Z",
     plannedEndDate: "2026-03-18T17:00:00Z",
     actualStartDate: "2026-03-05T09:00:00Z",
@@ -65,6 +92,12 @@ export const MOCK_WORK_ORDERS: WorkOrder[] = [
       "Mecanizado interno de cavidades y roscado NPT en piezas forjadas de acero inoxidable AISI 316. Prueba hidrostatica a 150 PSI.",
     priority: "HIGH",
     status: "APPROVED",
+    clientId: 5,
+    client: MOCK_CLIENTS[4],
+    requestId: 5,
+    request: MOCK_REQUESTS[4],
+    quotationId: 5,
+    quotation: MOCK_QUOTATIONS[4],
     plannedStartDate: "2026-03-25T08:00:00Z",
     plannedEndDate: "2026-04-12T17:00:00Z",
     createdAt: "2026-03-03T16:00:00Z",
@@ -78,6 +111,9 @@ export const MOCK_WORK_ORDERS: WorkOrder[] = [
       "Reparacion de muñones por metalizado y balanceo dinamico en banco segun norma ISO 1940 grado G2.5.",
     priority: "LOW",
     status: "CANCELLED",
+    // Sin solicitud ni cotizacion vinculada (OT generada de urgencia directamente)
+    clientId: 6,
+    client: MOCK_CLIENTS[5],
     plannedStartDate: "2026-02-01T08:00:00Z",
     plannedEndDate: "2026-02-10T17:00:00Z",
     actualStartDate: "2026-02-01T08:00:00Z",
@@ -86,4 +122,6 @@ export const MOCK_WORK_ORDERS: WorkOrder[] = [
     updatedAt: "2026-02-03T12:00:00Z",
   },
 ];
+
+
 

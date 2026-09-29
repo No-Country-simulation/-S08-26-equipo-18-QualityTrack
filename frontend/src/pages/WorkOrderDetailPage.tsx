@@ -27,6 +27,9 @@ import {
   StatusBadge,
   WorkOrderFormModal,
 } from "../modules/workOrders";
+import { MOCK_CLIENTS } from "../test/mocks/mockClients";
+import { MOCK_REQUESTS } from "../test/mocks/mockRequests";
+import { MOCK_QUOTATIONS } from "../test/mocks/mockQuotations";
 import { MOCK_WORK_ORDERS } from "../test/mocks/mockWorkOrders";
 import type {
   CreateWorkOrderDto,
@@ -312,6 +315,9 @@ export default function WorkOrderDetailPage() {
         open={isFormOpen}
         onOpenChange={({ open }) => setIsFormOpen(open)}
         workOrder={workOrder}
+        clients={MOCK_CLIENTS}
+        requests={MOCK_REQUESTS}
+        quotations={MOCK_QUOTATIONS}
         onSave={handleSave}
       />
     </Box>

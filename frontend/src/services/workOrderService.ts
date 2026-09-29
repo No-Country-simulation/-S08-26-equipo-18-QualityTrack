@@ -1,4 +1,7 @@
 import { api } from "./api";
+import type { Client } from "./clientService";
+import type { Request } from "./requestService";
+import type { Quotation } from "./quotationService";
 
 export type WorkOrderPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
 export type WorkOrderStatus =
@@ -15,6 +18,13 @@ export interface WorkOrder {
   description: string;
   priority: WorkOrderPriority;
   status: WorkOrderStatus;
+  // Relaciones con entidades padre para trazabilidad completa del expediente
+  clientId: number;
+  client?: Client;
+  requestId?: number;
+  request?: Request;
+  quotationId?: number;
+  quotation?: Quotation;
   plannedStartDate: string;
   plannedEndDate: string;
   actualStartDate?: string;
@@ -26,7 +36,7 @@ export interface WorkOrder {
 
 export type CreateWorkOrderDto = Omit<
   WorkOrder,
-  "id" | "createdAt" | "updatedAt"
+  "id" | "client" | "request" | "quotation" | "createdAt" | "updatedAt"
 >;
 export type UpdateWorkOrderDto = Partial<CreateWorkOrderDto>;
 

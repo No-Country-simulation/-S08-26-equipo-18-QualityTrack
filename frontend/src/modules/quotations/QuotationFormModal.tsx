@@ -107,6 +107,10 @@ export function QuotationFormModal({
         validators.required("La descripcion de la cotizacion es obligatoria"),
       ],
       subtotal: [validators.required("El subtotal es obligatorio")],
+      validUntil: [
+        validators.required("La fecha de validez es obligatoria"),
+        validators.date("La fecha de validez debe estar completa (DD/MM/AAAA)"),
+      ],
     },
     onSubmit: async (formValues) => {
       if (items.length === 0) {
@@ -372,6 +376,8 @@ export function QuotationFormModal({
 
           <FormField
             label="Fecha de validez"
+            required
+            error={touched.validUntil ? errors.validUntil : null}
             helperText="Plazo limite de vigencia de la oferta"
           >
             <Input
