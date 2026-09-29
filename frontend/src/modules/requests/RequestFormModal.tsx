@@ -70,7 +70,18 @@ export function RequestFormModal({
         validators.required("La descripcion tecnica es obligatoria"),
       ],
       clientId: [validators.required("Debes seleccionar un cliente")],
-      receivedAt: [validators.required("La fecha de recepcion es obligatoria")],
+      receivedAt: [
+        validators.required("La fecha de recepcion es obligatoria"),
+        validators.date("La fecha de recepcion debe estar completa (DD/MM/AAAA)"),
+      ],
+      requestedDeliveryDate: [
+        validators.required("La fecha de entrega deseada es obligatoria"),
+        validators.date("La fecha de entrega deseada debe estar completa (DD/MM/AAAA)"),
+        validators.dateAfterOrEqual(
+          () => values.receivedAt,
+          "La fecha de entrega no puede ser anterior a la fecha de recepcion"
+        ),
+      ],
     },
     onSubmit: async (formValues) => {
       const numericClientId = Number(formValues.clientId);
@@ -230,6 +241,7 @@ export function RequestFormModal({
 
           <FormField
             label="Fecha de entrega deseada"
+            required
             error={
               touched.requestedDeliveryDate
                 ? errors.requestedDeliveryDate
