@@ -22,6 +22,8 @@ export interface DeliveryFormModalProps {
   delivery?: Delivery | null;
   workOrders: WorkOrder[];
   clients: Client[];
+  defaultWorkOrderId?: number;
+  defaultClientId?: number;
   onSave: (data: CreateDeliveryDto) => Promise<void> | void;
 }
 
@@ -49,9 +51,22 @@ export function DeliveryFormModal({
   delivery,
   workOrders,
   clients,
+  defaultWorkOrderId,
+  defaultClientId,
   onSave,
 }: DeliveryFormModalProps) {
   const isEditing = Boolean(delivery);
+
+  const initialWoId =
+    defaultWorkOrderId ??
+    (workOrders.length === 1 ? workOrders[0].id : undefined);
+  const matchedWo = initialWoId
+    ? workOrders.find((wo) => wo.id === initialWoId)
+    : undefined;
+  const initialClientId =
+    defaultClientId ??
+    matchedWo?.clientId ??
+    (clients.length === 1 ? clients[0].id : undefined);
 
   const {
     values,
@@ -64,7 +79,11 @@ export function DeliveryFormModal({
     handleSubmit,
     reset,
   } = useForm<DeliveryFormValues>({
-    initialValues: DEFAULT_VALUES,
+    initialValues: {
+      ...DEFAULT_VALUES,
+      workOrderId: initialWoId ? String(initialWoId) : "",
+      clientId: initialClientId ? String(initialClientId) : "",
+    },
     rules: {
       workOrderId: [
         validators.required("Debes seleccionar una orden de trabajo"),
@@ -107,9 +126,24 @@ export function DeliveryFormModal({
         notes: delivery.notes || "",
       });
     } else {
-      reset(DEFAULT_VALUES);
+      const activeWoId =
+        defaultWorkOrderId ??
+        (workOrders.length === 1 ? workOrders[0].id : undefined);
+      const activeWo = activeWoId
+        ? workOrders.find((wo) => wo.id === activeWoId)
+        : undefined;
+      const activeClientId =
+        defaultClientId ??
+        activeWo?.clientId ??
+        (clients.length === 1 ? clients[0].id : undefined);
+
+      reset({
+        ...DEFAULT_VALUES,
+        workOrderId: activeWoId ? String(activeWoId) : "",
+        clientId: activeClientId ? String(activeClientId) : "",
+      });
     }
-  }, [open, delivery, reset]);
+  }, [open, delivery, defaultWorkOrderId, defaultClientId, workOrders, clients, reset]);
 
   const handleClose = () => {
     onOpenChange({ open: false });

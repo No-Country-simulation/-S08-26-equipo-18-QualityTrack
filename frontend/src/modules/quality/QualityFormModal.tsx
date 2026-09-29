@@ -20,6 +20,7 @@ export interface QualityFormModalProps {
   onOpenChange: (details: { open: boolean }) => void;
   control?: QualityControl | null;
   workOrders: WorkOrder[];
+  defaultWorkOrderId?: number;
   onSave: (data: CreateQualityControlDto) => Promise<void> | void;
 }
 
@@ -60,9 +61,16 @@ export function QualityFormModal({
   onOpenChange,
   control,
   workOrders,
+  defaultWorkOrderId,
   onSave,
 }: QualityFormModalProps) {
   const isEditing = Boolean(control);
+
+  const initialWorkOrderId = defaultWorkOrderId
+    ? String(defaultWorkOrderId)
+    : workOrders.length === 1
+      ? String(workOrders[0].id)
+      : "";
 
   const {
     values,
@@ -75,7 +83,10 @@ export function QualityFormModal({
     handleSubmit,
     reset,
   } = useForm<QualityFormValues>({
-    initialValues: DEFAULT_VALUES,
+    initialValues: {
+      ...DEFAULT_VALUES,
+      workOrderId: initialWorkOrderId,
+    },
     rules: {
       workOrderId: [
         validators.required("Debes seleccionar una orden de trabajo"),
@@ -128,10 +139,18 @@ export function QualityFormModal({
           observations: control.observations || "",
         });
       } else {
-        reset(DEFAULT_VALUES);
+        const initialWoId = defaultWorkOrderId
+          ? String(defaultWorkOrderId)
+          : workOrders.length === 1
+            ? String(workOrders[0].id)
+            : "";
+        reset({
+          ...DEFAULT_VALUES,
+          workOrderId: initialWoId,
+        });
       }
     }
-  }, [open, control, reset]);
+  }, [open, control, defaultWorkOrderId, workOrders, reset]);
 
   const handleClose = () => {
     onOpenChange({ open: false });

@@ -11,26 +11,45 @@ import {
 } from "@chakra-ui/react";
 import {
   LuArrowLeft,
+  LuBuilding2,
   LuCalendar,
   LuClock,
+  LuFileSpreadsheet,
+  LuFileText,
   LuPencil,
-  LuTruck,
+  LuPlus,
   LuWrench,
 } from "react-icons/lu";
 import { Alert } from "../components/Alert";
+import { Badge } from "../components/Badge";
 import { Button } from "../components/Button";
 import { Can } from "../components/Can";
 import { Card } from "../components/Card";
+import { Table } from "../components/Table";
 import {
   formatDate,
   PriorityBadge,
   StatusBadge,
   WorkOrderFormModal,
 } from "../modules/workOrders";
+import { QualityFormModal } from "../modules/quality";
+import { DeliveryFormModal } from "../modules/deliveries";
+import { formatCurrency } from "../modules/quotations/quotationColumns";
 import { MOCK_CLIENTS } from "../test/mocks/mockClients";
-import { MOCK_REQUESTS } from "../test/mocks/mockRequests";
+import { MOCK_DELIVERIES } from "../test/mocks/mockDeliveries";
+import { MOCK_QUALITY_CONTROLS } from "../test/mocks/mockQualityControls";
 import { MOCK_QUOTATIONS } from "../test/mocks/mockQuotations";
+import { MOCK_REQUESTS } from "../test/mocks/mockRequests";
 import { MOCK_WORK_ORDERS } from "../test/mocks/mockWorkOrders";
+import type { Client } from "../services/clientService";
+import type {
+  CreateDeliveryDto,
+  Delivery,
+} from "../services/deliveryService";
+import type {
+  CreateQualityControlDto,
+  QualityControl,
+} from "../services/qualityService";
 import type {
   CreateWorkOrderDto,
   WorkOrder,
@@ -48,6 +67,23 @@ export default function WorkOrderDetailPage() {
     initialWo || null,
   );
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isQualityModalOpen, setIsQualityModalOpen] = useState(false);
+  const [isDeliveryModalOpen, setIsDeliveryModalOpen] = useState(false);
+
+  // Controles de calidad filtrados para esta OT
+  const [qualityControls, setQualityControls] = useState<QualityControl[]>(() =>
+    MOCK_QUALITY_CONTROLS.filter(
+      (qc) => String(qc.workOrderId) === id || (initialWo && qc.workOrderId === initialWo.id),
+    ),
+  );
+
+  // Entregas filtradas para esta OT
+  const [deliveries, setDeliveries] = useState<Delivery[]>(() =>
+    MOCK_DELIVERIES.filter(
+      (del) => String(del.workOrderId) === id || (initialWo && del.workOrderId === initialWo.id),
+    ),
+  );
+
   const [notification, setNotification] = useState<{
     status: "success" | "error";
     message: string;
@@ -67,6 +103,17 @@ export default function WorkOrderDetailPage() {
     navigate("/work-orders");
   };
 
+  // Resolucion de entidades vinculadas para trazabilidad completa
+  const client: Client | undefined =
+    workOrder?.client ||
+    MOCK_CLIENTS.find((c) => c.id === workOrder?.clientId);
+  const linkedRequest =
+    workOrder?.request ||
+    MOCK_REQUESTS.find((r) => r.id === workOrder?.requestId);
+  const linkedQuotation =
+    workOrder?.quotation ||
+    MOCK_QUOTATIONS.find((q) => q.id === workOrder?.quotationId);
+
   const handleSave = async (formData: CreateWorkOrderDto) => {
     if (!workOrder) return;
     const updated: WorkOrder = {
@@ -76,6 +123,35 @@ export default function WorkOrderDetailPage() {
     };
     setWorkOrder(updated);
     showNotification("Orden de trabajo actualizada con exito.");
+  };
+
+  const handleSaveQualityControl = async (data: CreateQualityControlDto) => {
+    const newId =
+      qualityControls.length > 0 ? Math.max(...qualityControls.map((q) => q.id)) + 1 : 1;
+    const newControl: QualityControl = {
+      id: newId,
+      ...data,
+      workOrder: workOrder || undefined,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    setQualityControls((prev) => [newControl, ...prev]);
+    showNotification("Control de calidad registrado con exito.");
+  };
+
+  const handleSaveDelivery = async (data: CreateDeliveryDto) => {
+    const newId =
+      deliveries.length > 0 ? Math.max(...deliveries.map((d) => d.id)) + 1 : 1;
+    const newDelivery: Delivery = {
+      id: newId,
+      ...data,
+      workOrder: workOrder || undefined,
+      client: client || undefined,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    setDeliveries((prev) => [newDelivery, ...prev]);
+    showNotification("Entrega registrada con exito.");
   };
 
   if (!workOrder) {
@@ -96,7 +172,7 @@ export default function WorkOrderDetailPage() {
 
   return (
     <Box>
-      {/* Barra de navegacion superior */}
+      {/* Barra de navegacion superior (Tarea 2.4: botones contextuales unificados) */}
       <Flex justify="space-between" align="center" mb={4} wrap="wrap" gap={2}>
         <Button variant="ghost" size="sm" onClick={handleBack}>
           <LuArrowLeft style={{ marginRight: "6px" }} />
@@ -104,23 +180,6 @@ export default function WorkOrderDetailPage() {
         </Button>
 
         <HStack gap={2}>
-          <Button
-            size="sm"
-            variant="outline"
-            colorPalette="gray"
-            onClick={() => navigate("/quality")}
-          >
-            Controles de calidad
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            colorPalette="gray"
-            onClick={() => navigate("/deliveries")}
-          >
-            <LuTruck style={{ marginRight: "4px" }} />
-            Entregas
-          </Button>
           <Can perform="workOrders:edit">
             <Button
               size="sm"
@@ -141,7 +200,7 @@ export default function WorkOrderDetailPage() {
         </Box>
       )}
 
-      {/* Cabecera de la ficha tecnica */}
+      {/* Cabecera de la ficha tecnica (Tarea 2.5: Identificacion y Cliente) */}
       <Box
         p={5}
         bg="white"
@@ -187,9 +246,44 @@ export default function WorkOrderDetailPage() {
                 <StatusBadge status={workOrder.status} />
                 <PriorityBadge priority={workOrder.priority} />
               </HStack>
-              <Heading size="md" color="gray.800">
+              <Heading size="md" color="gray.800" mb={1}>
                 {workOrder.title}
               </Heading>
+              {client && (
+                <HStack
+                  gap={2}
+                  fontSize="xs"
+                  color="gray.600"
+                  wrap="wrap"
+                  cursor="pointer"
+                  onClick={() => navigate("/clients")}
+                  _hover={{ color: "blue.600" }}
+                  title="Ver cliente en el modulo de clientes"
+                >
+                  <HStack gap={1}>
+                    <LuBuilding2 size={13} color="#2563EB" />
+                    <Text fontWeight="semibold" color="blue.700" textDecoration="underline">
+                      {client.businessName}
+                    </Text>
+                  </HStack>
+                  <Text color="gray.300">|</Text>
+                  <Text fontFamily="mono" color="gray.600">
+                    CUIT: {client.taxId}
+                  </Text>
+                  {client.contactName && (
+                    <>
+                      <Text color="gray.300">|</Text>
+                      <Text color="gray.600">Contacto: {client.contactName}</Text>
+                    </>
+                  )}
+                  {client.email && (
+                    <>
+                      <Text color="gray.300">|</Text>
+                      <Text color="gray.500">{client.email}</Text>
+                    </>
+                  )}
+                </HStack>
+              )}
             </Box>
           </HStack>
         </Flex>
@@ -310,7 +404,286 @@ export default function WorkOrderDetailPage() {
         </Card>
       </SimpleGrid>
 
-      {/* Modal de edicion */}
+      {/* Tarea 2.1: Origen del trabajo y trazabilidad comercial */}
+      <Box mt={6}>
+        <Card
+          title="Origen del trabajo y trazabilidad comercial"
+          description="Expediente de solicitud de cliente y cotizacion aprobada que respaldan esta orden"
+        >
+          <SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
+            {/* Solicitud de origen */}
+            <Box
+              p={4}
+              borderWidth="1px"
+              borderColor="gray.200"
+              borderRadius="md"
+              bg={linkedRequest ? "white" : "gray.50"}
+            >
+              <HStack justify="space-between" mb={2}>
+                <HStack gap={2}>
+                  <LuFileText color="#2563EB" size={18} />
+                  <Text fontSize="sm" fontWeight="bold" color="gray.800">
+                    Solicitud de cliente
+                  </Text>
+                </HStack>
+                {linkedRequest ? (
+                  <Badge colorPalette="blue" variant="subtle">
+                    {linkedRequest.requestNumber}
+                  </Badge>
+                ) : (
+                  <Badge colorPalette="gray" variant="subtle">
+                    Sin solicitud
+                  </Badge>
+                )}
+              </HStack>
+
+              {linkedRequest ? (
+                <VStack align="stretch" gap={2} fontSize="xs">
+                  <Text fontWeight="semibold" color="gray.800" fontSize="sm">
+                    {linkedRequest.title}
+                  </Text>
+                  <Text color="gray.600" lineHeight="tall">
+                    {linkedRequest.description}
+                  </Text>
+                  <SimpleGrid columns={2} gap={2} pt={2} borderTopWidth="1px" borderColor="gray.100">
+                    <Box>
+                      <Text color="gray.500">Recibida el:</Text>
+                      <Text fontWeight="semibold" color="gray.700">
+                        {formatDate(linkedRequest.receivedAt)}
+                      </Text>
+                    </Box>
+                    <Box>
+                      <Text color="gray.500">Entrega deseada:</Text>
+                      <Text fontWeight="semibold" color="gray.700">
+                        {linkedRequest.requestedDeliveryDate
+                          ? formatDate(linkedRequest.requestedDeliveryDate)
+                          : "No especificada"}
+                      </Text>
+                    </Box>
+                  </SimpleGrid>
+                </VStack>
+              ) : (
+                <Text fontSize="xs" color="gray.500" fontStyle="italic" py={4} textAlign="center">
+                  Esta orden no posee una solicitud formal previa vinculada (ingreso directo o de urgencia).
+                </Text>
+              )}
+            </Box>
+
+            {/* Cotizacion aprobada */}
+            <Box
+              p={4}
+              borderWidth="1px"
+              borderColor="gray.200"
+              borderRadius="md"
+              bg={linkedQuotation ? "white" : "gray.50"}
+            >
+              <HStack justify="space-between" mb={2}>
+                <HStack gap={2}>
+                  <LuFileSpreadsheet color="#16A34A" size={18} />
+                  <Text fontSize="sm" fontWeight="bold" color="gray.800">
+                    Cotizacion comercial
+                  </Text>
+                </HStack>
+                {linkedQuotation ? (
+                  <Badge colorPalette="green" variant="subtle">
+                    {linkedQuotation.quotationNumber} (v{linkedQuotation.version})
+                  </Badge>
+                ) : (
+                  <Badge colorPalette="gray" variant="subtle">
+                    Sin cotizacion
+                  </Badge>
+                )}
+              </HStack>
+
+              {linkedQuotation ? (
+                <VStack align="stretch" gap={2} fontSize="xs">
+                  <Text fontWeight="semibold" color="gray.800" fontSize="sm">
+                    {linkedQuotation.description}
+                  </Text>
+                  <SimpleGrid columns={3} gap={2} pt={2} borderTopWidth="1px" borderColor="gray.100">
+                    <Box>
+                      <Text color="gray.500">Subtotal:</Text>
+                      <Text fontFamily="mono" fontWeight="medium" color="gray.700">
+                        {formatCurrency(linkedQuotation.subtotal, linkedQuotation.currency)}
+                      </Text>
+                    </Box>
+                    <Box>
+                      <Text color="gray.500">IVA (21%):</Text>
+                      <Text fontFamily="mono" fontWeight="medium" color="gray.700">
+                        {formatCurrency(linkedQuotation.taxAmount, linkedQuotation.currency)}
+                      </Text>
+                    </Box>
+                    <Box>
+                      <Text color="gray.500">Total:</Text>
+                      <Text fontFamily="mono" fontWeight="bold" color="green.700">
+                        {formatCurrency(
+                          Number(linkedQuotation.subtotal || 0) + Number(linkedQuotation.taxAmount || 0),
+                          linkedQuotation.currency,
+                        )}
+                      </Text>
+                    </Box>
+                  </SimpleGrid>
+                  {linkedQuotation.validUntil && (
+                    <Text fontSize="xs" color="gray.500" pt={1}>
+                      Vigencia de la oferta: {formatDate(linkedQuotation.validUntil)}
+                    </Text>
+                  )}
+                </VStack>
+              ) : (
+                <Text fontSize="xs" color="gray.500" fontStyle="italic" py={4} textAlign="center">
+                  Esta orden no cuenta con una cotizacion comercial asociada registrada en el sistema.
+                </Text>
+              )}
+            </Box>
+          </SimpleGrid>
+        </Card>
+      </Box>
+
+      {/* Tarea 2.2: Controles de calidad embebidos */}
+      <Box mt={6}>
+        <Card
+          title={
+            <Flex justify="space-between" align="center" w="full" wrap="wrap" gap={2}>
+              <Text fontWeight="bold" fontSize="md" color="gray.800">
+                Controles de calidad realizados
+              </Text>
+              <Can perform="quality:create">
+                <Button
+                  size="xs"
+                  colorPalette="blue"
+                  variant="outline"
+                  onClick={() => setIsQualityModalOpen(true)}
+                >
+                  <LuPlus style={{ marginRight: "4px" }} />
+                  Registrar control
+                </Button>
+              </Can>
+            </Flex>
+          }
+          description="Ensayos dimensionales, metrologia y pruebas tecnicas aplicadas sobre esta pieza"
+        >
+          {qualityControls.length > 0 ? (
+            <Box overflowX="auto">
+              <Table.Root size="sm">
+                <Table.Header>
+                  <Table.Row bg="gray.50">
+                    <Table.ColumnHeader fontSize="xs">Fecha</Table.ColumnHeader>
+                    <Table.ColumnHeader fontSize="xs">Especificacion / Ensayo</Table.ColumnHeader>
+                    <Table.ColumnHeader fontSize="xs">Valor esperado</Table.ColumnHeader>
+                    <Table.ColumnHeader fontSize="xs">Valor medido</Table.ColumnHeader>
+                    <Table.ColumnHeader fontSize="xs">Unidad</Table.ColumnHeader>
+                    <Table.ColumnHeader fontSize="xs">Observaciones</Table.ColumnHeader>
+                  </Table.Row>
+                </Table.Header>
+                <Table.Body>
+                  {qualityControls.map((qc) => (
+                    <Table.Row key={qc.id}>
+                      <Table.Cell fontSize="xs" whiteSpace="nowrap">
+                        {formatDate(qc.performedAt)}
+                      </Table.Cell>
+                      <Table.Cell fontSize="xs" fontWeight="medium" color="gray.800">
+                        {qc.specification}
+                      </Table.Cell>
+                      <Table.Cell fontSize="xs" fontFamily="mono" color="gray.600">
+                        {qc.expectedValue}
+                      </Table.Cell>
+                      <Table.Cell fontSize="xs" fontFamily="mono" fontWeight="bold" color="green.700">
+                        {qc.measuredValue}
+                      </Table.Cell>
+                      <Table.Cell fontSize="xs">
+                        <Badge size="xs" variant="surface" colorPalette="gray">
+                          {qc.unit}
+                        </Badge>
+                      </Table.Cell>
+                      <Table.Cell fontSize="xs" color="gray.500">
+                        {qc.observations || "—"}
+                      </Table.Cell>
+                    </Table.Row>
+                  ))}
+                </Table.Body>
+              </Table.Root>
+            </Box>
+          ) : (
+            <Box py={6} textAlign="center">
+              <Text fontSize="xs" color="gray.500" fontStyle="italic">
+                No se registraron controles de calidad para esta orden de trabajo.
+              </Text>
+            </Box>
+          )}
+        </Card>
+      </Box>
+
+      {/* Tarea 2.3: Entregas y remitos despachados */}
+      <Box mt={6}>
+        <Card
+          title={
+            <Flex justify="space-between" align="center" w="full" wrap="wrap" gap={2}>
+              <Text fontWeight="bold" fontSize="md" color="gray.800">
+                Entregas y remitos despachados
+              </Text>
+              <Can perform="deliveries:create">
+                <Button
+                  size="xs"
+                  colorPalette="blue"
+                  variant="outline"
+                  onClick={() => setIsDeliveryModalOpen(true)}
+                >
+                  <LuPlus style={{ marginRight: "4px" }} />
+                  Registrar entrega
+                </Button>
+              </Can>
+            </Flex>
+          }
+          description="Historial de despachos parciales o finales efectuados para esta orden"
+        >
+          {deliveries.length > 0 ? (
+            <Box overflowX="auto">
+              <Table.Root size="sm">
+                <Table.Header>
+                  <Table.Row bg="gray.50">
+                    <Table.ColumnHeader fontSize="xs">Remito / ID</Table.ColumnHeader>
+                    <Table.ColumnHeader fontSize="xs">Fecha despacho</Table.ColumnHeader>
+                    <Table.ColumnHeader fontSize="xs" textAlign="right">
+                      Cantidad
+                    </Table.ColumnHeader>
+                    <Table.ColumnHeader fontSize="xs">Cliente destinatario</Table.ColumnHeader>
+                    <Table.ColumnHeader fontSize="xs">Notas de remito</Table.ColumnHeader>
+                  </Table.Row>
+                </Table.Header>
+                <Table.Body>
+                  {deliveries.map((del) => (
+                    <Table.Row key={del.id}>
+                      <Table.Cell fontSize="xs" fontFamily="mono" fontWeight="bold" color="blue.700">
+                        #REM-{del.id}
+                      </Table.Cell>
+                      <Table.Cell fontSize="xs" whiteSpace="nowrap">
+                        {formatDate(del.deliveryDate)}
+                      </Table.Cell>
+                      <Table.Cell fontSize="xs" fontFamily="mono" fontWeight="semibold" textAlign="right">
+                        {del.quantity} u.
+                      </Table.Cell>
+                      <Table.Cell fontSize="xs" color="gray.800">
+                        {del.client?.businessName || client?.businessName || "—"}
+                      </Table.Cell>
+                      <Table.Cell fontSize="xs" color="gray.500">
+                        {del.notes || "—"}
+                      </Table.Cell>
+                    </Table.Row>
+                  ))}
+                </Table.Body>
+              </Table.Root>
+            </Box>
+          ) : (
+            <Box py={6} textAlign="center">
+              <Text fontSize="xs" color="gray.500" fontStyle="italic">
+                No se registraron entregas ni remitos despachados para esta orden de trabajo.
+              </Text>
+            </Box>
+          )}
+        </Card>
+      </Box>
+
+      {/* Modal de edicion de OT */}
       <WorkOrderFormModal
         open={isFormOpen}
         onOpenChange={({ open }) => setIsFormOpen(open)}
@@ -319,6 +692,26 @@ export default function WorkOrderDetailPage() {
         requests={MOCK_REQUESTS}
         quotations={MOCK_QUOTATIONS}
         onSave={handleSave}
+      />
+
+      {/* Modal para registrar Control de Calidad directamente desde la OT */}
+      <QualityFormModal
+        open={isQualityModalOpen}
+        onOpenChange={({ open }) => setIsQualityModalOpen(open)}
+        workOrders={workOrder ? [workOrder] : []}
+        defaultWorkOrderId={workOrder?.id}
+        onSave={handleSaveQualityControl}
+      />
+
+      {/* Modal para registrar Entrega directamente desde la OT */}
+      <DeliveryFormModal
+        open={isDeliveryModalOpen}
+        onOpenChange={({ open }) => setIsDeliveryModalOpen(open)}
+        workOrders={workOrder ? [workOrder] : []}
+        clients={MOCK_CLIENTS}
+        defaultWorkOrderId={workOrder?.id}
+        defaultClientId={workOrder?.clientId}
+        onSave={handleSaveDelivery}
       />
     </Box>
   );
