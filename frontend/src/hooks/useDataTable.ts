@@ -8,6 +8,7 @@ export interface UseDataTableOptions<T> {
   initialSortField?: keyof T | null;
   initialSortDirection?: SortDirection;
   initialPageSize?: number;
+  initialSearchTerm?: string;
 }
 
 export interface UseDataTableReturn<T> {
@@ -47,9 +48,10 @@ export function useDataTable<T extends Record<string, unknown>>({
   initialSortField = null,
   initialSortDirection = null,
   initialPageSize = 10,
+  initialSearchTerm = "",
 }: UseDataTableOptions<T>): UseDataTableReturn<T> {
   // 1. Estados de búsqueda, orden y paginación
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
   const [sortField, setSortField] = useState<keyof T | null>(initialSortField);
   const [sortDirection, setSortDirection] =
     useState<SortDirection>(initialSortDirection);

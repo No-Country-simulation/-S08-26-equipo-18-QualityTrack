@@ -49,6 +49,7 @@ export interface DataTableProps<T extends Record<string, unknown>> {
   emptyTitle?: string;
   emptyDescription?: string;
   initialPageSize?: number;
+  initialSearch?: string;
   server?: ServerTableConfig;
 }
 
@@ -69,6 +70,7 @@ export function DataTable<T extends Record<string, unknown>>({
   emptyTitle = "No hay registros disponibles",
   emptyDescription = "Todavía no se han cargado datos para esta sección.",
   initialPageSize = 10,
+  initialSearch = "",
   server,
 }: DataTableProps<T>) {
   const tableData = data ?? [];
@@ -94,10 +96,22 @@ export function DataTable<T extends Record<string, unknown>>({
     data: tableData,
     searchFields,
     initialPageSize,
+    initialSearchTerm: initialSearch,
   });
 
   const [serverPage, setServerPage] = useState(1);
-  const [serverSearch, setServerSearch] = useState("");
+  const [serverSearch, setServerSearch] = useState(initialSearch || "");
+
+  // Sincronizar si cambia initialSearch desde la URL o el exterior
+  useEffect(() => {
+    if (initialSearch !== undefined) {
+      if (isServer) {
+        setServerSearch(initialSearch);
+      } else {
+        setLocalSearchTerm(initialSearch);
+      }
+    }
+  }, [initialSearch, isServer, setLocalSearchTerm]);
 
   // La referencia evita que un `server` creado en cada render vuelva a disparar
   // el efecto y con él una consulta infinita.

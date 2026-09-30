@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Box, Flex, Heading, HStack, Text } from "@chakra-ui/react";
 import { LuPencil, LuPlus, LuRotateCcw, LuUserX, LuUsers } from "react-icons/lu";
 import { Alert } from "../components/Alert";
@@ -32,6 +33,8 @@ function errorMessage(error: unknown): string {
 }
 
 export default function ClientsPage() {
+  const [searchParams] = useSearchParams();
+  const searchParam = searchParams.get("search") || "";
   const [clients, setClients] = useState<ClientRecord[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -47,7 +50,7 @@ export default function ClientsPage() {
   } | null>(null);
 
   // La consulta vigente: la tabla avisa cuando cambia de pagina o de busqueda.
-  const queryRef = useRef({ page: 1, search: "" });
+  const queryRef = useRef({ page: 1, search: searchParam });
 
   const showNotification = (
     message: string,
@@ -172,6 +175,7 @@ export default function ClientsPage() {
         error={loadError}
         onRetry={load}
         searchPlaceholder="Buscar por razon social o CUIT..."
+        initialSearch={searchParam}
         emptyTitle="No hay clientes cargados"
         emptyDescription="Cuando cargues el primero, aparece aca."
         server={{
