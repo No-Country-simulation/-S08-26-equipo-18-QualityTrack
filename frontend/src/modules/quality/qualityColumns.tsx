@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { Box, Text } from "@chakra-ui/react";
 import { Badge } from "../../components/Badge";
 import type { ColumnDef } from "../../components/DataTable";
@@ -45,22 +46,28 @@ export const QUALITY_COLUMNS: ColumnDef<QualityControl>[] = [
     sortable: true,
     cell: (item: QualityControl) => (
       <Box>
-        <Text
-          fontFamily="mono"
-          fontSize="xs"
-          fontWeight="bold"
-          color="blue.700"
-          bg="blue.50"
-          px={1.5}
-          py={0.5}
-          borderRadius="sm"
-          display="inline-block"
-          mb={0.5}
+        <Link
+          to={`/work-orders/${item.workOrderId}`}
+          style={{ textDecoration: "none" }}
         >
-          OT-{item.workOrder?.workOrderNumber || item.workOrderId}
-        </Text>
+          <Text
+            fontFamily="mono"
+            fontSize="xs"
+            fontWeight="bold"
+            color="blue.700"
+            bg="blue.50"
+            px={1.5}
+            py={0.5}
+            borderRadius="sm"
+            display="inline-block"
+            mb={0.5}
+            _hover={{ textDecoration: "underline", bg: "blue.100" }}
+          >
+            OT-{item.workOrder?.workOrderNumber || item.workOrderId}
+          </Text>
+        </Link>
         {item.workOrder?.title && (
-          <Text fontSize="xs" color="gray.500" lineClamp={1} maxW="260px">
+          <Text fontSize="xs" color="gray.500" lineClamp={1} maxW="240px">
             {item.workOrder.title}
           </Text>
         )}

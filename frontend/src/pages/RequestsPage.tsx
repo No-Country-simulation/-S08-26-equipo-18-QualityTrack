@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Box, Flex, Heading, HStack, Text } from "@chakra-ui/react";
 import { LuClipboardList, LuPencil, LuPlus, LuTrash2 } from "react-icons/lu";
 import { Alert } from "../components/Alert";
@@ -15,6 +16,8 @@ import type { CreateRequestDto, Request } from "../services/requestService";
 type RequestRecord = Request & Record<string, unknown>;
 
 export default function RequestsPage() {
+  const [searchParams] = useSearchParams();
+  const searchParam = searchParams.get("search") || "";
   const [requests, setRequests] = useState<RequestRecord[]>(
     MOCK_REQUESTS as RequestRecord[],
   );
@@ -131,6 +134,7 @@ export default function RequestsPage() {
       <DataTable<RequestRecord>
         columns={REQUEST_COLUMNS}
         data={requests}
+        initialSearch={searchParam}
         searchFields={["requestNumber", "title", "description"]}
         searchPlaceholder="Buscar por nro. solicitud, titulo o descripcion..."
         toolbarActions={

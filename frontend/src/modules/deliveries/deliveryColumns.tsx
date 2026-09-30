@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { Box, Text } from "@chakra-ui/react";
 import { Badge } from "../../components/Badge";
 import type { ColumnDef } from "../../components/DataTable";
@@ -34,20 +35,26 @@ export const DELIVERY_COLUMNS: ColumnDef<Delivery>[] = [
     sortable: true,
     cell: (item: Delivery) => (
       <Box>
-        <Text
-          fontFamily="mono"
-          fontSize="xs"
-          fontWeight="bold"
-          color="blue.700"
-          bg="blue.50"
-          px={1.5}
-          py={0.5}
-          borderRadius="sm"
-          display="inline-block"
-          mb={0.5}
+        <Link
+          to={`/work-orders/${item.workOrderId}`}
+          style={{ textDecoration: "none" }}
         >
-          OT-{item.workOrder?.workOrderNumber || item.workOrderId}
-        </Text>
+          <Text
+            fontFamily="mono"
+            fontSize="xs"
+            fontWeight="bold"
+            color="blue.700"
+            bg="blue.50"
+            px={1.5}
+            py={0.5}
+            borderRadius="sm"
+            display="inline-block"
+            mb={0.5}
+            _hover={{ textDecoration: "underline", bg: "blue.100" }}
+          >
+            OT-{item.workOrder?.workOrderNumber || item.workOrderId}
+          </Text>
+        </Link>
         {item.workOrder?.title && (
           <Text fontSize="xs" color="gray.500" lineClamp={1} maxW="240px">
             {item.workOrder.title}
@@ -59,11 +66,28 @@ export const DELIVERY_COLUMNS: ColumnDef<Delivery>[] = [
   {
     header: "Cliente destinatario",
     sortable: true,
-    cell: (item: Delivery) => (
-      <Text fontWeight="semibold" color="gray.800" fontSize="sm">
-        {item.client?.businessName || "—"}
-      </Text>
-    ),
+    cell: (item: Delivery) => {
+      const searchTarget = item.client?.taxId || item.client?.businessName;
+      return searchTarget ? (
+        <Link
+          to={`/clients?search=${encodeURIComponent(searchTarget)}`}
+          style={{ textDecoration: "none" }}
+        >
+          <Text
+            fontWeight="semibold"
+            color="blue.600"
+            fontSize="sm"
+            _hover={{ textDecoration: "underline", color: "blue.800" }}
+          >
+            {item.client?.businessName || "—"}
+          </Text>
+        </Link>
+      ) : (
+        <Text fontWeight="semibold" color="gray.800" fontSize="sm">
+          {item.client?.businessName || "—"}
+        </Text>
+      );
+    },
   },
   {
     header: "Fecha de entrega",

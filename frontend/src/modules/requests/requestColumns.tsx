@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { Box, Text } from "@chakra-ui/react";
 import type { ColumnDef } from "../../components/DataTable";
 import type { Request } from "../../services/requestService";
@@ -59,11 +60,28 @@ export const REQUEST_COLUMNS: ColumnDef<Request>[] = [
   {
     header: "Cliente",
     sortable: true,
-    cell: (item: Request) => (
-      <Text fontWeight="medium" color="gray.700" fontSize="sm">
-        {item.client?.businessName || `Cliente #${item.clientId}`}
-      </Text>
-    ),
+    cell: (item: Request) => {
+      const searchTarget = item.client?.taxId || item.client?.businessName;
+      return searchTarget ? (
+        <Link
+          to={`/clients?search=${encodeURIComponent(searchTarget)}`}
+          style={{ textDecoration: "none" }}
+        >
+          <Text
+            fontWeight="medium"
+            color="blue.600"
+            fontSize="sm"
+            _hover={{ textDecoration: "underline", color: "blue.800" }}
+          >
+            {item.client?.businessName || `Cliente #${item.clientId}`}
+          </Text>
+        </Link>
+      ) : (
+        <Text fontWeight="medium" color="gray.700" fontSize="sm">
+          {item.client?.businessName || `Cliente #${item.clientId}`}
+        </Text>
+      );
+    },
   },
   {
     header: "Fecha recibida",

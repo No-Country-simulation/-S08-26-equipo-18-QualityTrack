@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Box, Flex, Heading, HStack, Text } from "@chakra-ui/react";
 import { LuPencil, LuPlus, LuReceiptText, LuTrash2 } from "react-icons/lu";
 import { Alert } from "../components/Alert";
@@ -23,6 +24,8 @@ import type { Request } from "../services/requestService";
 type QuotationRecord = Quotation & Record<string, unknown>;
 
 export default function QuotationsPage() {
+  const [searchParams] = useSearchParams();
+  const searchParam = searchParams.get("search") || "";
   const [quotations, setQuotations] = useState<QuotationRecord[]>(
     MOCK_QUOTATIONS as QuotationRecord[],
   );
@@ -151,6 +154,7 @@ export default function QuotationsPage() {
       <DataTable<QuotationRecord>
         columns={QUOTATION_COLUMNS}
         data={quotations}
+        initialSearch={searchParam}
         searchFields={["quotationNumber", "description", "currency"]}
         searchPlaceholder="Buscar por nro. cotizacion o descripcion..."
         toolbarActions={

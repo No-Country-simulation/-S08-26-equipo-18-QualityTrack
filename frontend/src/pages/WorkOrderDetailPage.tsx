@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   Box,
   Flex,
@@ -33,7 +33,6 @@ import { Badge } from "../components/Badge";
 import { Button } from "../components/Button";
 import { Can } from "../components/Can";
 import { Card } from "../components/Card";
-import { ConfirmDialog } from "../components/ConfirmDialog";
 import { FormField } from "../components/FormField";
 import { Input } from "../components/Input";
 import { Modal } from "../components/Modal";
@@ -201,7 +200,6 @@ export default function WorkOrderDetailPage() {
     shift: "Turno mañana (06:00 - 14:00)",
     notes: "",
   });
-  const [userToRemove, setUserToRemove] = useState<WorkOrderUser | null>(null);
 
   const [notification, setNotification] = useState<{
     status: "success" | "error";
@@ -367,18 +365,9 @@ export default function WorkOrderDetailPage() {
     );
   };
 
-  const handlePromptRemoveUser = (item: WorkOrderUser) => {
-    setUserToRemove(item);
-  };
-
-  const handleConfirmRemoveUser = () => {
-    if (!userToRemove) return;
-    const target = userToRemove;
-    setWorkOrderUsers((prev) => prev.filter((u) => u.id !== target.id));
-    setUserToRemove(null);
-    showNotification(
-      `Se removio a ${target.user ? `${target.user.firstName} ${target.user.lastName}` : "el operario"} de la orden de trabajo.`,
-    );
+  const handleRemoveUser = (assignmentId: number) => {
+    setWorkOrderUsers((prev) => prev.filter((u) => u.id !== assignmentId));
+    showNotification("Asignacion de personal removida de la orden.");
   };
 
   const handleBack = () => {
@@ -560,7 +549,13 @@ export default function WorkOrderDetailPage() {
                   color="gray.600"
                   wrap="wrap"
                   cursor="pointer"
-                  onClick={() => navigate("/clients")}
+                  onClick={() =>
+                    navigate(
+                      `/clients?search=${encodeURIComponent(
+                        client.taxId || client.businessName,
+                      )}`,
+                    )
+                  }
                   _hover={{ color: "blue.600" }}
                   title="Ver cliente en el modulo de clientes"
                 >
@@ -731,9 +726,21 @@ export default function WorkOrderDetailPage() {
                   </Text>
                 </HStack>
                 {linkedRequest ? (
-                  <Badge colorPalette="blue" variant="subtle">
-                    {linkedRequest.requestNumber}
-                  </Badge>
+                  <Link
+                    to={`/requests?search=${encodeURIComponent(
+                      linkedRequest.requestNumber,
+                    )}`}
+                    style={{ textDecoration: "none" }}
+                  >
+                    <Badge
+                      colorPalette="blue"
+                      variant="subtle"
+                      cursor="pointer"
+                      _hover={{ bg: "blue.100" }}
+                    >
+                      {linkedRequest.requestNumber}
+                    </Badge>
+                  </Link>
                 ) : (
                   <Badge colorPalette="gray" variant="subtle">
                     Sin solicitud
@@ -789,9 +796,21 @@ export default function WorkOrderDetailPage() {
                   </Text>
                 </HStack>
                 {linkedQuotation ? (
-                  <Badge colorPalette="green" variant="subtle">
-                    {linkedQuotation.quotationNumber} (v{linkedQuotation.version})
-                  </Badge>
+                  <Link
+                    to={`/quotations?search=${encodeURIComponent(
+                      linkedQuotation.quotationNumber,
+                    )}`}
+                    style={{ textDecoration: "none" }}
+                  >
+                    <Badge
+                      colorPalette="green"
+                      variant="subtle"
+                      cursor="pointer"
+                      _hover={{ bg: "green.100" }}
+                    >
+                      {linkedQuotation.quotationNumber} (v{linkedQuotation.version})
+                    </Badge>
+                  </Link>
                 ) : (
                   <Badge colorPalette="gray" variant="subtle">
                     Sin cotizacion
@@ -1307,7 +1326,7 @@ export default function WorkOrderDetailPage() {
                             size="2xs"
                             variant="ghost"
                             colorPalette="red"
-                            onClick={() => handlePromptRemoveUser(item)}
+                            onClick={() => handleRemoveUser(item.id)}
                             title="Remover asignacion"
                           >
                             <LuX style={{ marginRight: "2px" }} />
@@ -2051,24 +2070,6 @@ export default function WorkOrderDetailPage() {
           </FormField>
         </VStack>
       </Modal>
-
-      {/* Dialogo de confirmacion para remover operario de la orden */}
-      <ConfirmDialog
-        open={Boolean(userToRemove)}
-        onOpenChange={({ open }) => {
-          if (!open) setUserToRemove(null);
-        }}
-        title="Remover asignacion de personal"
-        description={
-          userToRemove
-            ? `¿Desea remover a ${userToRemove.user ? `${userToRemove.user.firstName} ${userToRemove.user.lastName}` : "este operario"} (${userToRemove.role || "Operario"}) de la orden OT-${workOrder?.workOrderNumber}?`
-            : undefined
-        }
-        confirmText="Remover personal"
-        cancelText="Cancelar"
-        confirmColorPalette="red"
-        onConfirm={handleConfirmRemoveUser}
-      />
     </Box>
   );
 }
