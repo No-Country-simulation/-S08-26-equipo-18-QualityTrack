@@ -24,6 +24,7 @@ import {
   LuPlus,
   LuShieldCheck,
   LuUpload,
+  LuUsers,
   LuWrench,
   LuX,
 } from "react-icons/lu";
@@ -32,9 +33,11 @@ import { Badge } from "../components/Badge";
 import { Button } from "../components/Button";
 import { Can } from "../components/Can";
 import { Card } from "../components/Card";
+import { ConfirmDialog } from "../components/ConfirmDialog";
 import { FormField } from "../components/FormField";
 import { Input } from "../components/Input";
 import { Modal } from "../components/Modal";
+import { Select } from "../components/Select";
 import { Table } from "../components/Table";
 import { Textarea } from "../components/Textarea";
 import {
@@ -57,6 +60,10 @@ import { MOCK_OPERATIONS } from "../test/mocks/mockOperations";
 import { MOCK_DOCUMENTS } from "../test/mocks/mockDocuments";
 import { MOCK_APPROVALS } from "../test/mocks/mockApprovals";
 import { MOCK_WORK_ORDER_MATERIALS } from "../test/mocks/mockWorkOrderMaterials";
+import {
+  MOCK_AVAILABLE_OPERATORS,
+  MOCK_WORK_ORDER_USERS,
+} from "../test/mocks/mockWorkOrderUsers";
 import type { Client } from "../services/clientService";
 import type {
   CreateDeliveryDto,
@@ -75,6 +82,7 @@ import type { Operation } from "../services/operationService";
 import type { Document } from "../services/documentService";
 import type { Approval } from "../services/approvalService";
 import type { WorkOrderMaterial } from "../services/materialService";
+import type { WorkOrderUser } from "../services/workOrderUserService";
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -177,6 +185,23 @@ export default function WorkOrderDetailPage() {
     unit: "kg",
     notes: "",
   });
+
+  // Personal operativo asignado a esta OT (Tarea 6.2)
+  const [workOrderUsers, setWorkOrderUsers] = useState<WorkOrderUser[]>(() =>
+    MOCK_WORK_ORDER_USERS.filter(
+      (u) =>
+        String(u.workOrderId) === id ||
+        (initialWo && u.workOrderId === initialWo.id),
+    ),
+  );
+  const [isUserModalOpen, setIsUserModalOpen] = useState(false);
+  const [newUserForm, setNewUserForm] = useState({
+    userId: String(MOCK_AVAILABLE_OPERATORS[0].id),
+    role: "Operador CNC principal",
+    shift: "Turno mañana (06:00 - 14:00)",
+    notes: "",
+  });
+  const [userToRemove, setUserToRemove] = useState<WorkOrderUser | null>(null);
 
   const [notification, setNotification] = useState<{
     status: "success" | "error";
@@ -285,6 +310,75 @@ export default function WorkOrderDetailPage() {
     setWorkOrderMaterials((prev) => [...prev, newEntry]);
     setIsMaterialModalOpen(false);
     showNotification("Partida de materia prima asignada con exito a la orden.");
+  };
+
+  const handleOpenUserModal = () => {
+    setNewUserForm({
+      userId: String(MOCK_AVAILABLE_OPERATORS[0].id),
+      role: "Operador CNC principal",
+      shift: "Turno mañana (06:00 - 14:00)",
+      notes: "",
+    });
+    setIsUserModalOpen(true);
+  };
+
+  const handleAssignUser = () => {
+    if (!workOrder) return;
+    const selectedUser = MOCK_AVAILABLE_OPERATORS.find(
+      (u) => String(u.id) === newUserForm.userId,
+    );
+    if (!selectedUser) {
+      showNotification("Debe seleccionar un operario valido.", "error");
+      return;
+    }
+    const alreadyAssigned = workOrderUsers.some(
+      (u) => u.userId === selectedUser.id && u.role === newUserForm.role,
+    );
+    if (alreadyAssigned) {
+      showNotification(
+        `${selectedUser.firstName} ${selectedUser.lastName} ya esta asignado con ese rol en esta orden.`,
+        "error",
+      );
+      return;
+    }
+
+    const newId =
+      workOrderUsers.length > 0
+        ? Math.max(...workOrderUsers.map((u) => u.id)) + 1
+        : 1;
+
+    const newAssignment: WorkOrderUser = {
+      id: newId,
+      workOrderId: workOrder.id,
+      userId: selectedUser.id,
+      user: selectedUser,
+      role: newUserForm.role.trim() || "Operador",
+      shift: newUserForm.shift.trim() || undefined,
+      notes: newUserForm.notes.trim() || undefined,
+      assignedAt: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    setWorkOrderUsers((prev) => [...prev, newAssignment]);
+    setIsUserModalOpen(false);
+    showNotification(
+      `${selectedUser.firstName} ${selectedUser.lastName} asignado con exito a la orden.`,
+    );
+  };
+
+  const handlePromptRemoveUser = (item: WorkOrderUser) => {
+    setUserToRemove(item);
+  };
+
+  const handleConfirmRemoveUser = () => {
+    if (!userToRemove) return;
+    const target = userToRemove;
+    setWorkOrderUsers((prev) => prev.filter((u) => u.id !== target.id));
+    setUserToRemove(null);
+    showNotification(
+      `Se removio a ${target.user ? `${target.user.firstName} ${target.user.lastName}` : "el operario"} de la orden de trabajo.`,
+    );
   };
 
   const handleBack = () => {
@@ -1100,6 +1194,142 @@ export default function WorkOrderDetailPage() {
         </Card>
       </Box>
 
+      {/* Tarea 6.2: Personal tecnico y operarios asignados a la orden */}
+      <Box mt={6}>
+        <Card
+          title={
+            <Flex
+              justify="space-between"
+              align="center"
+              w="full"
+              wrap="wrap"
+              gap={2}
+            >
+              <HStack gap={2}>
+                <LuUsers color="#2563EB" size={20} />
+                <Text fontWeight="bold" fontSize="md" color="gray.800">
+                  Personal asignado a la orden
+                </Text>
+                {workOrderUsers.length > 0 && (
+                  <Badge colorPalette="blue" variant="subtle">
+                    {workOrderUsers.length}{" "}
+                    {workOrderUsers.length === 1 ? "operario" : "operarios"}
+                  </Badge>
+                )}
+              </HStack>
+              <Can perform="workOrders:assign">
+                <Button
+                  size="xs"
+                  colorPalette="blue"
+                  variant="outline"
+                  onClick={handleOpenUserModal}
+                >
+                  <LuPlus style={{ marginRight: "4px" }} />
+                  Asignar personal
+                </Button>
+              </Can>
+            </Flex>
+          }
+          description="Operarios tecnicos, torneros, fresadores e inspectores que intervienen en la ejecucion del trabajo"
+        >
+          {workOrderUsers.length > 0 ? (
+            <Box overflowX="auto">
+              <Table.Root size="sm">
+                <Table.Header>
+                  <Table.Row bg="gray.50">
+                    <Table.ColumnHeader fontSize="xs">
+                      Operario / Tecnico
+                    </Table.ColumnHeader>
+                    <Table.ColumnHeader fontSize="xs">
+                      Rol en la orden
+                    </Table.ColumnHeader>
+                    <Table.ColumnHeader fontSize="xs">
+                      Turno de trabajo
+                    </Table.ColumnHeader>
+                    <Table.ColumnHeader fontSize="xs">
+                      Fecha asignacion
+                    </Table.ColumnHeader>
+                    <Table.ColumnHeader fontSize="xs">
+                      Indicaciones / Tareas
+                    </Table.ColumnHeader>
+                    <Table.ColumnHeader fontSize="xs" textAlign="right">
+                      Acciones
+                    </Table.ColumnHeader>
+                  </Table.Row>
+                </Table.Header>
+                <Table.Body>
+                  {workOrderUsers.map((item) => (
+                    <Table.Row key={item.id}>
+                      <Table.Cell fontSize="xs">
+                        <VStack align="start" gap={0}>
+                          <Text fontWeight="semibold" color="gray.800">
+                            {item.user
+                              ? `${item.user.firstName} ${item.user.lastName}`
+                              : `Usuario #${item.userId}`}
+                          </Text>
+                          <Text fontSize="2xs" color="gray.500">
+                            {item.user?.email || "—"}
+                          </Text>
+                        </VStack>
+                      </Table.Cell>
+                      <Table.Cell fontSize="xs">
+                        <Badge
+                          size="xs"
+                          variant="subtle"
+                          colorPalette={
+                            item.role?.toLowerCase().includes("inspector") ||
+                            item.role?.toLowerCase().includes("calidad")
+                              ? "green"
+                              : item.role?.toLowerCase().includes("cnc") ||
+                                item.role?.toLowerCase().includes("tornero") ||
+                                item.role?.toLowerCase().includes("fresador")
+                                ? "blue"
+                                : item.role?.toLowerCase().includes("supervisor")
+                                  ? "purple"
+                                  : "gray"
+                          }
+                        >
+                          {item.role || "Operario"}
+                        </Badge>
+                      </Table.Cell>
+                      <Table.Cell fontSize="xs" color="gray.700">
+                        {item.shift || "—"}
+                      </Table.Cell>
+                      <Table.Cell fontSize="xs" whiteSpace="nowrap" color="gray.600">
+                        {formatDate(item.assignedAt)}
+                      </Table.Cell>
+                      <Table.Cell fontSize="xs" color="gray.600">
+                        {item.notes || "—"}
+                      </Table.Cell>
+                      <Table.Cell fontSize="xs" textAlign="right">
+                        <Can perform="workOrders:assign">
+                          <Button
+                            size="2xs"
+                            variant="ghost"
+                            colorPalette="red"
+                            onClick={() => handlePromptRemoveUser(item)}
+                            title="Remover asignacion"
+                          >
+                            <LuX style={{ marginRight: "2px" }} />
+                            Remover
+                          </Button>
+                        </Can>
+                      </Table.Cell>
+                    </Table.Row>
+                  ))}
+                </Table.Body>
+              </Table.Root>
+            </Box>
+          ) : (
+            <Box py={6} textAlign="center">
+              <Text fontSize="xs" color="gray.500" fontStyle="italic">
+                No se registro personal operativo asignado a esta orden de trabajo.
+              </Text>
+            </Box>
+          )}
+        </Card>
+      </Box>
+
       {/* Tarea 3.4: Hoja de ruta y operaciones de manufactura */}
       <Box mt={6}>
         <Card
@@ -1719,6 +1949,126 @@ export default function WorkOrderDetailPage() {
           </FormField>
         </VStack>
       </Modal>
+
+      {/* Modal para asignar personal a la orden (Tarea 6.2) */}
+      <Modal
+        open={isUserModalOpen}
+        onOpenChange={({ open }) => setIsUserModalOpen(open)}
+        title="Asignar personal a la orden de trabajo"
+        footer={
+          <HStack justify="flex-end" gap={2}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsUserModalOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              colorPalette="blue"
+              onClick={handleAssignUser}
+            >
+              Asignar personal
+            </Button>
+          </HStack>
+        }
+      >
+        <VStack gap={4} align="stretch" py={2}>
+          <Text fontSize="xs" color="gray.600">
+            Seleccione el personal tecnico u operario de planta que intervendra
+            en la ejecucion de la orden OT-{workOrder?.workOrderNumber}.
+          </Text>
+
+          <FormField
+            label="Operario / Tecnico de planta"
+            helperText="Seleccione el usuario registrado en el sistema"
+          >
+            <Select
+              value={newUserForm.userId}
+              onChange={(e) =>
+                setNewUserForm({ ...newUserForm, userId: e.target.value })
+              }
+            >
+              {MOCK_AVAILABLE_OPERATORS.map((op) => (
+                <option key={op.id} value={op.id}>
+                  {op.firstName} {op.lastName} ({op.role || op.email})
+                </option>
+              ))}
+            </Select>
+          </FormField>
+
+          <SimpleGrid columns={{ base: 1, sm: 2 }} gap={3}>
+            <FormField
+              label="Rol operativo en la orden"
+              helperText="Funcion o puesto para esta pieza"
+            >
+              <Input
+                placeholder="Ej: Operador CNC principal, Tornero..."
+                value={newUserForm.role}
+                onChange={(e) =>
+                  setNewUserForm({ ...newUserForm, role: e.target.value })
+                }
+              />
+            </FormField>
+
+            <FormField
+              label="Turno asignado"
+              helperText="Horario previsto de operacion"
+            >
+              <Select
+                value={newUserForm.shift}
+                onChange={(e) =>
+                  setNewUserForm({ ...newUserForm, shift: e.target.value })
+                }
+              >
+                <option value="Turno mañana (06:00 - 14:00)">
+                  Turno mañana (06:00 - 14:00)
+                </option>
+                <option value="Turno tarde (14:00 - 22:00)">
+                  Turno tarde (14:00 - 22:00)
+                </option>
+                <option value="Turno noche (22:00 - 06:00)">
+                  Turno noche (22:00 - 06:00)
+                </option>
+                <option value="Jornada completa">Jornada completa</option>
+              </Select>
+            </FormField>
+          </SimpleGrid>
+
+          <FormField
+            label="Indicaciones / Tareas asignadas"
+            helperText="Maquinas asignadas, precauciones o detalles del proceso"
+          >
+            <Textarea
+              placeholder="Indique las operaciones especificas a cargo, tolerancias criticas a vigilar..."
+              value={newUserForm.notes}
+              onChange={(e) =>
+                setNewUserForm({ ...newUserForm, notes: e.target.value })
+              }
+              rows={2}
+            />
+          </FormField>
+        </VStack>
+      </Modal>
+
+      {/* Dialogo de confirmacion para remover operario de la orden */}
+      <ConfirmDialog
+        open={Boolean(userToRemove)}
+        onOpenChange={({ open }) => {
+          if (!open) setUserToRemove(null);
+        }}
+        title="Remover asignacion de personal"
+        description={
+          userToRemove
+            ? `¿Desea remover a ${userToRemove.user ? `${userToRemove.user.firstName} ${userToRemove.user.lastName}` : "este operario"} (${userToRemove.role || "Operario"}) de la orden OT-${workOrder?.workOrderNumber}?`
+            : undefined
+        }
+        confirmText="Remover personal"
+        cancelText="Cancelar"
+        confirmColorPalette="red"
+        onConfirm={handleConfirmRemoveUser}
+      />
     </Box>
   );
 }
