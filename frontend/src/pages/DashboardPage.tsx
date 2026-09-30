@@ -14,7 +14,6 @@ import {
   LuArrowRight,
   LuCalendar,
   LuFileText,
-  LuPackage,
   LuPlus,
   LuShieldCheck,
   LuTruck,
@@ -23,7 +22,11 @@ import {
 import { Button } from "../components/Button";
 import { Can } from "../components/Can";
 import { Card } from "../components/Card";
-import { StatCard } from "../modules/dashboard";
+import {
+  StatCard,
+  TraceabilityCompletenessCard,
+  TraceabilityTimelineCard,
+} from "../modules/dashboard";
 import { formatDate } from "../modules/deliveries";
 import { PriorityBadge } from "../modules/workOrders/PriorityBadge";
 import { StatusBadge } from "../modules/workOrders/StatusBadge";
@@ -61,10 +64,6 @@ export default function DashboardPage() {
 
   const recentWorkOrders = useMemo(() => {
     return MOCK_WORK_ORDERS.slice(0, 5);
-  }, []);
-
-  const recentDeliveries = useMemo(() => {
-    return MOCK_DELIVERIES.slice(0, 4);
   }, []);
 
   return (
@@ -165,31 +164,43 @@ export default function DashboardPage() {
         />
       </SimpleGrid>
 
-      {/* Grilla operativa inferior: Ultimas OTs y Proximas Entregas */}
+      {/* Tarea 8.1: Widget de completitud de trazabilidad */}
+      <Box mb={6}>
+        <TraceabilityCompletenessCard />
+      </Box>
+
+      {/* Grilla operativa inferior: Linea de tiempo y Ultimas OTs */}
       <SimpleGrid columns={{ base: 1, lg: 2 }} gap={6}>
-        {/* Panel 1: Ultimas ordenes de trabajo */}
-        <Card
-          p={5}
-          title={
-            <Flex align="center" justify="space-between" w="full">
-              <HStack gap={2}>
-                <LuWrench size={20} color="#2563EB" />
-                <Heading size="md" color="gray.800">
+        {/* Tarea 8.2: Flujo reciente de trazabilidad (Timeline) */}
+        <TraceabilityTimelineCard limit={5} />
+
+        {/* Panel operativo directo: Ultimas ordenes de trabajo */}
+        <Card p={5} h="full">
+          <Flex justify="space-between" align="center" mb={3} minH="40px">
+            <Box minW="0" mr={2}>
+              <HStack gap={1.5} mb={0.5}>
+                <LuWrench size={18} color="#2563EB" />
+                <Heading fontSize="sm" color="gray.800" whiteSpace="nowrap">
                   Ultimas ordenes de trabajo
                 </Heading>
               </HStack>
-              <Button
-                variant="ghost"
-                size="xs"
-                colorPalette="blue"
-                onClick={() => navigate("/work-orders")}
-              >
-                Ver todas <LuArrowRight style={{ marginLeft: "4px" }} />
-              </Button>
-            </Flex>
-          }
-        >
-          <VStack gap={3} align="stretch" mt={3}>
+              <Text fontSize="2xs" color="gray.500" whiteSpace="nowrap">
+                Estado y prioridad de las ultimas ordenes en planta
+              </Text>
+            </Box>
+            <Button
+              variant="ghost"
+              size="xs"
+              h="24px"
+              colorPalette="blue"
+              onClick={() => navigate("/work-orders")}
+              flexShrink={0}
+            >
+              Ver todas <LuArrowRight style={{ marginLeft: "4px" }} />
+            </Button>
+          </Flex>
+
+          <VStack gap={3} align="stretch">
             {recentWorkOrders.map((wo) => (
               <Flex
                 key={wo.id}
@@ -199,9 +210,13 @@ export default function DashboardPage() {
                 borderRadius="md"
                 justify="space-between"
                 align="center"
-                _hover={{ bg: "gray.50", cursor: "pointer" }}
+                _hover={{
+                  bg: "gray.50",
+                  cursor: "pointer",
+                  borderColor: "blue.300",
+                }}
                 onClick={() => navigate(`/work-orders/${wo.id}`)}
-                transition="background 0.15s ease"
+                transition="all 0.15s ease"
               >
                 <Box maxW="65%">
                   <HStack gap={2} mb={1}>
@@ -235,83 +250,6 @@ export default function DashboardPage() {
                   <PriorityBadge priority={wo.priority} size="xs" />
                   <StatusBadge status={wo.status} size="xs" />
                 </HStack>
-              </Flex>
-            ))}
-          </VStack>
-        </Card>
-
-        {/* Panel 2: Proximas entregas y despachos */}
-        <Card
-          p={5}
-          title={
-            <Flex align="center" justify="space-between" w="full">
-              <HStack gap={2}>
-                <LuTruck size={20} color="#7C3AED" />
-                <Heading size="md" color="gray.800">
-                  Despachos y remitos recientes
-                </Heading>
-              </HStack>
-              <Button
-                variant="ghost"
-                size="xs"
-                colorPalette="purple"
-                onClick={() => navigate("/deliveries")}
-              >
-                Ver todos <LuArrowRight style={{ marginLeft: "4px" }} />
-              </Button>
-            </Flex>
-          }
-        >
-          <VStack gap={3} align="stretch" mt={3}>
-            {recentDeliveries.map((del) => (
-              <Flex
-                key={del.id}
-                p={3}
-                borderWidth="1px"
-                borderColor="gray.200"
-                borderRadius="md"
-                justify="space-between"
-                align="center"
-                _hover={{ bg: "gray.50", cursor: "pointer" }}
-                onClick={() => navigate("/deliveries")}
-                transition="background 0.15s ease"
-              >
-                <Box maxW="70%">
-                  <HStack gap={2} mb={1}>
-                    <Text
-                      fontFamily="mono"
-                      fontSize="xs"
-                      fontWeight="bold"
-                      color="teal.700"
-                      bg="teal.50"
-                      px={1.5}
-                      py={0.5}
-                      borderRadius="sm"
-                    >
-                      #REM-{del.id}
-                    </Text>
-                    <Text
-                      fontWeight="semibold"
-                      fontSize="sm"
-                      color="gray.800"
-                      lineClamp={1}
-                    >
-                      {del.client?.businessName || "Cliente sin registrar"}
-                    </Text>
-                  </HStack>
-                  <Text fontSize="xs" color="gray.500" lineClamp={1}>
-                    {del.notes || "Despacho de piezas terminadas de planta"}
-                  </Text>
-                </Box>
-                <VStack align="flex-end" gap={0.5} flexShrink={0}>
-                  <Badge colorPalette="blue" variant="subtle" size="xs">
-                    <LuPackage size={11} style={{ marginRight: "3px" }} />
-                    {del.quantity} u.
-                  </Badge>
-                  <Text fontSize="2xs" color="gray.400">
-                    {formatDate(del.deliveryDate)}
-                  </Text>
-                </VStack>
               </Flex>
             ))}
           </VStack>
