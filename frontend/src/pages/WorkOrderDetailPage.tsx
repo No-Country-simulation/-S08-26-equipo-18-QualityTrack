@@ -13,6 +13,7 @@ import {
   LuArrowLeft,
   LuBuilding2,
   LuCalendar,
+  LuCheck,
   LuClock,
   LuDownload,
   LuFileSpreadsheet,
@@ -20,15 +21,20 @@ import {
   LuLayers,
   LuPencil,
   LuPlus,
+  LuShieldCheck,
   LuUpload,
   LuWrench,
+  LuX,
 } from "react-icons/lu";
 import { Alert } from "../components/Alert";
 import { Badge } from "../components/Badge";
 import { Button } from "../components/Button";
 import { Can } from "../components/Can";
 import { Card } from "../components/Card";
+import { FormField } from "../components/FormField";
+import { Modal } from "../components/Modal";
 import { Table } from "../components/Table";
+import { Textarea } from "../components/Textarea";
 import {
   formatDate,
   PriorityBadge,
@@ -47,6 +53,7 @@ import { MOCK_WORK_ORDERS } from "../test/mocks/mockWorkOrders";
 import { MOCK_ROUTE_SHEETS } from "../test/mocks/mockRouteSheets";
 import { MOCK_OPERATIONS } from "../test/mocks/mockOperations";
 import { MOCK_DOCUMENTS } from "../test/mocks/mockDocuments";
+import { MOCK_APPROVALS } from "../test/mocks/mockApprovals";
 import type { Client } from "../services/clientService";
 import type {
   CreateDeliveryDto,
@@ -63,6 +70,7 @@ import type {
 import type { RouteSheet } from "../services/routeSheetService";
 import type { Operation } from "../services/operationService";
 import type { Document } from "../services/documentService";
+import type { Approval } from "../services/approvalService";
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -88,12 +96,26 @@ export default function WorkOrderDetailPage() {
     (wo) => String(wo.id) === id || String(wo.workOrderNumber) === id,
   );
 
+  const initialApproval = MOCK_APPROVALS.find(
+    (a) =>
+      String(a.workOrderId) === id ||
+      (initialWo && a.workOrderId === initialWo.id),
+  );
+
   const [workOrder, setWorkOrder] = useState<WorkOrder | null>(
     initialWo || null,
+  );
+  const [approval, setApproval] = useState<Approval | null>(
+    initialApproval || null,
   );
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isQualityModalOpen, setIsQualityModalOpen] = useState(false);
   const [isDeliveryModalOpen, setIsDeliveryModalOpen] = useState(false);
+  const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false);
+  const [pendingDecision, setPendingDecision] = useState<
+    "APPROVED" | "REJECTED"
+  >("APPROVED");
+  const [decisionComments, setDecisionComments] = useState("");
 
   // Controles de calidad filtrados para esta OT
   const [qualityControls, setQualityControls] = useState<QualityControl[]>(() =>
@@ -151,6 +173,45 @@ export default function WorkOrderDetailPage() {
     setTimeout(() => {
       setNotification(null);
     }, 4000);
+  };
+
+  const handleOpenApprovalModal = (decision: "APPROVED" | "REJECTED") => {
+    setPendingDecision(decision);
+    setDecisionComments("");
+    setIsApprovalModalOpen(true);
+  };
+
+  const handleConfirmDecision = () => {
+    if (!workOrder) return;
+    const isApproved = pendingDecision === "APPROVED";
+    const updatedApproval: Approval = {
+      id: approval?.id || Date.now(),
+      workOrderId: workOrder.id,
+      status: pendingDecision,
+      decidedById: 2,
+      decidedBy: {
+        id: 2,
+        name: "Ing. Carlos Mendoza",
+        email: "cmendoza@qualitytrack.com",
+        role: "Jefe de Planta",
+      },
+      decisionAt: new Date().toISOString(),
+      comments:
+        decisionComments ||
+        (isApproved
+          ? "Aprobada formalmente para ejecucion en planta."
+          : "Rechazada en revision de ingenieria/administracion."),
+      createdAt: approval?.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    setApproval(updatedApproval);
+    setIsApprovalModalOpen(false);
+    showNotification(
+      isApproved
+        ? "Orden de trabajo aprobada con exito."
+        : "Orden de trabajo rechazada.",
+      isApproved ? "success" : "error",
+    );
   };
 
   const handleBack = () => {
@@ -299,6 +360,28 @@ export default function WorkOrderDetailPage() {
                 </Text>
                 <StatusBadge status={workOrder.status} />
                 <PriorityBadge priority={workOrder.priority} />
+                {approval ? (
+                  <Badge
+                    colorPalette={
+                      approval.status === "APPROVED"
+                        ? "green"
+                        : approval.status === "REJECTED"
+                        ? "red"
+                        : "yellow"
+                    }
+                    variant="subtle"
+                  >
+                    {approval.status === "APPROVED"
+                      ? "Aprobada"
+                      : approval.status === "REJECTED"
+                      ? "Rechazada"
+                      : "Pendiente aprobacion"}
+                  </Badge>
+                ) : (
+                  <Badge colorPalette="yellow" variant="subtle">
+                    Pendiente aprobacion
+                  </Badge>
+                )}
               </HStack>
               <Heading size="md" color="gray.800" mb={1}>
                 {workOrder.title}
@@ -590,6 +673,210 @@ export default function WorkOrderDetailPage() {
               )}
             </Box>
           </SimpleGrid>
+        </Card>
+      </Box>
+
+      {/* Tarea 4.2: Gobernanza y aprobacion formal */}
+      <Box mt={6}>
+        <Card
+          title={
+            <Flex
+              justify="space-between"
+              align="center"
+              w="full"
+              wrap="wrap"
+              gap={2}
+            >
+              <HStack gap={2}>
+                <LuShieldCheck color="#2563EB" size={20} />
+                <Text fontWeight="bold" fontSize="md" color="gray.800">
+                  Gobernanza y aprobacion formal
+                </Text>
+              </HStack>
+              <Badge
+                colorPalette={
+                  approval?.status === "APPROVED"
+                    ? "green"
+                    : approval?.status === "REJECTED"
+                    ? "red"
+                    : "yellow"
+                }
+                size="md"
+              >
+                {approval?.status === "APPROVED"
+                  ? "Dictamen: Aprobada"
+                  : approval?.status === "REJECTED"
+                  ? "Dictamen: Rechazada"
+                  : "Dictamen: Pendiente de revision"}
+              </Badge>
+            </Flex>
+          }
+          description="Dictamen formal de aprobacion tecnica y comercial requerido para la liberacion y avance en planta"
+        >
+          <VStack align="stretch" gap={4}>
+            {approval && approval.status !== "PENDING" ? (
+              <Box
+                p={4}
+                borderRadius="md"
+                borderWidth="1px"
+                borderColor={
+                  approval.status === "APPROVED" ? "green.200" : "red.200"
+                }
+                bg={approval.status === "APPROVED" ? "green.50" : "red.50"}
+              >
+                <SimpleGrid columns={{ base: 1, sm: 3 }} gap={4} mb={3}>
+                  <Box>
+                    <Text fontSize="xs" color="gray.500">
+                      Dictamen:
+                    </Text>
+                    <HStack gap={1.5} mt={0.5}>
+                      {approval.status === "APPROVED" ? (
+                        <LuCheck size={16} color="#16A34A" />
+                      ) : (
+                        <LuX size={16} color="#DC2626" />
+                      )}
+                      <Text
+                        fontWeight="bold"
+                        fontSize="sm"
+                        color={
+                          approval.status === "APPROVED"
+                            ? "green.800"
+                            : "red.800"
+                        }
+                      >
+                        {approval.status === "APPROVED"
+                          ? "Aprobada"
+                          : "Rechazada"}
+                      </Text>
+                    </HStack>
+                  </Box>
+                  <Box>
+                    <Text fontSize="xs" color="gray.500">
+                      Responsable de aprobacion:
+                    </Text>
+                    <Text
+                      fontWeight="semibold"
+                      fontSize="sm"
+                      color="gray.800"
+                      mt={0.5}
+                    >
+                      {approval.decidedBy?.name || "Ing. Carlos Mendoza"}
+                    </Text>
+                    {approval.decidedBy?.role && (
+                      <Text fontSize="xs" color="gray.500">
+                        {approval.decidedBy.role}
+                      </Text>
+                    )}
+                  </Box>
+                  <Box>
+                    <Text fontSize="xs" color="gray.500">
+                      Fecha y hora de dictamen:
+                    </Text>
+                    <Text
+                      fontWeight="semibold"
+                      fontSize="sm"
+                      color="gray.800"
+                      mt={0.5}
+                    >
+                      {approval.decisionAt
+                        ? formatDate(approval.decisionAt)
+                        : "No registrada"}
+                    </Text>
+                  </Box>
+                </SimpleGrid>
+
+                {approval.comments && (
+                  <Box
+                    pt={3}
+                    borderTopWidth="1px"
+                    borderColor={
+                      approval.status === "APPROVED" ? "green.200" : "red.200"
+                    }
+                  >
+                    <Text
+                      fontSize="xs"
+                      color="gray.500"
+                      mb={1}
+                      fontWeight="medium"
+                    >
+                      Fundamentos y resolucion:
+                    </Text>
+                    <Text
+                      fontSize="xs"
+                      color="gray.800"
+                      fontStyle="italic"
+                      bg="whiteAlpha.700"
+                      p={2.5}
+                      borderRadius="sm"
+                    >
+                      "{approval.comments}"
+                    </Text>
+                  </Box>
+                )}
+              </Box>
+            ) : (
+              <Box
+                p={4}
+                borderRadius="md"
+                borderWidth="1px"
+                borderColor="yellow.200"
+                bg="yellow.50"
+              >
+                <Text
+                  fontSize="sm"
+                  fontWeight="semibold"
+                  color="yellow.900"
+                  mb={1}
+                >
+                  Orden pendiente de aprobacion formal
+                </Text>
+                <Text fontSize="xs" color="yellow.800" mb={3}>
+                  Esta orden requiere la revision tecnica y comercial de
+                  supervisores o administracion antes de su liberacion definitiva
+                  para produccion.
+                </Text>
+                {approval?.comments && (
+                  <Text
+                    fontSize="xs"
+                    color="gray.700"
+                    fontStyle="italic"
+                    mb={2}
+                  >
+                    Nota preliminar: {approval.comments}
+                  </Text>
+                )}
+              </Box>
+            )}
+
+            {/* Acciones de dictamen protegidas con permisos */}
+            <Can perform="workOrders:edit">
+              <HStack
+                justify="flex-end"
+                gap={2}
+                pt={2}
+                borderTopWidth="1px"
+                borderColor="gray.100"
+              >
+                <Button
+                  size="sm"
+                  colorPalette="red"
+                  variant="outline"
+                  onClick={() => handleOpenApprovalModal("REJECTED")}
+                >
+                  <LuX style={{ marginRight: "6px" }} />
+                  Rechazar
+                </Button>
+                <Button
+                  size="sm"
+                  colorPalette="green"
+                  onClick={() => handleOpenApprovalModal("APPROVED")}
+                >
+                  <LuCheck style={{ marginRight: "6px" }} />
+                  Aprobar orden
+                </Button>
+              </HStack>
+            </Can>
+          </VStack>
         </Card>
       </Box>
 
@@ -1005,6 +1292,60 @@ export default function WorkOrderDetailPage() {
         defaultClientId={workOrder?.clientId}
         onSave={handleSaveDelivery}
       />
+
+      {/* Modal para registrar decision de aprobacion / rechazo (Tarea 4.2) */}
+      <Modal
+        open={isApprovalModalOpen}
+        onOpenChange={({ open }) => setIsApprovalModalOpen(open)}
+        title={
+          pendingDecision === "APPROVED"
+            ? "Aprobar orden de trabajo"
+            : "Rechazar orden de trabajo"
+        }
+        footer={
+          <HStack justify="flex-end" gap={2}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsApprovalModalOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              colorPalette={pendingDecision === "APPROVED" ? "green" : "red"}
+              onClick={handleConfirmDecision}
+            >
+              {pendingDecision === "APPROVED"
+                ? "Confirmar aprobacion"
+                : "Confirmar rechazo"}
+            </Button>
+          </HStack>
+        }
+      >
+        <VStack gap={4} align="stretch" py={2}>
+          <Text fontSize="sm" color="gray.600">
+            {pendingDecision === "APPROVED"
+              ? `¿Desea registrar la aprobacion formal para la orden OT-${workOrder.workOrderNumber}? Esto autorizara la prosecucion de las operaciones de mecanizado en planta.`
+              : `¿Desea rechazar la orden OT-${workOrder.workOrderNumber}? Indique los motivos tecnicos o comerciales.`}
+          </Text>
+          <FormField
+            label="Comentarios u observaciones del dictamen"
+            helperText="Ingrese detalles sobre especificaciones validadas, condicion comercial u orden de compra."
+          >
+            <Textarea
+              value={decisionComments}
+              onChange={(e) => setDecisionComments(e.target.value)}
+              placeholder={
+                pendingDecision === "APPROVED"
+                  ? "Ej: Se valida plano tecnico v2 y se verifica recepcion de orden de compra #4491..."
+                  : "Ej: Se rechaza por discrepancia en tolerancias dimensionales..."
+              }
+              rows={4}
+            />
+          </FormField>
+        </VStack>
+      </Modal>
     </Box>
   );
 }
