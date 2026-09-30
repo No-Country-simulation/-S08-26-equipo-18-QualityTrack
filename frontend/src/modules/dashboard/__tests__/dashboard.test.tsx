@@ -1,10 +1,18 @@
-import { describe, expect, it } from "vitest";
-import { screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import { fireEvent, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
+import type { ReactElement } from "react";
 import { LuWrench } from "react-icons/lu";
 import { renderWithProviders } from "../../../test/test-utils";
 import { StatCard } from "../StatCard";
+import { TraceabilityCompletenessCard } from "../TraceabilityCompletenessCard";
+import { TraceabilityTimelineCard } from "../TraceabilityTimelineCard";
 import { MOCK_WORK_ORDERS } from "../../../test/mocks/mockWorkOrders";
 import { MOCK_DELIVERIES } from "../../../test/mocks/mockDeliveries";
+
+const renderWithRouter = (ui: ReactElement) => {
+  return renderWithProviders(<MemoryRouter>{ui}</MemoryRouter>);
+};
 
 describe("dashboard module", () => {
   describe("StatCard", () => {
@@ -34,6 +42,105 @@ describe("dashboard module", () => {
 
     it("debe totalizar las entregas despachadas", () => {
       expect(MOCK_DELIVERIES.length).toBe(6);
+    });
+  });
+
+  describe("TraceabilityCompletenessCard", () => {
+    it("debe renderizar el encabezado y las metricas de completitud", () => {
+      renderWithRouter(<TraceabilityCompletenessCard />);
+
+      expect(
+        screen.getByText("Completitud de trazabilidad")
+      ).toBeInTheDocument();
+      expect(screen.getByText(/al 100%/i)).toBeInTheDocument();
+      expect(screen.getByText(/con faltantes/i)).toBeInTheDocument();
+      expect(screen.getByText(/promedio global/i)).toBeInTheDocument();
+    });
+
+    it("debe permitir alternar entre mostrar 5 ordenes y ver todas", () => {
+      renderWithRouter(<TraceabilityCompletenessCard />);
+
+      const toggleBtn = screen.getByRole("button", { name: /Ver todas/i });
+      expect(toggleBtn).toBeInTheDocument();
+
+      fireEvent.click(toggleBtn);
+      expect(
+        screen.getByRole("button", { name: /Mostrar 5/i })
+      ).toBeInTheDocument();
+    });
+
+    it("debe ejecutar callback de navegacion al hacer clic en una orden", () => {
+      const onNavigate = vi.fn();
+      renderWithRouter(
+        <TraceabilityCompletenessCard onNavigateToWorkOrder={onNavigate} />
+      );
+
+      const firstWoItem = screen.getByText(/OT-1001/);
+      fireEvent.click(firstWoItem);
+      expect(onNavigate).toHaveBeenCalled();
+    });
+
+    it("debe filtrar ordenes con los botones de filtro", () => {
+      renderWithRouter(<TraceabilityCompletenessCard />);
+
+      const pendientesBtn = screen.getByRole("button", {
+        name: /Pendientes/i,
+      });
+      fireEvent.click(pendientesBtn);
+      expect(pendientesBtn).toBeInTheDocument();
+
+      const completasBtn = screen.getByRole("button", {
+        name: /Completas/i,
+      });
+      fireEvent.click(completasBtn);
+      expect(completasBtn).toBeInTheDocument();
+    });
+  });
+
+  describe("TraceabilityTimelineCard", () => {
+    it("debe renderizar el encabezado del flujo y las pestañas de filtro", () => {
+      renderWithRouter(<TraceabilityTimelineCard />);
+
+      expect(
+        screen.getByText("Flujo reciente de manufactura y trazabilidad")
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /Todos/i })
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /^OTs$/i })
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /^Calidad$/i })
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /^Entregas$/i })
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /^Comercial$/i })
+      ).toBeInTheDocument();
+    });
+
+    it("debe filtrar eventos al seleccionar la categoria Calidad", () => {
+      renderWithRouter(<TraceabilityTimelineCard />);
+
+      const qualityFilterBtn = screen.getByRole("button", {
+        name: /^Calidad$/i,
+      });
+      fireEvent.click(qualityFilterBtn);
+
+      const qualityEvents = screen.getAllByText(/Control #QC-/i);
+      expect(qualityEvents.length).toBeGreaterThan(0);
+    });
+
+    it("debe llamar a onNavigate al hacer clic en un evento", () => {
+      const onNavigate = vi.fn();
+      renderWithRouter(<TraceabilityTimelineCard onNavigate={onNavigate} />);
+
+      const deliveryEvent = screen.getByText(/Remito de entrega/i);
+      fireEvent.click(deliveryEvent);
+
+      expect(onNavigate).toHaveBeenCalledWith("/deliveries");
     });
   });
 });
