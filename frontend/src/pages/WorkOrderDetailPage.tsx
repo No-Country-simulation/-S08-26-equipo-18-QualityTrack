@@ -14,10 +14,13 @@ import {
   LuBuilding2,
   LuCalendar,
   LuClock,
+  LuDownload,
   LuFileSpreadsheet,
   LuFileText,
+  LuLayers,
   LuPencil,
   LuPlus,
+  LuUpload,
   LuWrench,
 } from "react-icons/lu";
 import { Alert } from "../components/Alert";
@@ -41,6 +44,9 @@ import { MOCK_QUALITY_CONTROLS } from "../test/mocks/mockQualityControls";
 import { MOCK_QUOTATIONS } from "../test/mocks/mockQuotations";
 import { MOCK_REQUESTS } from "../test/mocks/mockRequests";
 import { MOCK_WORK_ORDERS } from "../test/mocks/mockWorkOrders";
+import { MOCK_ROUTE_SHEETS } from "../test/mocks/mockRouteSheets";
+import { MOCK_OPERATIONS } from "../test/mocks/mockOperations";
+import { MOCK_DOCUMENTS } from "../test/mocks/mockDocuments";
 import type { Client } from "../services/clientService";
 import type {
   CreateDeliveryDto,
@@ -54,6 +60,25 @@ import type {
   CreateWorkOrderDto,
   WorkOrder,
 } from "../services/workOrderService";
+import type { RouteSheet } from "../services/routeSheetService";
+import type { Operation } from "../services/operationService";
+import type { Document } from "../services/documentService";
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+function getOperationBadge(op: Operation) {
+  if (op.actualStart && op.actualEnd) {
+    return { label: "Completada", color: "green" };
+  }
+  if (op.actualStart && !op.actualEnd) {
+    return { label: "En proceso", color: "blue" };
+  }
+  return { label: "Programada", color: "gray" };
+}
 
 export default function WorkOrderDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -84,10 +109,39 @@ export default function WorkOrderDetailPage() {
     ),
   );
 
+  // Hoja de ruta vinculada a esta OT (Tarea 3.4)
+  const routeSheet = MOCK_ROUTE_SHEETS.find(
+    (rs) => String(rs.workOrderId) === id || (initialWo && rs.workOrderId === initialWo.id),
+  );
+
+  // Operaciones de mecanizado asociadas
+  const operations = routeSheet
+    ? MOCK_OPERATIONS.filter((op) => op.routeSheetId === routeSheet.id)
+    : [];
+
+  // Documentacion tecnica y comercial asociada (Tarea 3.7)
+  const [documents] = useState<Document[]>(() =>
+    MOCK_DOCUMENTS.filter(
+      (doc) =>
+        String(doc.workOrderId) === id ||
+        (initialWo && doc.workOrderId === initialWo.id) ||
+        (initialWo?.requestId && doc.requestId === initialWo.requestId) ||
+        (initialWo?.quotationId && doc.quotationId === initialWo.quotationId),
+    ),
+  );
+
   const [notification, setNotification] = useState<{
     status: "success" | "error";
     message: string;
   } | null>(null);
+
+  const handleDownloadDocument = (doc: Document) => {
+    showNotification(`Descargando documento: ${doc.fileName}`);
+  };
+
+  const handleAttachDocument = () => {
+    showNotification("Modulo de subida de archivos preparado. Conecta con el endpoint en Fase 9.");
+  };
 
   const showNotification = (
     message: string,
@@ -539,6 +593,140 @@ export default function WorkOrderDetailPage() {
         </Card>
       </Box>
 
+      {/* Tarea 3.4: Hoja de ruta y operaciones de manufactura */}
+      <Box mt={6}>
+        <Card
+          title={
+            <Flex justify="space-between" align="center" w="full" wrap="wrap" gap={2}>
+              <HStack gap={2}>
+                <Text fontWeight="bold" fontSize="md" color="gray.800">
+                  Hoja de ruta y operaciones
+                </Text>
+                {routeSheet && (
+                  <Badge colorPalette="purple" variant="subtle" fontFamily="mono">
+                    {routeSheet.routeNumber}
+                  </Badge>
+                )}
+              </HStack>
+              {!routeSheet && (
+                <Can perform="workOrders:edit">
+                  <Button
+                    size="xs"
+                    colorPalette="blue"
+                    variant="outline"
+                    onClick={() => showNotification("La creacion de hoja de ruta se integrara con el endpoint en Fase 9.")}
+                  >
+                    <LuPlus style={{ marginRight: "4px" }} />
+                    Crear hoja de ruta
+                  </Button>
+                </Can>
+              )}
+            </Flex>
+          }
+          description="Secuencia ordenada de procesos tecnicos, maquinas asignadas y tiempos de ejecucion"
+        >
+          {routeSheet ? (
+            <VStack align="stretch" gap={4}>
+              {routeSheet.instructions && (
+                <Box
+                  p={3}
+                  bg="purple.50"
+                  borderWidth="1px"
+                  borderColor="purple.200"
+                  borderRadius="md"
+                >
+                  <HStack gap={2} align="flex-start">
+                    <Box pt={0.5} color="purple.700">
+                      <LuLayers size={16} />
+                    </Box>
+                    <Box>
+                      <Text fontSize="xs" fontWeight="bold" color="purple.900" mb={0.5}>
+                        Instrucciones tecnicas de fabricacion:
+                      </Text>
+                      <Text fontSize="xs" color="purple.800">
+                        {routeSheet.instructions}
+                      </Text>
+                    </Box>
+                  </HStack>
+                </Box>
+              )}
+
+              {operations.length > 0 ? (
+                <Box overflowX="auto">
+                  <Table.Root size="sm">
+                    <Table.Header>
+                      <Table.Row bg="gray.50">
+                        <Table.ColumnHeader fontSize="xs">Paso / Codigo</Table.ColumnHeader>
+                        <Table.ColumnHeader fontSize="xs">Operacion y descripcion</Table.ColumnHeader>
+                        <Table.ColumnHeader fontSize="xs">Estacion / Maquina</Table.ColumnHeader>
+                        <Table.ColumnHeader fontSize="xs">Cronograma planificado</Table.ColumnHeader>
+                        <Table.ColumnHeader fontSize="xs">Cronograma real</Table.ColumnHeader>
+                        <Table.ColumnHeader fontSize="xs" textAlign="center">Estado</Table.ColumnHeader>
+                      </Table.Row>
+                    </Table.Header>
+                    <Table.Body>
+                      {operations.map((op) => {
+                        const status = getOperationBadge(op);
+                        return (
+                          <Table.Row key={op.id}>
+                            <Table.Cell fontSize="xs" fontFamily="mono" fontWeight="bold" color="purple.700">
+                              {op.operationNumber}
+                            </Table.Cell>
+                            <Table.Cell fontSize="xs">
+                              <Text fontWeight="semibold" color="gray.800">
+                                {op.name}
+                              </Text>
+                              {op.description && (
+                                <Text fontSize="2xs" color="gray.500">
+                                  {op.description}
+                                </Text>
+                              )}
+                              {op.notes && (
+                                <Text fontSize="2xs" color="blue.600" fontStyle="italic" mt={0.5}>
+                                  Nota: {op.notes}
+                                </Text>
+                              )}
+                            </Table.Cell>
+                            <Table.Cell fontSize="xs" color="gray.700">
+                              {op.machine || "Puesto manual"}
+                            </Table.Cell>
+                            <Table.Cell fontSize="xs" whiteSpace="nowrap" color="gray.600">
+                              {op.plannedStart ? formatDate(op.plannedStart) : "—"} al{" "}
+                              {op.plannedEnd ? formatDate(op.plannedEnd) : "—"}
+                            </Table.Cell>
+                            <Table.Cell fontSize="xs" whiteSpace="nowrap" color="gray.600">
+                              {op.actualStart ? formatDate(op.actualStart) : "Sin iniciar"}{" "}
+                              {op.actualEnd ? `— ${formatDate(op.actualEnd)}` : ""}
+                            </Table.Cell>
+                            <Table.Cell fontSize="xs" textAlign="center">
+                              <Badge size="xs" colorPalette={status.color} variant="subtle">
+                                {status.label}
+                              </Badge>
+                            </Table.Cell>
+                          </Table.Row>
+                        );
+                      })}
+                    </Table.Body>
+                  </Table.Root>
+                </Box>
+              ) : (
+                <Box py={4} textAlign="center">
+                  <Text fontSize="xs" color="gray.500" fontStyle="italic">
+                    No hay operaciones individuales cargadas para esta hoja de ruta.
+                  </Text>
+                </Box>
+              )}
+            </VStack>
+          ) : (
+            <Box py={6} textAlign="center">
+              <Text fontSize="xs" color="gray.500" fontStyle="italic">
+                No se emitio una hoja de ruta de produccion para esta orden de trabajo.
+              </Text>
+            </Box>
+          )}
+        </Card>
+      </Box>
+
       {/* Tarea 2.2: Controles de calidad embebidos */}
       <Box mt={6}>
         <Card
@@ -677,6 +865,110 @@ export default function WorkOrderDetailPage() {
             <Box py={6} textAlign="center">
               <Text fontSize="xs" color="gray.500" fontStyle="italic">
                 No se registraron entregas ni remitos despachados para esta orden de trabajo.
+              </Text>
+            </Box>
+          )}
+        </Card>
+      </Box>
+
+      {/* Tarea 3.7: Documentacion tecnica y comercial asociada */}
+      <Box mt={6}>
+        <Card
+          title={
+            <Flex justify="space-between" align="center" w="full" wrap="wrap" gap={2}>
+              <HStack gap={2}>
+                <Text fontWeight="bold" fontSize="md" color="gray.800">
+                  Documentacion asociada al expediente
+                </Text>
+                <Badge colorPalette="blue" variant="subtle">
+                  {documents.length} adjuntos
+                </Badge>
+              </HStack>
+              <Button
+                size="xs"
+                colorPalette="blue"
+                variant="outline"
+                onClick={handleAttachDocument}
+              >
+                <LuUpload style={{ marginRight: "4px" }} />
+                Adjuntar documento
+              </Button>
+            </Flex>
+          }
+          description="Planos constructivos, certificados de colada, ordenes de compra y protocolos de ensayos"
+        >
+          {documents.length > 0 ? (
+            <Box overflowX="auto">
+              <Table.Root size="sm">
+                <Table.Header>
+                  <Table.Row bg="gray.50">
+                    <Table.ColumnHeader fontSize="xs">Tipo de documento</Table.ColumnHeader>
+                    <Table.ColumnHeader fontSize="xs">Nombre del archivo</Table.ColumnHeader>
+                    <Table.ColumnHeader fontSize="xs">Descripcion tecnica</Table.ColumnHeader>
+                    <Table.ColumnHeader fontSize="xs">Version</Table.ColumnHeader>
+                    <Table.ColumnHeader fontSize="xs">Tamaño</Table.ColumnHeader>
+                    <Table.ColumnHeader fontSize="xs">Fecha carga</Table.ColumnHeader>
+                    <Table.ColumnHeader fontSize="xs" textAlign="right">Accion</Table.ColumnHeader>
+                  </Table.Row>
+                </Table.Header>
+                <Table.Body>
+                  {documents.map((doc) => (
+                    <Table.Row key={doc.id}>
+                      <Table.Cell fontSize="xs">
+                        <Badge
+                          size="xs"
+                          variant="subtle"
+                          colorPalette={
+                            doc.documentTypeId === 1
+                              ? "blue"
+                              : doc.documentTypeId === 2
+                                ? "teal"
+                                : doc.documentTypeId === 3
+                                  ? "green"
+                                  : doc.documentTypeId === 5
+                                    ? "purple"
+                                    : "gray"
+                          }
+                        >
+                          {doc.documentType?.name || "Documento"}
+                        </Badge>
+                      </Table.Cell>
+                      <Table.Cell fontSize="xs" fontFamily="mono" fontWeight="medium" color="blue.700">
+                        {doc.fileName}
+                      </Table.Cell>
+                      <Table.Cell fontSize="xs" color="gray.600">
+                        {doc.description || "—"}
+                      </Table.Cell>
+                      <Table.Cell fontSize="xs" fontFamily="mono" color="gray.600">
+                        v{doc.version}
+                      </Table.Cell>
+                      <Table.Cell fontSize="xs" fontFamily="mono" color="gray.500">
+                        {formatFileSize(doc.fileSize)}
+                      </Table.Cell>
+                      <Table.Cell fontSize="xs" whiteSpace="nowrap" color="gray.500">
+                        {formatDate(doc.uploadedAt)}
+                      </Table.Cell>
+                      <Table.Cell fontSize="xs" textAlign="right">
+                        <Button
+                          size="2xs"
+                          variant="ghost"
+                          colorPalette="blue"
+                          onClick={() => handleDownloadDocument(doc)}
+                          title="Descargar documento"
+                        >
+                          <LuDownload style={{ marginRight: "4px" }} />
+                          Descargar
+                        </Button>
+                      </Table.Cell>
+                    </Table.Row>
+                  ))}
+                </Table.Body>
+              </Table.Root>
+            </Box>
+          ) : (
+            <Box py={6} textAlign="center">
+              <Text fontSize="xs" color="gray.500" fontStyle="italic">
+                No hay documentacion tecnica ni planos adjuntos a este expediente.
               </Text>
             </Box>
           )}
