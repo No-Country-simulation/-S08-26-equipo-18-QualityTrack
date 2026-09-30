@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { Box, Text } from "@chakra-ui/react";
 import type { ColumnDef } from "../../components/DataTable";
 import type { WorkOrder } from "../../services/workOrderService";
@@ -26,19 +27,22 @@ export const WORK_ORDER_COLUMNS: ColumnDef<WorkOrder>[] = [
     sortable: true,
     width: "120px",
     cell: (item: WorkOrder) => (
-      <Text
-        fontFamily="mono"
-        fontSize="xs"
-        fontWeight="bold"
-        color="blue.700"
-        bg="blue.50"
-        px={2}
-        py={1}
-        borderRadius="md"
-        display="inline-block"
-      >
-        OT-{item.workOrderNumber}
-      </Text>
+      <Link to={`/work-orders/${item.id}`} style={{ textDecoration: "none" }}>
+        <Text
+          fontFamily="mono"
+          fontSize="xs"
+          fontWeight="bold"
+          color="blue.700"
+          bg="blue.50"
+          px={2}
+          py={1}
+          borderRadius="md"
+          display="inline-block"
+          _hover={{ textDecoration: "underline", bg: "blue.100" }}
+        >
+          OT-{item.workOrderNumber}
+        </Text>
+      </Link>
     ),
   },
   {
