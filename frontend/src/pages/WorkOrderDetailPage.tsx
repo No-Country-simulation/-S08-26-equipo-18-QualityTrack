@@ -11,6 +11,7 @@ import {
 } from "@chakra-ui/react";
 import {
   LuArrowLeft,
+  LuBoxes,
   LuBuilding2,
   LuCalendar,
   LuCheck,
@@ -32,6 +33,7 @@ import { Button } from "../components/Button";
 import { Can } from "../components/Can";
 import { Card } from "../components/Card";
 import { FormField } from "../components/FormField";
+import { Input } from "../components/Input";
 import { Modal } from "../components/Modal";
 import { Table } from "../components/Table";
 import { Textarea } from "../components/Textarea";
@@ -54,6 +56,7 @@ import { MOCK_ROUTE_SHEETS } from "../test/mocks/mockRouteSheets";
 import { MOCK_OPERATIONS } from "../test/mocks/mockOperations";
 import { MOCK_DOCUMENTS } from "../test/mocks/mockDocuments";
 import { MOCK_APPROVALS } from "../test/mocks/mockApprovals";
+import { MOCK_WORK_ORDER_MATERIALS } from "../test/mocks/mockWorkOrderMaterials";
 import type { Client } from "../services/clientService";
 import type {
   CreateDeliveryDto,
@@ -71,6 +74,7 @@ import type { RouteSheet } from "../services/routeSheetService";
 import type { Operation } from "../services/operationService";
 import type { Document } from "../services/documentService";
 import type { Approval } from "../services/approvalService";
+import type { WorkOrderMaterial } from "../services/materialService";
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -152,6 +156,28 @@ export default function WorkOrderDetailPage() {
     ),
   );
 
+  // Materia prima y materiales vinculados a esta OT (Tarea 5.3)
+  const [workOrderMaterials, setWorkOrderMaterials] = useState<
+    WorkOrderMaterial[]
+  >(() =>
+    MOCK_WORK_ORDER_MATERIALS.filter(
+      (mat) =>
+        String(mat.workOrderId) === id ||
+        (initialWo && mat.workOrderId === initialWo.id),
+    ),
+  );
+  const [isMaterialModalOpen, setIsMaterialModalOpen] = useState(false);
+  const [newMaterialForm, setNewMaterialForm] = useState({
+    materialName: "",
+    specification: "",
+    lotNumber: "",
+    certificateNumber: "",
+    supplier: "",
+    quantity: "",
+    unit: "kg",
+    notes: "",
+  });
+
   const [notification, setNotification] = useState<{
     status: "success" | "error";
     message: string;
@@ -212,6 +238,53 @@ export default function WorkOrderDetailPage() {
         : "Orden de trabajo rechazada.",
       isApproved ? "success" : "error",
     );
+  };
+
+  const handleOpenMaterialModal = () => {
+    setNewMaterialForm({
+      materialName: "",
+      specification: "",
+      lotNumber: "",
+      certificateNumber: "",
+      supplier: "",
+      quantity: "",
+      unit: "kg",
+      notes: "",
+    });
+    setIsMaterialModalOpen(true);
+  };
+
+  const handleSaveMaterial = () => {
+    if (!workOrder) return;
+    if (!newMaterialForm.materialName.trim()) {
+      showNotification(
+        "El nombre o aleacion del material es obligatorio.",
+        "error",
+      );
+      return;
+    }
+    const newId =
+      workOrderMaterials.length > 0
+        ? Math.max(...workOrderMaterials.map((m) => m.id)) + 1
+        : 1;
+    const newEntry: WorkOrderMaterial = {
+      id: newId,
+      workOrderId: workOrder.id,
+      materialName: newMaterialForm.materialName.trim(),
+      specification: newMaterialForm.specification.trim() || undefined,
+      lotNumber: newMaterialForm.lotNumber.trim() || undefined,
+      certificateNumber: newMaterialForm.certificateNumber.trim() || undefined,
+      supplier: newMaterialForm.supplier.trim() || undefined,
+      quantity: newMaterialForm.quantity || "1",
+      unit: newMaterialForm.unit || "kg",
+      receivedAt: new Date().toISOString(),
+      notes: newMaterialForm.notes.trim() || undefined,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    setWorkOrderMaterials((prev) => [...prev, newEntry]);
+    setIsMaterialModalOpen(false);
+    showNotification("Partida de materia prima asignada con exito a la orden.");
   };
 
   const handleBack = () => {
@@ -880,6 +953,153 @@ export default function WorkOrderDetailPage() {
         </Card>
       </Box>
 
+      {/* Tarea 5.3: Materia prima y trazabilidad de materiales */}
+      <Box mt={6}>
+        <Card
+          title={
+            <Flex
+              justify="space-between"
+              align="center"
+              w="full"
+              wrap="wrap"
+              gap={2}
+            >
+              <HStack gap={2}>
+                <LuBoxes color="#2563EB" size={20} />
+                <Text fontWeight="bold" fontSize="md" color="gray.800">
+                  Materia prima y trazabilidad de materiales
+                </Text>
+                {workOrderMaterials.length > 0 && (
+                  <Badge colorPalette="blue" variant="subtle">
+                    {workOrderMaterials.length}{" "}
+                    {workOrderMaterials.length === 1 ? "partida" : "partidas"}
+                  </Badge>
+                )}
+              </HStack>
+              <Can perform="workOrders:edit">
+                <Button
+                  size="xs"
+                  colorPalette="blue"
+                  variant="outline"
+                  onClick={handleOpenMaterialModal}
+                >
+                  <LuPlus style={{ marginRight: "4px" }} />
+                  Asignar material
+                </Button>
+              </Can>
+            </Flex>
+          }
+          description="Partidas de materia prima, coladas, certificados de calidad de origen y proveedores para cumplimiento de normas de auditoria"
+        >
+          {workOrderMaterials.length > 0 ? (
+            <Box overflowX="auto">
+              <Table.Root size="sm">
+                <Table.Header>
+                  <Table.Row bg="gray.50">
+                    <Table.ColumnHeader fontSize="xs">
+                      Material / Aleacion
+                    </Table.ColumnHeader>
+                    <Table.ColumnHeader fontSize="xs">
+                      Lote / Colada
+                    </Table.ColumnHeader>
+                    <Table.ColumnHeader fontSize="xs">
+                      Certificado de calidad
+                    </Table.ColumnHeader>
+                    <Table.ColumnHeader fontSize="xs">
+                      Origen / Proveedor
+                    </Table.ColumnHeader>
+                    <Table.ColumnHeader fontSize="xs">
+                      Cantidad asignada
+                    </Table.ColumnHeader>
+                    <Table.ColumnHeader fontSize="xs">
+                      Recepcion
+                    </Table.ColumnHeader>
+                    <Table.ColumnHeader fontSize="xs">
+                      Observaciones
+                    </Table.ColumnHeader>
+                  </Table.Row>
+                </Table.Header>
+                <Table.Body>
+                  {workOrderMaterials.map((mat) => (
+                    <Table.Row key={mat.id}>
+                      <Table.Cell>
+                        <Text
+                          fontWeight="semibold"
+                          fontSize="xs"
+                          color="gray.800"
+                        >
+                          {mat.materialName}
+                        </Text>
+                        {mat.specification && (
+                          <Text fontSize="2xs" color="gray.500">
+                            Norma: {mat.specification}
+                          </Text>
+                        )}
+                      </Table.Cell>
+                      <Table.Cell>
+                        {mat.lotNumber ? (
+                          <Text
+                            fontFamily="mono"
+                            fontSize="xs"
+                            fontWeight="semibold"
+                            color="blue.700"
+                          >
+                            {mat.lotNumber}
+                          </Text>
+                        ) : (
+                          <Text fontSize="xs" color="gray.400">
+                            —
+                          </Text>
+                        )}
+                      </Table.Cell>
+                      <Table.Cell>
+                        {mat.certificateNumber ? (
+                          <Badge
+                            colorPalette="green"
+                            variant="subtle"
+                            size="sm"
+                            fontFamily="mono"
+                          >
+                            {mat.certificateNumber}
+                          </Badge>
+                        ) : (
+                          <Text fontSize="xs" color="gray.400">
+                            Sin cert. registrado
+                          </Text>
+                        )}
+                      </Table.Cell>
+                      <Table.Cell fontSize="xs" color="gray.700">
+                        {mat.supplier || "No especificado"}
+                      </Table.Cell>
+                      <Table.Cell fontSize="xs">
+                        <Text fontWeight="semibold" color="gray.800">
+                          {mat.quantity} {mat.unit || "kg"}
+                        </Text>
+                      </Table.Cell>
+                      <Table.Cell fontSize="xs" color="gray.600">
+                        {mat.receivedAt ? formatDate(mat.receivedAt) : "—"}
+                      </Table.Cell>
+                      <Table.Cell fontSize="xs" color="gray.600" maxW="240px">
+                        <Text title={mat.notes}>
+                          {mat.notes || "—"}
+                        </Text>
+                      </Table.Cell>
+                    </Table.Row>
+                  ))}
+                </Table.Body>
+              </Table.Root>
+            </Box>
+          ) : (
+            <Box py={6} textAlign="center">
+              <Text fontSize="xs" color="gray.500" fontStyle="italic">
+                No se registraron partidas de materia prima vinculadas a esta
+                orden de trabajo.
+              </Text>
+            </Box>
+          )}
+        </Card>
+      </Box>
+
       {/* Tarea 3.4: Hoja de ruta y operaciones de manufactura */}
       <Box mt={6}>
         <Card
@@ -1342,6 +1562,159 @@ export default function WorkOrderDetailPage() {
                   : "Ej: Se rechaza por discrepancia en tolerancias dimensionales..."
               }
               rows={4}
+            />
+          </FormField>
+        </VStack>
+      </Modal>
+
+      {/* Modal para asignar materia prima a la OT (Tarea 5.3) */}
+      <Modal
+        open={isMaterialModalOpen}
+        onOpenChange={({ open }) => setIsMaterialModalOpen(open)}
+        title="Asignar materia prima a la orden"
+        footer={
+          <HStack justify="flex-end" gap={2}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsMaterialModalOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button size="sm" colorPalette="blue" onClick={handleSaveMaterial}>
+              Guardar partida
+            </Button>
+          </HStack>
+        }
+      >
+        <VStack gap={3} align="stretch" py={2}>
+          <SimpleGrid columns={{ base: 1, sm: 2 }} gap={3}>
+            <FormField
+              label="Material / Aleacion"
+              required
+              helperText="Ej: Acero SAE 4140, Bronce SAE 65, Delrin"
+            >
+              <Input
+                placeholder="Nombre o tipo de material"
+                value={newMaterialForm.materialName}
+                onChange={(e) =>
+                  setNewMaterialForm({
+                    ...newMaterialForm,
+                    materialName: e.target.value,
+                  })
+                }
+              />
+            </FormField>
+
+            <FormField
+              label="Norma / Especificacion"
+              helperText="Ej: ASTM A29, DIN 42CrMo4, Plano"
+            >
+              <Input
+                placeholder="Norma tecnica aplicable"
+                value={newMaterialForm.specification}
+                onChange={(e) =>
+                  setNewMaterialForm({
+                    ...newMaterialForm,
+                    specification: e.target.value,
+                  })
+                }
+              />
+            </FormField>
+          </SimpleGrid>
+
+          <SimpleGrid columns={{ base: 1, sm: 2 }} gap={3}>
+            <FormField
+              label="Lote / Numero de colada"
+              helperText="Identificacion estampada o etiqueta"
+            >
+              <Input
+                placeholder="Ej: COL-4140-9821"
+                value={newMaterialForm.lotNumber}
+                onChange={(e) =>
+                  setNewMaterialForm({
+                    ...newMaterialForm,
+                    lotNumber: e.target.value,
+                  })
+                }
+              />
+            </FormField>
+
+            <FormField
+              label="Numero de certificado"
+              helperText="Certificado de analisis quimico/mecanico"
+            >
+              <Input
+                placeholder="Ej: CERT-MP-2026-0312"
+                value={newMaterialForm.certificateNumber}
+                onChange={(e) =>
+                  setNewMaterialForm({
+                    ...newMaterialForm,
+                    certificateNumber: e.target.value,
+                  })
+                }
+              />
+            </FormField>
+          </SimpleGrid>
+
+          <SimpleGrid columns={{ base: 1, sm: 3 }} gap={3}>
+            <FormField
+              label="Origen / Proveedor"
+              helperText="Fabricante o provisto por cliente"
+            >
+              <Input
+                placeholder="Ej: Tenaris o Provisto por cliente"
+                value={newMaterialForm.supplier}
+                onChange={(e) =>
+                  setNewMaterialForm({
+                    ...newMaterialForm,
+                    supplier: e.target.value,
+                  })
+                }
+              />
+            </FormField>
+
+            <FormField label="Cantidad">
+              <Input
+                placeholder="Ej: 25.5"
+                value={newMaterialForm.quantity}
+                onChange={(e) =>
+                  setNewMaterialForm({
+                    ...newMaterialForm,
+                    quantity: e.target.value,
+                  })
+                }
+              />
+            </FormField>
+
+            <FormField label="Unidad">
+              <Input
+                placeholder="Ej: kg, barras, metros"
+                value={newMaterialForm.unit}
+                onChange={(e) =>
+                  setNewMaterialForm({
+                    ...newMaterialForm,
+                    unit: e.target.value,
+                  })
+                }
+              />
+            </FormField>
+          </SimpleGrid>
+
+          <FormField
+            label="Observaciones de recepcion"
+            helperText="Detalles de dureza, tolerancias o remito"
+          >
+            <Textarea
+              placeholder="Detalles sobre estado superficial, dureza verificada, tolerancia de barra..."
+              value={newMaterialForm.notes}
+              onChange={(e) =>
+                setNewMaterialForm({
+                  ...newMaterialForm,
+                  notes: e.target.value,
+                })
+              }
+              rows={2}
             />
           </FormField>
         </VStack>
