@@ -14,11 +14,13 @@ import {
   LuBuilding2,
   LuCalendar,
   LuClock,
+  LuDownload,
   LuFileSpreadsheet,
   LuFileText,
   LuLayers,
   LuPencil,
   LuPlus,
+  LuUpload,
   LuWrench,
 } from "react-icons/lu";
 import { Alert } from "../components/Alert";
@@ -44,6 +46,7 @@ import { MOCK_REQUESTS } from "../test/mocks/mockRequests";
 import { MOCK_WORK_ORDERS } from "../test/mocks/mockWorkOrders";
 import { MOCK_ROUTE_SHEETS } from "../test/mocks/mockRouteSheets";
 import { MOCK_OPERATIONS } from "../test/mocks/mockOperations";
+import { MOCK_DOCUMENTS } from "../test/mocks/mockDocuments";
 import type { Client } from "../services/clientService";
 import type {
   CreateDeliveryDto,
@@ -59,6 +62,13 @@ import type {
 } from "../services/workOrderService";
 import type { RouteSheet } from "../services/routeSheetService";
 import type { Operation } from "../services/operationService";
+import type { Document } from "../services/documentService";
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
 
 function getOperationBadge(op: Operation) {
   if (op.actualStart && op.actualEnd) {
@@ -109,10 +119,29 @@ export default function WorkOrderDetailPage() {
     ? MOCK_OPERATIONS.filter((op) => op.routeSheetId === routeSheet.id)
     : [];
 
+  // Documentacion tecnica y comercial asociada (Tarea 3.7)
+  const [documents] = useState<Document[]>(() =>
+    MOCK_DOCUMENTS.filter(
+      (doc) =>
+        String(doc.workOrderId) === id ||
+        (initialWo && doc.workOrderId === initialWo.id) ||
+        (initialWo?.requestId && doc.requestId === initialWo.requestId) ||
+        (initialWo?.quotationId && doc.quotationId === initialWo.quotationId),
+    ),
+  );
+
   const [notification, setNotification] = useState<{
     status: "success" | "error";
     message: string;
   } | null>(null);
+
+  const handleDownloadDocument = (doc: Document) => {
+    showNotification(`Descargando documento: ${doc.fileName}`);
+  };
+
+  const handleAttachDocument = () => {
+    showNotification("Modulo de subida de archivos preparado. Conecta con el endpoint en Fase 9.");
+  };
 
   const showNotification = (
     message: string,
@@ -836,6 +865,110 @@ export default function WorkOrderDetailPage() {
             <Box py={6} textAlign="center">
               <Text fontSize="xs" color="gray.500" fontStyle="italic">
                 No se registraron entregas ni remitos despachados para esta orden de trabajo.
+              </Text>
+            </Box>
+          )}
+        </Card>
+      </Box>
+
+      {/* Tarea 3.7: Documentacion tecnica y comercial asociada */}
+      <Box mt={6}>
+        <Card
+          title={
+            <Flex justify="space-between" align="center" w="full" wrap="wrap" gap={2}>
+              <HStack gap={2}>
+                <Text fontWeight="bold" fontSize="md" color="gray.800">
+                  Documentacion asociada al expediente
+                </Text>
+                <Badge colorPalette="blue" variant="subtle">
+                  {documents.length} adjuntos
+                </Badge>
+              </HStack>
+              <Button
+                size="xs"
+                colorPalette="blue"
+                variant="outline"
+                onClick={handleAttachDocument}
+              >
+                <LuUpload style={{ marginRight: "4px" }} />
+                Adjuntar documento
+              </Button>
+            </Flex>
+          }
+          description="Planos constructivos, certificados de colada, ordenes de compra y protocolos de ensayos"
+        >
+          {documents.length > 0 ? (
+            <Box overflowX="auto">
+              <Table.Root size="sm">
+                <Table.Header>
+                  <Table.Row bg="gray.50">
+                    <Table.ColumnHeader fontSize="xs">Tipo de documento</Table.ColumnHeader>
+                    <Table.ColumnHeader fontSize="xs">Nombre del archivo</Table.ColumnHeader>
+                    <Table.ColumnHeader fontSize="xs">Descripcion tecnica</Table.ColumnHeader>
+                    <Table.ColumnHeader fontSize="xs">Version</Table.ColumnHeader>
+                    <Table.ColumnHeader fontSize="xs">Tamaño</Table.ColumnHeader>
+                    <Table.ColumnHeader fontSize="xs">Fecha carga</Table.ColumnHeader>
+                    <Table.ColumnHeader fontSize="xs" textAlign="right">Accion</Table.ColumnHeader>
+                  </Table.Row>
+                </Table.Header>
+                <Table.Body>
+                  {documents.map((doc) => (
+                    <Table.Row key={doc.id}>
+                      <Table.Cell fontSize="xs">
+                        <Badge
+                          size="xs"
+                          variant="subtle"
+                          colorPalette={
+                            doc.documentTypeId === 1
+                              ? "blue"
+                              : doc.documentTypeId === 2
+                                ? "teal"
+                                : doc.documentTypeId === 3
+                                  ? "green"
+                                  : doc.documentTypeId === 5
+                                    ? "purple"
+                                    : "gray"
+                          }
+                        >
+                          {doc.documentType?.name || "Documento"}
+                        </Badge>
+                      </Table.Cell>
+                      <Table.Cell fontSize="xs" fontFamily="mono" fontWeight="medium" color="blue.700">
+                        {doc.fileName}
+                      </Table.Cell>
+                      <Table.Cell fontSize="xs" color="gray.600">
+                        {doc.description || "—"}
+                      </Table.Cell>
+                      <Table.Cell fontSize="xs" fontFamily="mono" color="gray.600">
+                        v{doc.version}
+                      </Table.Cell>
+                      <Table.Cell fontSize="xs" fontFamily="mono" color="gray.500">
+                        {formatFileSize(doc.fileSize)}
+                      </Table.Cell>
+                      <Table.Cell fontSize="xs" whiteSpace="nowrap" color="gray.500">
+                        {formatDate(doc.uploadedAt)}
+                      </Table.Cell>
+                      <Table.Cell fontSize="xs" textAlign="right">
+                        <Button
+                          size="2xs"
+                          variant="ghost"
+                          colorPalette="blue"
+                          onClick={() => handleDownloadDocument(doc)}
+                          title="Descargar documento"
+                        >
+                          <LuDownload style={{ marginRight: "4px" }} />
+                          Descargar
+                        </Button>
+                      </Table.Cell>
+                    </Table.Row>
+                  ))}
+                </Table.Body>
+              </Table.Root>
+            </Box>
+          ) : (
+            <Box py={6} textAlign="center">
+              <Text fontSize="xs" color="gray.500" fontStyle="italic">
+                No hay documentacion tecnica ni planos adjuntos a este expediente.
               </Text>
             </Box>
           )}
