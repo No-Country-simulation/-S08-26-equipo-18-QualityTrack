@@ -34,13 +34,62 @@ const router = createBrowserRouter([
                 element: <DashboardLayout />,
                 children: [
                     { path: '/dashboard', element: <DashboardPage /> },
-                    { path: '/clients', element: <ClientsPage /> },
-                    { path: '/requests', element: <RequestsPage /> },
-                    { path: '/quotations', element: <QuotationsPage /> },
-                    { path: '/work-orders', element: <WorkOrdersPage /> },
-                    { path: '/work-orders/:id', element: <WorkOrderDetailPage /> },
-                    { path: '/quality', element: <QualityPage /> },
-                    { path: '/deliveries', element: <DeliveriesPage /> },
+                    {
+                        path: '/clients',
+                        element: (
+                            <ProtectedRoute requiredPermission="clients:view">
+                                <ClientsPage />
+                            </ProtectedRoute>
+                        ),
+                    },
+                    {
+                        path: '/requests',
+                        element: (
+                            <ProtectedRoute requiredPermission="requests:view">
+                                <RequestsPage />
+                            </ProtectedRoute>
+                        ),
+                    },
+                    {
+                        path: '/quotations',
+                        element: (
+                            <ProtectedRoute requiredPermission="quotations:view">
+                                <QuotationsPage />
+                            </ProtectedRoute>
+                        ),
+                    },
+                    {
+                        path: '/work-orders',
+                        element: (
+                            <ProtectedRoute requiredPermission="workOrders:view">
+                                <WorkOrdersPage />
+                            </ProtectedRoute>
+                        ),
+                    },
+                    {
+                        path: '/work-orders/:id',
+                        element: (
+                            <ProtectedRoute requiredPermission="workOrders:view">
+                                <WorkOrderDetailPage />
+                            </ProtectedRoute>
+                        ),
+                    },
+                    {
+                        path: '/quality',
+                        element: (
+                            <ProtectedRoute requiredPermission="quality:view">
+                                <QualityPage />
+                            </ProtectedRoute>
+                        ),
+                    },
+                    {
+                        path: '/deliveries',
+                        element: (
+                            <ProtectedRoute requiredPermission="deliveries:view">
+                                <DeliveriesPage />
+                            </ProtectedRoute>
+                        ),
+                    },
                 ],
             },
         ],
