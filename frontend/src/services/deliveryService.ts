@@ -25,6 +25,9 @@ export const deliveryService = {
   getAll(): Promise<Delivery[]> {
     return api.get<Delivery[]>("/deliveries");
   },
+  getByWorkOrder(workOrderId: number | string): Promise<Delivery[]> {
+    return api.get<Delivery[]>(`/deliveries/work-order/${workOrderId}`);
+  },
   getById(id: number | string): Promise<Delivery> {
     return api.get<Delivery>(`/deliveries/${id}`);
   },

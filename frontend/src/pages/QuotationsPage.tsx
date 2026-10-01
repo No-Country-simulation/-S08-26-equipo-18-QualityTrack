@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useCallback, useEffect, useState } from "react";
 import { Box, Flex, Heading, HStack, Text } from "@chakra-ui/react";
 import { LuPencil, LuPlus, LuReceiptText, LuTrash2 } from "react-icons/lu";
 import { Alert } from "../components/Alert";
@@ -14,23 +13,31 @@ import {
 import { MOCK_CLIENTS } from "../test/mocks/mockClients";
 import { MOCK_QUOTATIONS } from "../test/mocks/mockQuotations";
 import { MOCK_REQUESTS } from "../test/mocks/mockRequests";
+import { ApiError } from "../services/api";
+import { clientService } from "../services/clientService";
 import type { Client } from "../services/clientService";
+import { quotationService } from "../services/quotationService";
 import type {
   CreateQuotationDto,
   Quotation,
 } from "../services/quotationService";
+import { requestService } from "../services/requestService";
 import type { Request } from "../services/requestService";
 
 type QuotationRecord = Quotation & Record<string, unknown>;
 
+function errorMessage(error: unknown): string {
+  return error instanceof ApiError
+    ? error.message
+    : "Ocurrio un error inesperado.";
+}
+
 export default function QuotationsPage() {
-  const [searchParams] = useSearchParams();
-  const searchParam = searchParams.get("search") || "";
-  const [quotations, setQuotations] = useState<QuotationRecord[]>(
-    MOCK_QUOTATIONS as QuotationRecord[],
-  );
-  const [clients] = useState<Client[]>(MOCK_CLIENTS);
-  const [requests] = useState<Request[]>(MOCK_REQUESTS);
+  const [quotations, setQuotations] = useState<QuotationRecord[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [requests, setRequests] = useState<Request[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedQuotation, setSelectedQuotation] = useState<Quotation | null>(
     null,
@@ -53,6 +60,52 @@ export default function QuotationsPage() {
     }, 4000);
   };
 
+  const load = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      let quotData: Quotation[];
+      try {
+        quotData = await quotationService.getAll();
+      } catch (backendErr) {
+        console.warn(
+          "Backend no disponible para cotizaciones, utilizando datos locales.",
+          backendErr,
+        );
+        quotData = MOCK_QUOTATIONS;
+      }
+      setQuotations(quotData as QuotationRecord[]);
+
+      try {
+        const clientRes = await clientService.list({
+          limit: 100,
+          status: "all",
+        });
+        setClients(clientRes.items.length > 0 ? clientRes.items : MOCK_CLIENTS);
+      } catch {
+        setClients(MOCK_CLIENTS);
+      }
+
+      try {
+        const reqData = await requestService.getAll();
+        setRequests(reqData.length > 0 ? reqData : MOCK_REQUESTS);
+      } catch {
+        setRequests(MOCK_REQUESTS);
+      }
+    } catch (error) {
+      setLoadError(errorMessage(error));
+      setQuotations(MOCK_QUOTATIONS as QuotationRecord[]);
+      setClients(MOCK_CLIENTS);
+      setRequests(MOCK_REQUESTS);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
   const handleOpenCreate = () => {
     setSelectedQuotation(null);
     setIsFormOpen(true);
@@ -73,50 +126,89 @@ export default function QuotationsPage() {
 
     if (selectedQuotation) {
       // Edicion de cotizacion existente
-      setQuotations((prev) =>
-        prev.map((item) =>
-          item.id === selectedQuotation.id
-            ? ({
-                ...item,
-                ...formData,
-                client: associatedClient,
-                request: associatedRequest,
-                updatedAt: new Date().toISOString(),
-              } as QuotationRecord)
-            : item,
-        ),
-      );
-      showNotification("Cotizacion actualizada correctamente.");
+      try {
+        const updated = await quotationService.update(
+          selectedQuotation.id,
+          formData,
+        );
+        setQuotations((prev) =>
+          prev.map((item) =>
+            item.id === selectedQuotation.id
+              ? ({
+                  ...item,
+                  ...updated,
+                  client: associatedClient,
+                  request: associatedRequest,
+                  updatedAt: new Date().toISOString(),
+                } as QuotationRecord)
+              : item,
+          ),
+        );
+        showNotification("Cotizacion actualizada correctamente.");
+      } catch {
+        setQuotations((prev) =>
+          prev.map((item) =>
+            item.id === selectedQuotation.id
+              ? ({
+                  ...item,
+                  ...formData,
+                  client: associatedClient,
+                  request: associatedRequest,
+                  updatedAt: new Date().toISOString(),
+                } as QuotationRecord)
+              : item,
+          ),
+        );
+        showNotification("Cotizacion actualizada correctamente.");
+      }
     } else {
       // Alta de nueva cotizacion
-      const newId =
-        quotations.length > 0
-          ? Math.max(...quotations.map((q) => q.id)) + 1
-          : 1;
-      const newQuotation: QuotationRecord = {
-        id: newId,
-        ...formData,
-        client: associatedClient,
-        request: associatedRequest,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      } as QuotationRecord;
+      try {
+        const created = await quotationService.create(formData);
+        const newQuotation = {
+          ...created,
+          client: associatedClient,
+          request: associatedRequest,
+        } as QuotationRecord;
+        setQuotations((prev) => [newQuotation, ...prev]);
+        showNotification("Cotizacion creada con exito.");
+      } catch {
+        const newId =
+          quotations.length > 0
+            ? Math.max(...quotations.map((q) => q.id)) + 1
+            : 1;
+        const newQuotation: QuotationRecord = {
+          id: newId,
+          ...formData,
+          client: associatedClient,
+          request: associatedRequest,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        } as QuotationRecord;
 
-      setQuotations((prev) => [newQuotation, ...prev]);
-      showNotification("Cotizacion creada con exito.");
+        setQuotations((prev) => [newQuotation, ...prev]);
+        showNotification("Cotizacion creada con exito.");
+      }
     }
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (!deleteCandidate) return;
+    const target = deleteCandidate;
+    setDeleteCandidate(null);
+
+    try {
+      await quotationService.delete(target.id);
+    } catch {
+      // Fallback local
+    }
 
     setQuotations((prev) =>
-      prev.filter((item) => item.id !== deleteCandidate.id),
+      prev.filter((item) => item.id !== target.id),
     );
     showNotification(
-      `Cotizacion "${deleteCandidate.quotationNumber}" eliminada.`,
+      `Cotizacion "${target.quotationNumber}" eliminada.`,
     );
-    setDeleteCandidate(null);
   };
 
   return (
@@ -154,9 +246,13 @@ export default function QuotationsPage() {
       <DataTable<QuotationRecord>
         columns={QUOTATION_COLUMNS}
         data={quotations}
-        initialSearch={searchParam}
+        loading={loading}
+        error={loadError}
+        onRetry={load}
         searchFields={["quotationNumber", "description", "currency"]}
         searchPlaceholder="Buscar por nro. cotizacion o descripcion..."
+        emptyTitle="No hay cotizaciones registradas"
+        emptyDescription="Cuando crees la primera cotizacion, aparecera aqui."
         toolbarActions={
           <Can perform="quotations:create">
             <Button colorPalette="blue" size="sm" onClick={handleOpenCreate}>

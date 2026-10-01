@@ -62,20 +62,70 @@ export function ClientFormModal({
   } = useForm<ClientFormValues>({
     initialValues: DEFAULT_VALUES,
     rules: {
-      businessName: [validators.required("La razon social es obligatoria")],
+      businessName: [
+        validators.required("La razon social es obligatoria"),
+        validators.maxLength(
+          120,
+          "La razon social no puede superar los 120 caracteres",
+        ),
+      ],
       taxId: [
         validators.required("El CUIT es obligatorio"),
-        validators.cuit("El CUIT debe tener 11 digitos numericos"),
+        validators.cuit("El CUIT debe tener exactamente 11 digitos numericos"),
+      ],
+      contactName: [
+        validators.maxLength(
+          100,
+          "El nombre de contacto no puede superar los 100 caracteres",
+        ),
+        validators.alphabetic("El contacto solo debe contener letras y espacios"),
       ],
       email: [
         validators.required("El email es obligatorio"),
         validators.email("Ingresa un correo electronico valido"),
+        validators.maxLength(
+          100,
+          "El email no puede superar los 100 caracteres",
+        ),
       ],
-      phone: [validators.required("El telefono es obligatorio")],
+      phone: [
+        validators.required("El telefono es obligatorio"),
+        validators.phone(),
+        validators.maxLength(
+          20,
+          "El telefono no puede superar los 20 caracteres",
+        ),
+      ],
+      city: [
+        validators.maxLength(
+          60,
+          "La ciudad no puede superar los 60 caracteres",
+        ),
+        validators.alphabetic("La ciudad solo debe contener letras y espacios"),
+      ],
+      province: [
+        validators.maxLength(
+          60,
+          "La provincia no puede superar los 60 caracteres",
+        ),
+        validators.alphabetic(
+          "La provincia solo debe contener letras y espacios",
+        ),
+      ],
+      address: [
+        validators.maxLength(
+          150,
+          "La direccion no puede superar los 150 caracteres",
+        ),
+      ],
+      notes: [
+        validators.maxLength(
+          500,
+          "Las notas no pueden superar los 500 caracteres",
+        ),
+      ],
     },
     onSubmit: async (formValues) => {
-      // Los opcionales vacios viajan ausentes, no como texto vacio: "no lo se" y
-      // "esta vacio" no son lo mismo.
       const optional = (value: string) => value.trim() || undefined;
       await onSave({
         businessName: formValues.businessName.trim(),
@@ -114,6 +164,32 @@ export function ClientFormModal({
 
   const handleClose = () => {
     onOpenChange({ open: false });
+  };
+
+  // Filtrado de caracteres en tiempo real
+  const handleCuitChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const cleaned = e.target.value.replace(/[^0-9-]/g, "");
+    handleChange("taxId", cleaned);
+  };
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const cleaned = e.target.value.replace(/[^0-9+\s\-()]/g, "");
+    handleChange("phone", cleaned);
+  };
+
+  const handleContactNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const cleaned = e.target.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s.'-]/g, "");
+    handleChange("contactName", cleaned);
+  };
+
+  const handleCityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const cleaned = e.target.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s.'-]/g, "");
+    handleChange("city", cleaned);
+  };
+
+  const handleProvinceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const cleaned = e.target.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s.'-]/g, "");
+    handleChange("province", cleaned);
   };
 
   return (
@@ -158,6 +234,7 @@ export function ClientFormModal({
             <Input
               placeholder="Ej: Metalurgica Andina S.A."
               value={values.businessName}
+              maxLength={120}
               onChange={(e) => handleChange("businessName", e.target.value)}
               onBlur={() => handleBlur("businessName")}
             />
@@ -167,12 +244,13 @@ export function ClientFormModal({
             label="CUIT (11 digitos)"
             required
             error={touched.taxId ? errors.taxId : null}
-            helperText="Sin guiones ni espacios"
+            helperText="Sin guiones ni espacios (11 digitos)"
           >
             <Input
-              placeholder="Ej: 30712345678"
+              placeholder="Ej: 20432906505"
               value={values.taxId}
-              onChange={(e) => handleChange("taxId", e.target.value)}
+              maxLength={13}
+              onChange={handleCuitChange}
               onBlur={() => handleBlur("taxId")}
             />
           </FormField>
@@ -180,13 +258,14 @@ export function ClientFormModal({
 
         <SimpleGrid columns={{ base: 1, md: 2 }} gap={3}>
           <FormField
-            label="Persona de Contacto"
+            label="Persona de contacto"
             error={touched.contactName ? errors.contactName : null}
           >
             <Input
               placeholder="Ej: Carlos Mendez"
               value={values.contactName}
-              onChange={(e) => handleChange("contactName", e.target.value)}
+              maxLength={100}
+              onChange={handleContactNameChange}
               onBlur={() => handleBlur("contactName")}
             />
           </FormField>
@@ -200,6 +279,7 @@ export function ClientFormModal({
               type="email"
               placeholder="contacto@empresa.com.ar"
               value={values.email}
+              maxLength={100}
               onChange={(e) => handleChange("email", e.target.value)}
               onBlur={() => handleBlur("email")}
             />
@@ -215,43 +295,60 @@ export function ClientFormModal({
             <Input
               placeholder="+54 11 4522-8900"
               value={values.phone}
-              onChange={(e) => handleChange("phone", e.target.value)}
+              maxLength={20}
+              onChange={handlePhoneChange}
               onBlur={() => handleBlur("phone")}
             />
           </FormField>
 
-          <FormField label="Ciudad">
+          <FormField
+            label="Ciudad"
+            error={touched.city ? errors.city : null}
+          >
             <Input
               placeholder="Ej: Rosario"
               value={values.city}
-              onChange={(e) => handleChange("city", e.target.value)}
+              maxLength={60}
+              onChange={handleCityChange}
               onBlur={() => handleBlur("city")}
             />
           </FormField>
 
-          <FormField label="Provincia">
+          <FormField
+            label="Provincia"
+            error={touched.province ? errors.province : null}
+          >
             <Input
               placeholder="Ej: Santa Fe"
               value={values.province}
-              onChange={(e) => handleChange("province", e.target.value)}
+              maxLength={60}
+              onChange={handleProvinceChange}
               onBlur={() => handleBlur("province")}
             />
           </FormField>
         </SimpleGrid>
 
-        <FormField label="Direccion">
+        <FormField
+          label="Direccion"
+          error={touched.address ? errors.address : null}
+        >
           <Input
             placeholder="Av. Industrial 4500"
             value={values.address}
+            maxLength={150}
             onChange={(e) => handleChange("address", e.target.value)}
             onBlur={() => handleBlur("address")}
           />
         </FormField>
 
-        <FormField label="Notas u observaciones">
+        <FormField
+          label="Notas u observaciones"
+          error={touched.notes ? errors.notes : null}
+        >
           <Textarea
             placeholder="Informacion adicional sobre el cliente, requerimientos especiales de calidad, etc."
             value={values.notes}
+            maxLength={500}
             onChange={(e) => handleChange("notes", e.target.value)}
             onBlur={() => handleBlur("notes")}
             rows={3}
@@ -263,4 +360,3 @@ export function ClientFormModal({
 }
 
 export default ClientFormModal;
-

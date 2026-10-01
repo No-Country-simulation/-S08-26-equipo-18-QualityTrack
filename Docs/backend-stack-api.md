@@ -71,3 +71,66 @@ Decididos por el usuario el 2026-09-22 (QT-06 a QT-09).
 Leído el 2026-09-22 de `backend/package.json`, `backend/pnpm-lock.yaml`, `backend/tsconfig.json`, `backend/mikro-orm.config.ts`, `backend/Dockerfile`, `backend/jest.config.js`, `docker-compose.yml` (postgres:17), `.github/workflows/*.yml`, `backend/src/**`.
 Corregido el 2026-09-22 para que compile: `@Property({type:"enum", items})` → `@Enum(() => …)` en `WorkOrder` y `Approval`, y el segundo argumento inválido de `@ManyToOne` en `Delivery`.
 Indeterminado: versión exacta de Node en producción (Render); la define el servicio, no el repo.
+
+## Contrato de endpoints requeridos por el frontend (Fase 9)
+
+La siguiente tabla consolida los endpoints REST que el frontend consume o tiene preparados para consumir. Cada endpoint debe devolver las entidades tipadas según el modelo definido en `src/entities/` y aceptar los DTOs correspondientes con validación de entrada via `class-validator`.
+
+| Módulo / Entidad | Método y Ruta | Descripción / Parámetros | DTO o Payload esperado |
+|---|---|---|---|
+| Requests | `GET /requests` | Lista todas las solicitudes comerciales | Query opcional: `search`, `page`, `limit` |
+| Requests | `GET /requests/:id` | Detalle de una solicitud | Respuesta: `Request` con `client` opcional |
+| Requests | `POST /requests` | Crea nueva solicitud técnica | `CreateRequestDto` (`clientId`, `requestNumber`, `title`, `description`, `receivedAt`, `requestedDeliveryDate`) |
+| Requests | `PUT /requests/:id` | Actualiza solicitud existente | `UpdateRequestDto` (campos parciales) |
+| Requests | `DELETE /requests/:id` | Elimina una solicitud | Respuesta 204 No Content |
+| Quotations | `GET /quotations` | Lista todas las cotizaciones | Query opcional: `search`, `page`, `limit` |
+| Quotations | `GET /quotations/:id` | Detalle de cotización con items | Respuesta: `Quotation` con `items`, `client`, `request` |
+| Quotations | `POST /quotations` | Crea nueva cotización comercial | `CreateQuotationDto` (`clientId`, `requestId`, `quotationNumber`, `version`, `subtotal`, `taxAmount`, `currency`, `items`) |
+| Quotations | `PUT /quotations/:id` | Actualiza cotización existente | `UpdateQuotationDto` (campos parciales) |
+| Quotations | `DELETE /quotations/:id` | Elimina una cotización | Respuesta 204 No Content |
+| WorkOrders | `GET /work-orders` | Lista todas las órdenes de trabajo | Query opcional: `status`, `search`, `page`, `limit` |
+| WorkOrders | `GET /work-orders/:id` | Detalle completo de una orden de trabajo | Respuesta: `WorkOrder` con `client`, `request`, `quotation` |
+| WorkOrders | `POST /work-orders` | Crea nueva orden de trabajo | `CreateWorkOrderDto` (`workOrderNumber`, `title`, `description`, `priority`, `status`, `clientId`, `requestId`, `quotationId`, fechas) |
+| WorkOrders | `PUT /work-orders/:id` | Actualiza orden de trabajo | `UpdateWorkOrderDto` (campos parciales) |
+| WorkOrders | `DELETE /work-orders/:id` | Elimina una orden de trabajo | Respuesta 204 No Content |
+| QualityControl | `GET /quality` | Lista todos los controles de calidad | Query opcional: `search`, `page`, `limit` |
+| QualityControl | `GET /quality/work-order/:id` | Controles de calidad vinculados a una OT | Parámetro: `id` de la orden de trabajo |
+| QualityControl | `GET /quality/:id` | Detalle de un control de calidad | Respuesta: `QualityControl` con `workOrder` |
+| QualityControl | `POST /quality` | Registra control de calidad | `CreateQualityControlDto` (`workOrderId`, `operationId`, `specification`, `measuredValue`, `expectedValue`, `unit`, `observations`) |
+| QualityControl | `PUT /quality/:id` | Actualiza control de calidad | `UpdateQualityControlDto` (campos parciales) |
+| QualityControl | `DELETE /quality/:id` | Elimina control de calidad | Respuesta 204 No Content |
+| Deliveries | `GET /deliveries` | Lista todos los remitos y entregas | Query opcional: `search`, `page`, `limit` |
+| Deliveries | `GET /deliveries/work-order/:id` | Entregas vinculadas a una OT | Parámetro: `id` de la orden de trabajo |
+| Deliveries | `GET /deliveries/:id` | Detalle de una entrega | Respuesta: `Delivery` con `client`, `workOrder` |
+| Deliveries | `POST /deliveries` | Registra nuevo despacho o remito | `CreateDeliveryDto` (`workOrderId`, `clientId`, `deliveryDate`, `quantity`, `notes`) |
+| Deliveries | `PUT /deliveries/:id` | Actualiza remito de entrega | `UpdateDeliveryDto` (campos parciales) |
+| Deliveries | `DELETE /deliveries/:id` | Elimina remito de entrega | Respuesta 204 No Content |
+| RouteSheets | `GET /route-sheets/work-order/:id` | Hoja de ruta vinculada a una OT | Parámetro: `id` de la orden de trabajo |
+| RouteSheets | `GET /route-sheets/:id` | Detalle de hoja de ruta | Respuesta: `RouteSheet` |
+| RouteSheets | `POST /route-sheets` | Crea hoja de ruta para una OT | `CreateRouteSheetDto` (`workOrderId`, `routeNumber`, `instructions`) |
+| RouteSheets | `PUT /route-sheets/:id` | Actualiza hoja de ruta | `UpdateRouteSheetDto` (campos parciales) |
+| RouteSheets | `DELETE /route-sheets/:id` | Elimina hoja de ruta | Respuesta 204 No Content |
+| Operations | `GET /operations/route-sheet/:id` | Operaciones de una hoja de ruta | Parámetro: `id` de la hoja de ruta |
+| Operations | `GET /operations/:id` | Detalle de una operación | Respuesta: `Operation` |
+| Operations | `POST /operations` | Registra operación de mecanizado | `CreateOperationDto` (`routeSheetId`, `operationNumber`, `name`, `machine`, `estimatedHours`, fechas) |
+| Operations | `PUT /operations/:id` | Actualiza estado u horas de operación | `UpdateOperationDto` (campos parciales) |
+| Operations | `DELETE /operations/:id` | Elimina operación de mecanizado | Respuesta 204 No Content |
+| Documents | `GET /documents` | Lista documentos técnicos | Query opcional: `workOrderId`, `requestId`, `quotationId` |
+| Documents | `GET /documents/work-order/:id` | Documentos vinculados a una OT | Parámetro: `id` de la orden de trabajo |
+| Documents | `GET /documents/types` | Tipos de documentos configurados | Respuesta: `DocumentType[]` |
+| Documents | `POST /documents` | Carga de archivo técnico adjunto | Multipart form: `file`, `documentTypeId`, `workOrderId`, `description` |
+| Documents | `DELETE /documents/:id` | Elimina documento adjunto | Respuesta 204 No Content |
+| Materials | `GET /materials` | Catálogo maestro de materiales | Query opcional: `search`, `page`, `limit` |
+| Materials | `POST /materials` | Crea material en catálogo | `CreateMaterialDto` (`code`, `name`, `description`, `unitOfMeasure`) |
+| Materials | `PUT /materials/:id` | Actualiza material | `UpdateMaterialDto` (campos parciales) |
+| Materials | `DELETE /materials/:id` | Elimina material | Respuesta 204 No Content |
+| WorkOrderMaterials | `GET /work-order-materials/work-order/:id` | Materiales asignados a una OT | Parámetro: `id` de la orden de trabajo |
+| WorkOrderMaterials | `POST /work-order-materials` | Asigna lote de material a OT | `CreateWorkOrderMaterialDto` (`workOrderId`, `materialId`, `quantity`, `heatNumber`, `certificateUrl`) |
+| WorkOrderMaterials | `DELETE /work-order-materials/:id` | Desvincula material de OT | Respuesta 204 No Content |
+| Approvals | `GET /approvals/work-order/:id` | Aprobación técnica/calidad de OT | Parámetro: `id` de la orden de trabajo |
+| Approvals | `POST /approvals` | Registra decisión de aprobación | `CreateApprovalDto` (`workOrderId`, `status`, `comments`, `approvedById`) |
+| Approvals | `PUT /approvals/:id` | Actualiza decisión de aprobación | `UpdateApprovalDto` (`status`, `comments`) |
+| WorkOrderUsers | `GET /work-order-users/work-order/:id` | Personal asignado a una OT | Parámetro: `id` de la orden de trabajo |
+| WorkOrderUsers | `POST /work-order-users` | Asigna operario/técnico a OT | `CreateWorkOrderUserDto` (`workOrderId`, `userId`, `roleInOrder`) |
+| WorkOrderUsers | `DELETE /work-order-users/:id` | Desasigna personal de OT | Respuesta 204 No Content |
+

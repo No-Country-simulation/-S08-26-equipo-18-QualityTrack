@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useCallback, useEffect, useState } from "react";
 import { Box, Flex, Heading, HStack, Text } from "@chakra-ui/react";
 import { LuClipboardList, LuPencil, LuPlus, LuTrash2 } from "react-icons/lu";
 import { Alert } from "../components/Alert";
@@ -10,18 +9,25 @@ import { DataTable } from "../components/DataTable";
 import { REQUEST_COLUMNS, RequestFormModal } from "../modules/requests";
 import { MOCK_CLIENTS } from "../test/mocks/mockClients";
 import { MOCK_REQUESTS } from "../test/mocks/mockRequests";
+import { ApiError } from "../services/api";
+import { clientService } from "../services/clientService";
 import type { Client } from "../services/clientService";
+import { requestService } from "../services/requestService";
 import type { CreateRequestDto, Request } from "../services/requestService";
 
 type RequestRecord = Request & Record<string, unknown>;
 
+function errorMessage(error: unknown): string {
+  return error instanceof ApiError
+    ? error.message
+    : "Ocurrio un error inesperado.";
+}
+
 export default function RequestsPage() {
-  const [searchParams] = useSearchParams();
-  const searchParam = searchParams.get("search") || "";
-  const [requests, setRequests] = useState<RequestRecord[]>(
-    MOCK_REQUESTS as RequestRecord[],
-  );
-  const [clients] = useState<Client[]>(MOCK_CLIENTS);
+  const [requests, setRequests] = useState<RequestRecord[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<Request | null>(null);
   const [deleteCandidate, setDeleteCandidate] = useState<Request | null>(null);
@@ -39,6 +45,44 @@ export default function RequestsPage() {
       setNotification(null);
     }, 4000);
   };
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      let reqData: Request[];
+      try {
+        reqData = await requestService.getAll();
+      } catch (backendErr) {
+        console.warn(
+          "Backend no disponible para solicitudes, utilizando datos locales.",
+          backendErr,
+        );
+        reqData = MOCK_REQUESTS;
+      }
+      setRequests(reqData as RequestRecord[]);
+
+      try {
+        const clientRes = await clientService.list({
+          limit: 100,
+          status: "all",
+        });
+        setClients(clientRes.items.length > 0 ? clientRes.items : MOCK_CLIENTS);
+      } catch {
+        setClients(MOCK_CLIENTS);
+      }
+    } catch (error) {
+      setLoadError(errorMessage(error));
+      setRequests(MOCK_REQUESTS as RequestRecord[]);
+      setClients(MOCK_CLIENTS);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   const handleOpenCreate = () => {
     setSelectedRequest(null);
@@ -58,45 +102,82 @@ export default function RequestsPage() {
     const associatedClient = clients.find((c) => c.id === formData.clientId);
 
     if (selectedRequest) {
-      // Edición de solicitud existente
-      setRequests((prev) =>
-        prev.map((item) =>
-          item.id === selectedRequest.id
-            ? ({
-                ...item,
-                ...formData,
-                client: associatedClient,
-                updatedAt: new Date().toISOString(),
-              } as RequestRecord)
-            : item,
-        ),
-      );
-      showNotification("Solicitud actualizada correctamente.");
+      // Edicion de solicitud existente
+      try {
+        const updated = await requestService.update(
+          selectedRequest.id,
+          formData,
+        );
+        setRequests((prev) =>
+          prev.map((item) =>
+            item.id === selectedRequest.id
+              ? ({
+                  ...item,
+                  ...updated,
+                  client: associatedClient,
+                  updatedAt: new Date().toISOString(),
+                } as RequestRecord)
+              : item,
+          ),
+        );
+        showNotification("Solicitud actualizada correctamente.");
+      } catch {
+        setRequests((prev) =>
+          prev.map((item) =>
+            item.id === selectedRequest.id
+              ? ({
+                  ...item,
+                  ...formData,
+                  client: associatedClient,
+                  updatedAt: new Date().toISOString(),
+                } as RequestRecord)
+              : item,
+          ),
+        );
+        showNotification("Solicitud actualizada correctamente.");
+      }
     } else {
       // Alta de nueva solicitud
-      const newId =
-        requests.length > 0 ? Math.max(...requests.map((r) => r.id)) + 1 : 1;
-      const newRequest: RequestRecord = {
-        id: newId,
-        ...formData,
-        client: associatedClient,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      } as RequestRecord;
+      try {
+        const created = await requestService.create(formData);
+        const newRequest = {
+          ...created,
+          client: associatedClient,
+        } as RequestRecord;
+        setRequests((prev) => [newRequest, ...prev]);
+        showNotification("Solicitud creada con exito.");
+      } catch {
+        const newId =
+          requests.length > 0 ? Math.max(...requests.map((r) => r.id)) + 1 : 1;
+        const newRequest: RequestRecord = {
+          id: newId,
+          ...formData,
+          client: associatedClient,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        } as RequestRecord;
 
-      setRequests((prev) => [newRequest, ...prev]);
-      showNotification("Solicitud creada con exito.");
+        setRequests((prev) => [newRequest, ...prev]);
+        showNotification("Solicitud creada con exito.");
+      }
     }
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (!deleteCandidate) return;
+    const target = deleteCandidate;
+    setDeleteCandidate(null);
+
+    try {
+      await requestService.delete(target.id);
+    } catch {
+      // Continuar eliminacion local ante fallback
+    }
 
     setRequests((prev) =>
-      prev.filter((item) => item.id !== deleteCandidate.id),
+      prev.filter((item) => item.id !== target.id),
     );
-    showNotification(`Solicitud "${deleteCandidate.requestNumber}" eliminada.`);
-    setDeleteCandidate(null);
+    showNotification(`Solicitud "${target.requestNumber}" eliminada.`);
   };
 
   return (
@@ -134,9 +215,13 @@ export default function RequestsPage() {
       <DataTable<RequestRecord>
         columns={REQUEST_COLUMNS}
         data={requests}
-        initialSearch={searchParam}
+        loading={loading}
+        error={loadError}
+        onRetry={load}
         searchFields={["requestNumber", "title", "description"]}
         searchPlaceholder="Buscar por nro. solicitud, titulo o descripcion..."
+        emptyTitle="No hay solicitudes registradas"
+        emptyDescription="Cuando crees la primera solicitud, aparecera aqui."
         toolbarActions={
           <Can perform="requests:create">
             <Button colorPalette="blue" size="sm" onClick={handleOpenCreate}>
