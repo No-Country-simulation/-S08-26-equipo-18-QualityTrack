@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useCallback, useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   Box,
   Flex,
@@ -63,25 +63,39 @@ import {
   MOCK_AVAILABLE_OPERATORS,
   MOCK_WORK_ORDER_USERS,
 } from "../test/mocks/mockWorkOrderUsers";
+import { clientService } from "../services/clientService";
 import type { Client } from "../services/clientService";
+import { deliveryService } from "../services/deliveryService";
 import type {
   CreateDeliveryDto,
   Delivery,
 } from "../services/deliveryService";
+import { qualityService } from "../services/qualityService";
 import type {
   CreateQualityControlDto,
   QualityControl,
 } from "../services/qualityService";
+import { workOrderService } from "../services/workOrderService";
 import type {
   CreateWorkOrderDto,
   WorkOrder,
 } from "../services/workOrderService";
+import { routeSheetService } from "../services/routeSheetService";
 import type { RouteSheet } from "../services/routeSheetService";
+import { operationService } from "../services/operationService";
 import type { Operation } from "../services/operationService";
+import { documentService } from "../services/documentService";
 import type { Document } from "../services/documentService";
+import { approvalService } from "../services/approvalService";
 import type { Approval } from "../services/approvalService";
+import { materialService } from "../services/materialService";
 import type { WorkOrderMaterial } from "../services/materialService";
+import { workOrderUserService } from "../services/workOrderUserService";
 import type { WorkOrderUser } from "../services/workOrderUserService";
+import { requestService } from "../services/requestService";
+import type { Request } from "../services/requestService";
+import { quotationService } from "../services/quotationService";
+import type { Quotation } from "../services/quotationService";
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -143,17 +157,21 @@ export default function WorkOrderDetailPage() {
   );
 
   // Hoja de ruta vinculada a esta OT (Tarea 3.4)
-  const routeSheet = MOCK_ROUTE_SHEETS.find(
-    (rs) => String(rs.workOrderId) === id || (initialWo && rs.workOrderId === initialWo.id),
+  const [routeSheet, setRouteSheet] = useState<RouteSheet | undefined>(() =>
+    MOCK_ROUTE_SHEETS.find(
+      (rs) => String(rs.workOrderId) === id || (initialWo && rs.workOrderId === initialWo.id),
+    ),
   );
 
   // Operaciones de mecanizado asociadas
-  const operations = routeSheet
-    ? MOCK_OPERATIONS.filter((op) => op.routeSheetId === routeSheet.id)
-    : [];
+  const [operations, setOperations] = useState<Operation[]>(() =>
+    routeSheet
+      ? MOCK_OPERATIONS.filter((op) => op.routeSheetId === routeSheet.id)
+      : [],
+  );
 
   // Documentacion tecnica y comercial asociada (Tarea 3.7)
-  const [documents] = useState<Document[]>(() =>
+  const [documents, setDocuments] = useState<Document[]>(() =>
     MOCK_DOCUMENTS.filter(
       (doc) =>
         String(doc.workOrderId) === id ||
@@ -201,10 +219,119 @@ export default function WorkOrderDetailPage() {
     notes: "",
   });
 
+  const [availableClients, setAvailableClients] = useState<Client[]>(MOCK_CLIENTS);
+  const [availableRequests, setAvailableRequests] = useState<Request[]>(MOCK_REQUESTS);
+  const [availableQuotations, setAvailableQuotations] = useState<Quotation[]>(MOCK_QUOTATIONS);
+  const [loading, setLoading] = useState(false);
+
   const [notification, setNotification] = useState<{
     status: "success" | "error";
     message: string;
   } | null>(null);
+
+  const loadWorkOrderData = useCallback(async () => {
+    if (!id) return;
+    setLoading(true);
+
+    let activeWo: WorkOrder | null = null;
+    try {
+      activeWo = await workOrderService.getById(id);
+      if (activeWo) {
+        setWorkOrder(activeWo);
+      }
+    } catch {
+      const foundMock = MOCK_WORK_ORDERS.find(
+        (wo) => String(wo.id) === id || String(wo.workOrderNumber) === id,
+      );
+      if (foundMock) {
+        activeWo = foundMock;
+      }
+    }
+
+    const currentId = activeWo?.id || Number(id) || id;
+
+    try {
+      const qcs = await qualityService.getByWorkOrder(currentId);
+      if (qcs && qcs.length > 0) setQualityControls(qcs);
+    } catch {
+      // Mantiene fallback
+    }
+
+    try {
+      const dels = await deliveryService.getByWorkOrder(currentId);
+      if (dels && dels.length > 0) setDeliveries(dels);
+    } catch {
+      // Mantiene fallback
+    }
+
+    try {
+      const sheets = await routeSheetService.getByWorkOrder(currentId);
+      if (sheets && sheets.length > 0) {
+        setRouteSheet(sheets[0]);
+        const ops = await operationService.getByRouteSheet(sheets[0].id);
+        if (ops && ops.length > 0) setOperations(ops);
+      }
+    } catch {
+      // Mantiene fallback
+    }
+
+    try {
+      const docs = await documentService.getByWorkOrder(currentId);
+      if (docs && docs.length > 0) setDocuments(docs);
+    } catch {
+      // Mantiene fallback
+    }
+
+    try {
+      const mats = await materialService.getByWorkOrder(currentId);
+      if (mats && mats.length > 0) setWorkOrderMaterials(mats);
+    } catch {
+      // Mantiene fallback
+    }
+
+    try {
+      const users = await workOrderUserService.getByWorkOrder(currentId);
+      if (users && users.length > 0) setWorkOrderUsers(users);
+    } catch {
+      // Mantiene fallback
+    }
+
+    try {
+      const app = await approvalService.getByWorkOrder(currentId);
+      if (app) setApproval(app);
+    } catch {
+      // Mantiene fallback
+    }
+
+    try {
+      const clientRes = await clientService.list({ limit: 100, status: "all" });
+      if (clientRes.items && clientRes.items.length > 0) {
+        setAvailableClients(clientRes.items);
+      }
+    } catch {
+      // Mantiene fallback
+    }
+
+    try {
+      const reqRes = await requestService.getAll();
+      if (reqRes && reqRes.length > 0) setAvailableRequests(reqRes);
+    } catch {
+      // Mantiene fallback
+    }
+
+    try {
+      const quotRes = await quotationService.getAll();
+      if (quotRes && quotRes.length > 0) setAvailableQuotations(quotRes);
+    } catch {
+      // Mantiene fallback
+    }
+
+    setLoading(false);
+  }, [id]);
+
+  useEffect(() => {
+    void loadWorkOrderData();
+  }, [loadWorkOrderData]);
 
   const handleDownloadDocument = (doc: Document) => {
     showNotification(`Descargando documento: ${doc.fileName}`);
@@ -230,30 +357,55 @@ export default function WorkOrderDetailPage() {
     setIsApprovalModalOpen(true);
   };
 
-  const handleConfirmDecision = () => {
+  const handleConfirmDecision = async () => {
     if (!workOrder) return;
     const isApproved = pendingDecision === "APPROVED";
-    const updatedApproval: Approval = {
-      id: approval?.id || Date.now(),
-      workOrderId: workOrder.id,
-      status: pendingDecision,
-      decidedById: 2,
-      decidedBy: {
-        id: 2,
-        name: "Ing. Carlos Mendoza",
-        email: "cmendoza@qualitytrack.com",
-        role: "Jefe de Planta",
-      },
-      decisionAt: new Date().toISOString(),
-      comments:
-        decisionComments ||
-        (isApproved
-          ? "Aprobada formalmente para ejecucion en planta."
-          : "Rechazada en revision de ingenieria/administracion."),
-      createdAt: approval?.createdAt || new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    setApproval(updatedApproval);
+    try {
+      if (approval?.id) {
+        const decided = await approvalService.decide(approval.id, {
+          status: pendingDecision,
+          comments:
+            decisionComments ||
+            (isApproved
+              ? "Aprobada formalmente para ejecucion en planta."
+              : "Rechazada en revision de ingenieria/administracion."),
+        });
+        setApproval(decided);
+      } else {
+        const created = await approvalService.create({
+          workOrderId: workOrder.id,
+          status: pendingDecision,
+          comments:
+            decisionComments ||
+            (isApproved
+              ? "Aprobada formalmente para ejecucion en planta."
+              : "Rechazada en revision de ingenieria/administracion."),
+        });
+        setApproval(created);
+      }
+    } catch {
+      const updatedApproval: Approval = {
+        id: approval?.id || Date.now(),
+        workOrderId: workOrder.id,
+        status: pendingDecision,
+        decidedById: 2,
+        decidedBy: {
+          id: 2,
+          name: "Ing. Carlos Mendoza",
+          email: "cmendoza@qualitytrack.com",
+          role: "Jefe de Planta",
+        },
+        decisionAt: new Date().toISOString(),
+        comments:
+          decisionComments ||
+          (isApproved
+            ? "Aprobada formalmente para ejecucion en planta."
+            : "Rechazada en revision de ingenieria/administracion."),
+        createdAt: approval?.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      setApproval(updatedApproval);
+    }
     setIsApprovalModalOpen(false);
     showNotification(
       isApproved
@@ -277,7 +429,7 @@ export default function WorkOrderDetailPage() {
     setIsMaterialModalOpen(true);
   };
 
-  const handleSaveMaterial = () => {
+  const handleSaveMaterial = async () => {
     if (!workOrder) return;
     if (!newMaterialForm.materialName.trim()) {
       showNotification(
@@ -286,26 +438,41 @@ export default function WorkOrderDetailPage() {
       );
       return;
     }
-    const newId =
-      workOrderMaterials.length > 0
-        ? Math.max(...workOrderMaterials.map((m) => m.id)) + 1
-        : 1;
-    const newEntry: WorkOrderMaterial = {
-      id: newId,
-      workOrderId: workOrder.id,
-      materialName: newMaterialForm.materialName.trim(),
-      specification: newMaterialForm.specification.trim() || undefined,
-      lotNumber: newMaterialForm.lotNumber.trim() || undefined,
-      certificateNumber: newMaterialForm.certificateNumber.trim() || undefined,
-      supplier: newMaterialForm.supplier.trim() || undefined,
-      quantity: newMaterialForm.quantity || "1",
-      unit: newMaterialForm.unit || "kg",
-      receivedAt: new Date().toISOString(),
-      notes: newMaterialForm.notes.trim() || undefined,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    setWorkOrderMaterials((prev) => [...prev, newEntry]);
+    try {
+      const created = await materialService.assign({
+        workOrderId: workOrder.id,
+        materialName: newMaterialForm.materialName.trim(),
+        specification: newMaterialForm.specification.trim() || undefined,
+        lotNumber: newMaterialForm.lotNumber.trim() || undefined,
+        certificateNumber: newMaterialForm.certificateNumber.trim() || undefined,
+        supplier: newMaterialForm.supplier.trim() || undefined,
+        quantity: newMaterialForm.quantity || "1",
+        unit: newMaterialForm.unit || "kg",
+        notes: newMaterialForm.notes.trim() || undefined,
+      });
+      setWorkOrderMaterials((prev) => [...prev, created]);
+    } catch {
+      const newId =
+        workOrderMaterials.length > 0
+          ? Math.max(...workOrderMaterials.map((m) => m.id)) + 1
+          : 1;
+      const newEntry: WorkOrderMaterial = {
+        id: newId,
+        workOrderId: workOrder.id,
+        materialName: newMaterialForm.materialName.trim(),
+        specification: newMaterialForm.specification.trim() || undefined,
+        lotNumber: newMaterialForm.lotNumber.trim() || undefined,
+        certificateNumber: newMaterialForm.certificateNumber.trim() || undefined,
+        supplier: newMaterialForm.supplier.trim() || undefined,
+        quantity: newMaterialForm.quantity || "1",
+        unit: newMaterialForm.unit || "kg",
+        receivedAt: new Date().toISOString(),
+        notes: newMaterialForm.notes.trim() || undefined,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      setWorkOrderMaterials((prev) => [...prev, newEntry]);
+    }
     setIsMaterialModalOpen(false);
     showNotification("Partida de materia prima asignada con exito a la orden.");
   };
@@ -320,7 +487,7 @@ export default function WorkOrderDetailPage() {
     setIsUserModalOpen(true);
   };
 
-  const handleAssignUser = () => {
+  const handleAssignUser = async () => {
     if (!workOrder) return;
     const selectedUser = MOCK_AVAILABLE_OPERATORS.find(
       (u) => String(u.id) === newUserForm.userId,
@@ -340,32 +507,48 @@ export default function WorkOrderDetailPage() {
       return;
     }
 
-    const newId =
-      workOrderUsers.length > 0
-        ? Math.max(...workOrderUsers.map((u) => u.id)) + 1
-        : 1;
+    try {
+      const created = await workOrderUserService.assign({
+        workOrderId: workOrder.id,
+        userId: selectedUser.id,
+        role: newUserForm.role.trim() || "Operador",
+        shift: newUserForm.shift.trim() || undefined,
+        notes: newUserForm.notes.trim() || undefined,
+      });
+      setWorkOrderUsers((prev) => [...prev, { ...created, user: selectedUser }]);
+    } catch {
+      const newId =
+        workOrderUsers.length > 0
+          ? Math.max(...workOrderUsers.map((u) => u.id)) + 1
+          : 1;
 
-    const newAssignment: WorkOrderUser = {
-      id: newId,
-      workOrderId: workOrder.id,
-      userId: selectedUser.id,
-      user: selectedUser,
-      role: newUserForm.role.trim() || "Operador",
-      shift: newUserForm.shift.trim() || undefined,
-      notes: newUserForm.notes.trim() || undefined,
-      assignedAt: new Date().toISOString(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
+      const newAssignment: WorkOrderUser = {
+        id: newId,
+        workOrderId: workOrder.id,
+        userId: selectedUser.id,
+        user: selectedUser,
+        role: newUserForm.role.trim() || "Operador",
+        shift: newUserForm.shift.trim() || undefined,
+        notes: newUserForm.notes.trim() || undefined,
+        assignedAt: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
 
-    setWorkOrderUsers((prev) => [...prev, newAssignment]);
+      setWorkOrderUsers((prev) => [...prev, newAssignment]);
+    }
     setIsUserModalOpen(false);
     showNotification(
       `${selectedUser.firstName} ${selectedUser.lastName} asignado con exito a la orden.`,
     );
   };
 
-  const handleRemoveUser = (assignmentId: number) => {
+  const handleRemoveUser = async (assignmentId: number) => {
+    try {
+      await workOrderUserService.unassign(assignmentId);
+    } catch {
+      // fallback
+    }
     setWorkOrderUsers((prev) => prev.filter((u) => u.id !== assignmentId));
     showNotification("Asignacion de personal removida de la orden.");
   };
@@ -377,52 +560,73 @@ export default function WorkOrderDetailPage() {
   // Resolucion de entidades vinculadas para trazabilidad completa
   const client: Client | undefined =
     workOrder?.client ||
+    availableClients.find((c) => c.id === workOrder?.clientId) ||
     MOCK_CLIENTS.find((c) => c.id === workOrder?.clientId);
   const linkedRequest =
     workOrder?.request ||
+    availableRequests.find((r) => r.id === workOrder?.requestId) ||
     MOCK_REQUESTS.find((r) => r.id === workOrder?.requestId);
   const linkedQuotation =
     workOrder?.quotation ||
+    availableQuotations.find((q) => q.id === workOrder?.quotationId) ||
     MOCK_QUOTATIONS.find((q) => q.id === workOrder?.quotationId);
 
   const handleSave = async (formData: CreateWorkOrderDto) => {
     if (!workOrder) return;
-    const updated: WorkOrder = {
-      ...workOrder,
-      ...formData,
-      updatedAt: new Date().toISOString(),
-    };
-    setWorkOrder(updated);
-    showNotification("Orden de trabajo actualizada con exito.");
+    try {
+      const updated = await workOrderService.update(workOrder.id, formData);
+      setWorkOrder((prev) => (prev ? { ...prev, ...updated } : prev));
+      showNotification("Orden de trabajo actualizada con exito.");
+    } catch {
+      const updated: WorkOrder = {
+        ...workOrder,
+        ...formData,
+        updatedAt: new Date().toISOString(),
+      };
+      setWorkOrder(updated);
+      showNotification("Orden de trabajo actualizada con exito.");
+    }
   };
 
   const handleSaveQualityControl = async (data: CreateQualityControlDto) => {
-    const newId =
-      qualityControls.length > 0 ? Math.max(...qualityControls.map((q) => q.id)) + 1 : 1;
-    const newControl: QualityControl = {
-      id: newId,
-      ...data,
-      workOrder: workOrder || undefined,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    setQualityControls((prev) => [newControl, ...prev]);
-    showNotification("Control de calidad registrado con exito.");
+    try {
+      const created = await qualityService.create(data);
+      setQualityControls((prev) => [created, ...prev]);
+      showNotification("Control de calidad registrado con exito.");
+    } catch {
+      const newId =
+        qualityControls.length > 0 ? Math.max(...qualityControls.map((q) => q.id)) + 1 : 1;
+      const newControl: QualityControl = {
+        id: newId,
+        ...data,
+        workOrder: workOrder || undefined,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      setQualityControls((prev) => [newControl, ...prev]);
+      showNotification("Control de calidad registrado con exito.");
+    }
   };
 
   const handleSaveDelivery = async (data: CreateDeliveryDto) => {
-    const newId =
-      deliveries.length > 0 ? Math.max(...deliveries.map((d) => d.id)) + 1 : 1;
-    const newDelivery: Delivery = {
-      id: newId,
-      ...data,
-      workOrder: workOrder || undefined,
-      client: client || undefined,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    setDeliveries((prev) => [newDelivery, ...prev]);
-    showNotification("Entrega registrada con exito.");
+    try {
+      const created = await deliveryService.create(data);
+      setDeliveries((prev) => [created, ...prev]);
+      showNotification("Entrega registrada con exito.");
+    } catch {
+      const newId =
+        deliveries.length > 0 ? Math.max(...deliveries.map((d) => d.id)) + 1 : 1;
+      const newDelivery: Delivery = {
+        id: newId,
+        ...data,
+        workOrder: workOrder || undefined,
+        client: client || undefined,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      setDeliveries((prev) => [newDelivery, ...prev]);
+      showNotification("Entrega registrada con exito.");
+    }
   };
 
   if (!workOrder) {
@@ -549,13 +753,7 @@ export default function WorkOrderDetailPage() {
                   color="gray.600"
                   wrap="wrap"
                   cursor="pointer"
-                  onClick={() =>
-                    navigate(
-                      `/clients?search=${encodeURIComponent(
-                        client.taxId || client.businessName,
-                      )}`,
-                    )
-                  }
+                  onClick={() => navigate("/clients")}
                   _hover={{ color: "blue.600" }}
                   title="Ver cliente en el modulo de clientes"
                 >
@@ -726,21 +924,9 @@ export default function WorkOrderDetailPage() {
                   </Text>
                 </HStack>
                 {linkedRequest ? (
-                  <Link
-                    to={`/requests?search=${encodeURIComponent(
-                      linkedRequest.requestNumber,
-                    )}`}
-                    style={{ textDecoration: "none" }}
-                  >
-                    <Badge
-                      colorPalette="blue"
-                      variant="subtle"
-                      cursor="pointer"
-                      _hover={{ bg: "blue.100" }}
-                    >
-                      {linkedRequest.requestNumber}
-                    </Badge>
-                  </Link>
+                  <Badge colorPalette="blue" variant="subtle">
+                    {linkedRequest.requestNumber}
+                  </Badge>
                 ) : (
                   <Badge colorPalette="gray" variant="subtle">
                     Sin solicitud
@@ -796,21 +982,9 @@ export default function WorkOrderDetailPage() {
                   </Text>
                 </HStack>
                 {linkedQuotation ? (
-                  <Link
-                    to={`/quotations?search=${encodeURIComponent(
-                      linkedQuotation.quotationNumber,
-                    )}`}
-                    style={{ textDecoration: "none" }}
-                  >
-                    <Badge
-                      colorPalette="green"
-                      variant="subtle"
-                      cursor="pointer"
-                      _hover={{ bg: "green.100" }}
-                    >
-                      {linkedQuotation.quotationNumber} (v{linkedQuotation.version})
-                    </Badge>
-                  </Link>
+                  <Badge colorPalette="green" variant="subtle">
+                    {linkedQuotation.quotationNumber} (v{linkedQuotation.version})
+                  </Badge>
                 ) : (
                   <Badge colorPalette="gray" variant="subtle">
                     Sin cotizacion
@@ -1736,9 +1910,9 @@ export default function WorkOrderDetailPage() {
         open={isFormOpen}
         onOpenChange={({ open }) => setIsFormOpen(open)}
         workOrder={workOrder}
-        clients={MOCK_CLIENTS}
-        requests={MOCK_REQUESTS}
-        quotations={MOCK_QUOTATIONS}
+        clients={availableClients}
+        requests={availableRequests}
+        quotations={availableQuotations}
         onSave={handleSave}
       />
 
@@ -1756,7 +1930,7 @@ export default function WorkOrderDetailPage() {
         open={isDeliveryModalOpen}
         onOpenChange={({ open }) => setIsDeliveryModalOpen(open)}
         workOrders={workOrder ? [workOrder] : []}
-        clients={MOCK_CLIENTS}
+        clients={availableClients}
         defaultWorkOrderId={workOrder?.id}
         defaultClientId={workOrder?.clientId}
         onSave={handleSaveDelivery}

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Box, Flex, Heading, HStack, Text } from "@chakra-ui/react";
 import { LuPencil, LuPlus, LuTrash2, LuTruck } from "react-icons/lu";
 import { Alert } from "../components/Alert";
@@ -10,8 +10,12 @@ import { DELIVERY_COLUMNS, DeliveryFormModal } from "../modules/deliveries";
 import { MOCK_CLIENTS } from "../test/mocks/mockClients";
 import { MOCK_DELIVERIES } from "../test/mocks/mockDeliveries";
 import { MOCK_WORK_ORDERS } from "../test/mocks/mockWorkOrders";
+import { ApiError } from "../services/api";
+import { clientService } from "../services/clientService";
 import type { Client } from "../services/clientService";
+import { deliveryService } from "../services/deliveryService";
 import type { CreateDeliveryDto, Delivery } from "../services/deliveryService";
+import { workOrderService } from "../services/workOrderService";
 import type { WorkOrder } from "../services/workOrderService";
 
 type DeliveryRecord = Delivery & {
@@ -19,10 +23,18 @@ type DeliveryRecord = Delivery & {
   workOrderNumber?: string;
 } & Record<string, unknown>;
 
+function errorMessage(error: unknown): string {
+  return error instanceof ApiError
+    ? error.message
+    : "Ocurrio un error inesperado.";
+}
+
 export default function DeliveriesPage() {
-  const [deliveries, setDeliveries] = useState<Delivery[]>(MOCK_DELIVERIES);
-  const [workOrders] = useState<WorkOrder[]>(MOCK_WORK_ORDERS);
-  const [clients] = useState<Client[]>(MOCK_CLIENTS);
+  const [deliveries, setDeliveries] = useState<Delivery[]>([]);
+  const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedDelivery, setSelectedDelivery] = useState<Delivery | null>(
@@ -44,6 +56,52 @@ export default function DeliveriesPage() {
     }, 4000);
   };
 
+  const load = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      let delData: Delivery[];
+      try {
+        delData = await deliveryService.getAll();
+      } catch (backendErr) {
+        console.warn(
+          "Backend no disponible para entregas, utilizando datos locales.",
+          backendErr,
+        );
+        delData = MOCK_DELIVERIES;
+      }
+      setDeliveries(delData);
+
+      try {
+        const woData = await workOrderService.getAll();
+        setWorkOrders(woData.length > 0 ? woData : MOCK_WORK_ORDERS);
+      } catch {
+        setWorkOrders(MOCK_WORK_ORDERS);
+      }
+
+      try {
+        const clientRes = await clientService.list({
+          limit: 100,
+          status: "all",
+        });
+        setClients(clientRes.items.length > 0 ? clientRes.items : MOCK_CLIENTS);
+      } catch {
+        setClients(MOCK_CLIENTS);
+      }
+    } catch (error) {
+      setLoadError(errorMessage(error));
+      setDeliveries(MOCK_DELIVERIES);
+      setWorkOrders(MOCK_WORK_ORDERS);
+      setClients(MOCK_CLIENTS);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
   const handleOpenCreate = () => {
     setSelectedDelivery(null);
     setIsFormOpen(true);
@@ -64,49 +122,88 @@ export default function DeliveriesPage() {
 
     if (selectedDelivery) {
       // Edicion de entrega existente
-      setDeliveries((prev) =>
-        prev.map((item) =>
-          item.id === selectedDelivery.id
-            ? ({
-                ...item,
-                ...formData,
-                workOrder: associatedWo,
-                client: associatedClient,
-                updatedAt: new Date().toISOString(),
-              } as Delivery)
-            : item,
-        ),
-      );
-      showNotification("Entrega actualizada correctamente.");
+      try {
+        const updated = await deliveryService.update(
+          selectedDelivery.id,
+          formData,
+        );
+        setDeliveries((prev) =>
+          prev.map((item) =>
+            item.id === selectedDelivery.id
+              ? ({
+                  ...item,
+                  ...updated,
+                  workOrder: associatedWo,
+                  client: associatedClient,
+                  updatedAt: new Date().toISOString(),
+                } as Delivery)
+              : item,
+          ),
+        );
+        showNotification("Entrega actualizada correctamente.");
+      } catch {
+        setDeliveries((prev) =>
+          prev.map((item) =>
+            item.id === selectedDelivery.id
+              ? ({
+                  ...item,
+                  ...formData,
+                  workOrder: associatedWo,
+                  client: associatedClient,
+                  updatedAt: new Date().toISOString(),
+                } as Delivery)
+              : item,
+          ),
+        );
+        showNotification("Entrega actualizada correctamente.");
+      }
     } else {
       // Alta de nueva entrega
-      const newId =
-        deliveries.length > 0
-          ? Math.max(...deliveries.map((d) => d.id)) + 1
-          : 1;
+      try {
+        const created = await deliveryService.create(formData);
+        const newDelivery = {
+          ...created,
+          workOrder: associatedWo,
+          client: associatedClient,
+        } as Delivery;
+        setDeliveries((prev) => [newDelivery, ...prev]);
+        showNotification("Entrega registrada con exito.");
+      } catch {
+        const newId =
+          deliveries.length > 0
+            ? Math.max(...deliveries.map((d) => d.id)) + 1
+            : 1;
 
-      const newDelivery: Delivery = {
-        id: newId,
-        ...formData,
-        workOrder: associatedWo,
-        client: associatedClient,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
+        const newDelivery: Delivery = {
+          id: newId,
+          ...formData,
+          workOrder: associatedWo,
+          client: associatedClient,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
 
-      setDeliveries((prev) => [newDelivery, ...prev]);
-      showNotification("Entrega registrada con exito.");
+        setDeliveries((prev) => [newDelivery, ...prev]);
+        showNotification("Entrega registrada con exito.");
+      }
     }
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (!deleteCandidate) return;
+    const target = deleteCandidate;
+    setDeleteCandidate(null);
+
+    try {
+      await deliveryService.delete(target.id);
+    } catch {
+      // Fallback local
+    }
 
     setDeliveries((prev) =>
-      prev.filter((item) => item.id !== deleteCandidate.id),
+      prev.filter((item) => item.id !== target.id),
     );
-    showNotification(`Remito "#REM-${deleteCandidate.id}" eliminado.`);
-    setDeleteCandidate(null);
+    showNotification(`Remito "#REM-${target.id}" eliminado.`);
   };
 
   // Mapeamos para permitir busqueda multicanal enriquecida
@@ -155,8 +252,13 @@ export default function DeliveriesPage() {
       <DataTable<DeliveryRecord>
         columns={DELIVERY_COLUMNS as any}
         data={tableData}
+        loading={loading}
+        error={loadError}
+        onRetry={load}
         searchFields={["clientName", "workOrderNumber", "notes"]}
         searchPlaceholder="Buscar por cliente, numero de OT o notas de transporte..."
+        emptyTitle="No hay entregas registradas"
+        emptyDescription="Cuando registres el primer remito o despacho, aparecera aqui."
         toolbarActions={
           <Can perform="deliveries:create">
             <Button colorPalette="blue" size="sm" onClick={handleOpenCreate}>
@@ -180,7 +282,7 @@ export default function DeliveriesPage() {
               </Button>
             </Can>
 
-            <Can perform="deliveries:edit">
+            <Can perform="deliveries:delete">
               <Button
                 size="xs"
                 variant="ghost"

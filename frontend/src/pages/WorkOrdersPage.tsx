@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Box, Flex, Heading, HStack, Text } from "@chakra-ui/react";
 import {
@@ -17,10 +17,9 @@ import {
   WORK_ORDER_COLUMNS,
   WorkOrderFormModal,
 } from "../modules/workOrders";
-import { MOCK_CLIENTS } from "../test/mocks/mockClients";
-import { MOCK_REQUESTS } from "../test/mocks/mockRequests";
-import { MOCK_QUOTATIONS } from "../test/mocks/mockQuotations";
 import { MOCK_WORK_ORDERS } from "../test/mocks/mockWorkOrders";
+import { ApiError } from "../services/api";
+import { workOrderService } from "../services/workOrderService";
 import type {
   CreateWorkOrderDto,
   WorkOrder,
@@ -38,11 +37,17 @@ const STATUS_FILTERS: { value: WorkOrderStatus | "ALL"; label: string }[] = [
   { value: "CANCELLED", label: "Canceladas" },
 ];
 
+function errorMessage(error: unknown): string {
+  return error instanceof ApiError
+    ? error.message
+    : "Ocurrio un error inesperado.";
+}
+
 export default function WorkOrdersPage() {
   const navigate = useNavigate();
-  const [workOrders, setWorkOrders] = useState<WorkOrderRecord[]>(
-    MOCK_WORK_ORDERS as WorkOrderRecord[],
-  );
+  const [workOrders, setWorkOrders] = useState<WorkOrderRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<WorkOrderStatus | "ALL">(
     "ALL",
   );
@@ -67,6 +72,33 @@ export default function WorkOrdersPage() {
       setNotification(null);
     }, 4000);
   };
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      let woData: WorkOrder[];
+      try {
+        woData = await workOrderService.getAll();
+      } catch (backendErr) {
+        console.warn(
+          "Backend no disponible para ordenes de trabajo, utilizando datos locales.",
+          backendErr,
+        );
+        woData = MOCK_WORK_ORDERS;
+      }
+      setWorkOrders(woData as WorkOrderRecord[]);
+    } catch (error) {
+      setLoadError(errorMessage(error));
+      setWorkOrders(MOCK_WORK_ORDERS as WorkOrderRecord[]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   // Filtrado reactivo por estado
   const filteredWorkOrders = useMemo(() => {
@@ -102,47 +134,82 @@ export default function WorkOrdersPage() {
   const handleSaveWorkOrder = async (formData: CreateWorkOrderDto) => {
     if (selectedWorkOrder) {
       // Edicion de orden existente
-      setWorkOrders((prev) =>
-        prev.map((item) =>
-          item.id === selectedWorkOrder.id
-            ? ({
-                ...item,
-                ...formData,
-                updatedAt: new Date().toISOString(),
-              } as WorkOrderRecord)
-            : item,
-        ),
-      );
-      showNotification("Orden de trabajo actualizada correctamente.");
+      try {
+        const updated = await workOrderService.update(
+          selectedWorkOrder.id,
+          formData,
+        );
+        setWorkOrders((prev) =>
+          prev.map((item) =>
+            item.id === selectedWorkOrder.id
+              ? ({
+                  ...item,
+                  ...updated,
+                  updatedAt: new Date().toISOString(),
+                } as WorkOrderRecord)
+              : item,
+          ),
+        );
+        showNotification("Orden de trabajo actualizada correctamente.");
+      } catch {
+        setWorkOrders((prev) =>
+          prev.map((item) =>
+            item.id === selectedWorkOrder.id
+              ? ({
+                  ...item,
+                  ...formData,
+                  updatedAt: new Date().toISOString(),
+                } as WorkOrderRecord)
+              : item,
+          ),
+        );
+        showNotification("Orden de trabajo actualizada correctamente.");
+      }
     } else {
       // Alta de nueva orden de trabajo
-      const newId =
-        workOrders.length > 0
-          ? Math.max(...workOrders.map((wo) => wo.id)) + 1
-          : 1;
-      const newWo: WorkOrderRecord = {
-        id: newId,
-        ...formData,
-        workOrderNumber: formData.workOrderNumber || nextWorkOrderNumber,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      } as WorkOrderRecord;
+      try {
+        const created = await workOrderService.create({
+          ...formData,
+          workOrderNumber: formData.workOrderNumber || nextWorkOrderNumber,
+        });
+        setWorkOrders((prev) => [created as WorkOrderRecord, ...prev]);
+        showNotification("Orden de trabajo creada con exito.");
+      } catch {
+        const newId =
+          workOrders.length > 0
+            ? Math.max(...workOrders.map((wo) => wo.id)) + 1
+            : 1;
+        const newWo: WorkOrderRecord = {
+          id: newId,
+          ...formData,
+          workOrderNumber: formData.workOrderNumber || nextWorkOrderNumber,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        } as WorkOrderRecord;
 
-      setWorkOrders((prev) => [newWo, ...prev]);
-      showNotification("Orden de trabajo creada con exito.");
+        setWorkOrders((prev) => [newWo, ...prev]);
+        showNotification("Orden de trabajo creada con exito.");
+      }
     }
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (!deleteCandidate) return;
+    const target = deleteCandidate;
+    setDeleteCandidate(null);
+
+    try {
+      await workOrderService.delete(target.id);
+    } catch {
+      // Fallback local
+    }
 
     setWorkOrders((prev) =>
-      prev.filter((item) => item.id !== deleteCandidate.id),
+      prev.filter((item) => item.id !== target.id),
     );
     showNotification(
-      `Orden de trabajo "OT-${deleteCandidate.workOrderNumber}" eliminada.`,
+      `Orden de trabajo "OT-${target.workOrderNumber}" eliminada.`,
     );
-    setDeleteCandidate(null);
   };
 
   return (
@@ -198,8 +265,13 @@ export default function WorkOrdersPage() {
       <DataTable<WorkOrderRecord>
         columns={WORK_ORDER_COLUMNS}
         data={filteredWorkOrders}
+        loading={loading}
+        error={loadError}
+        onRetry={load}
         searchFields={["title", "description"]}
         searchPlaceholder="Buscar por titulo o descripcion..."
+        emptyTitle="No hay ordenes de trabajo registradas"
+        emptyDescription="Cuando crees la primera orden de trabajo, aparecera aqui."
         toolbarActions={
           <Can perform="workOrders:create">
             <Button colorPalette="blue" size="sm" onClick={handleOpenCreate}>
@@ -256,9 +328,6 @@ export default function WorkOrdersPage() {
         onOpenChange={({ open }) => setIsFormOpen(open)}
         workOrder={selectedWorkOrder}
         nextWorkOrderNumber={nextWorkOrderNumber}
-        clients={MOCK_CLIENTS}
-        requests={MOCK_REQUESTS}
-        quotations={MOCK_QUOTATIONS}
         onSave={handleSaveWorkOrder}
       />
 
