@@ -6,10 +6,7 @@ import { Button } from "../components/Button";
 import { Can } from "../components/Can";
 import { DataTable } from "../components/DataTable";
 import { DELIVERY_COLUMNS, DeliveryFormModal } from "../modules/deliveries";
-import { MOCK_CLIENTS } from "../test/mocks/mockClients";
-import { MOCK_DELIVERIES } from "../test/mocks/mockDeliveries";
-import { MOCK_WORK_ORDERS } from "../test/mocks/mockWorkOrders";
-import { ApiError } from "../services/api";
+import { errorMessage } from "../utils/errorMessage";
 import { clientService } from "../services/clientService";
 import type { Client } from "../services/clientService";
 import { deliveryService } from "../services/deliveryService";
@@ -21,12 +18,6 @@ type DeliveryRecord = Delivery & {
   clientName?: string;
   workOrderNumber?: string;
 } & Record<string, unknown>;
-
-function errorMessage(error: unknown): string {
-  return error instanceof ApiError
-    ? error.message
-    : "Ocurrio un error inesperado.";
-}
 
 export default function DeliveriesPage() {
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
@@ -58,39 +49,19 @@ export default function DeliveriesPage() {
     setLoading(true);
     setLoadError(null);
     try {
-      let delData: Delivery[];
-      try {
-        delData = await deliveryService.getAll();
-      } catch (backendErr) {
-        console.warn(
-          "Backend no disponible para entregas, utilizando datos locales.",
-          backendErr,
-        );
-        delData = MOCK_DELIVERIES;
-      }
-      setDeliveries(delData);
-
-      try {
-        const woData = await workOrderService.getAll();
-        setWorkOrders(woData.length > 0 ? woData : MOCK_WORK_ORDERS);
-      } catch {
-        setWorkOrders(MOCK_WORK_ORDERS);
-      }
-
-      try {
-        const clientRes = await clientService.list({
-          limit: 100,
-          status: "all",
-        });
-        setClients(clientRes.items.length > 0 ? clientRes.items : MOCK_CLIENTS);
-      } catch {
-        setClients(MOCK_CLIENTS);
-      }
+      const [records, related0, related1] = await Promise.all([
+        deliveryService.getAll(),
+        workOrderService.getAll(),
+        clientService.list({ limit: 100, status: "all" }),
+      ]);
+      setDeliveries(records as Delivery[]);
+      setWorkOrders(related0);
+      setClients(related1.items);
     } catch (error) {
       setLoadError(errorMessage(error));
-      setDeliveries(MOCK_DELIVERIES);
-      setWorkOrders(MOCK_WORK_ORDERS);
-      setClients(MOCK_CLIENTS);
+      setDeliveries([]);
+      setWorkOrders([]);
+      setClients([]);
     } finally {
       setLoading(false);
     }
@@ -111,75 +82,21 @@ export default function DeliveriesPage() {
   };
 
   const handleSaveDelivery = async (formData: CreateDeliveryDto) => {
-    const associatedWo = workOrders.find((w) => w.id === formData.workOrderId);
-    const associatedClient = clients.find((c) => c.id === formData.clientId);
-
     if (selectedDelivery) {
-      // Edicion de entrega existente
-      try {
-        const updated = await deliveryService.update(
-          selectedDelivery.id,
-          formData,
-        );
-        setDeliveries((prev) =>
-          prev.map((item) =>
-            item.id === selectedDelivery.id
-              ? ({
-                  ...item,
-                  ...updated,
-                  workOrder: associatedWo,
-                  client: associatedClient,
-                  updatedAt: new Date().toISOString(),
-                } as Delivery)
-              : item,
-          ),
-        );
-        showNotification("Entrega actualizada correctamente.");
-      } catch {
-        setDeliveries((prev) =>
-          prev.map((item) =>
-            item.id === selectedDelivery.id
-              ? ({
-                  ...item,
-                  ...formData,
-                  workOrder: associatedWo,
-                  client: associatedClient,
-                  updatedAt: new Date().toISOString(),
-                } as Delivery)
-              : item,
-          ),
-        );
-        showNotification("Entrega actualizada correctamente.");
-      }
+      const updated = await deliveryService.update(
+        selectedDelivery.id,
+        formData,
+      );
+      setDeliveries((prev) =>
+        prev.map((item) =>
+          item.id === selectedDelivery.id ? (updated as Delivery) : item,
+        ),
+      );
+      showNotification("Entrega actualizada correctamente.");
     } else {
-      // Alta de nueva entrega
-      try {
-        const created = await deliveryService.create(formData);
-        const newDelivery = {
-          ...created,
-          workOrder: associatedWo,
-          client: associatedClient,
-        } as Delivery;
-        setDeliveries((prev) => [newDelivery, ...prev]);
-        showNotification("Entrega registrada con exito.");
-      } catch {
-        const newId =
-          deliveries.length > 0
-            ? Math.max(...deliveries.map((d) => d.id)) + 1
-            : 1;
-
-        const newDelivery: Delivery = {
-          id: newId,
-          ...formData,
-          workOrder: associatedWo,
-          client: associatedClient,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-
-        setDeliveries((prev) => [newDelivery, ...prev]);
-        showNotification("Entrega registrada con exito.");
-      }
+      const created = await deliveryService.create(formData);
+      setDeliveries((prev) => [created as Delivery, ...prev]);
+      showNotification("Entrega creada correctamente.");
     }
   };
 
@@ -238,7 +155,12 @@ export default function DeliveriesPage() {
         emptyDescription="Cuando registres el primer remito o despacho, aparecera aqui."
         toolbarActions={
           <Can perform="deliveries:create">
-            <Button colorPalette="blue" size="sm" onClick={handleOpenCreate}>
+            <Button
+              colorPalette="blue"
+              size="sm"
+              disabled={loading || Boolean(loadError)}
+              onClick={handleOpenCreate}
+            >
               <LuPlus style={{ marginRight: "6px" }} />
               Nueva entrega
             </Button>
@@ -258,7 +180,6 @@ export default function DeliveriesPage() {
                 <LuPencil size={14} />
               </Button>
             </Can>
-
           </HStack>
         )}
       />
@@ -272,7 +193,6 @@ export default function DeliveriesPage() {
         clients={clients}
         onSave={handleSaveDelivery}
       />
-
     </Box>
   );
 }

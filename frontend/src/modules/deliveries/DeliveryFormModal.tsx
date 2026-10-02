@@ -126,24 +126,14 @@ export function DeliveryFormModal({
         notes: delivery.notes || "",
       });
     } else {
-      const activeWoId =
-        defaultWorkOrderId ??
-        (workOrders.length === 1 ? workOrders[0].id : undefined);
-      const activeWo = activeWoId
-        ? workOrders.find((wo) => wo.id === activeWoId)
-        : undefined;
-      const activeClientId =
-        defaultClientId ??
-        activeWo?.clientId ??
-        (clients.length === 1 ? clients[0].id : undefined);
-
       reset({
         ...DEFAULT_VALUES,
-        workOrderId: activeWoId ? String(activeWoId) : "",
-        clientId: activeClientId ? String(activeClientId) : "",
+        deliveryDate: getTodayDateString(),
+        workOrderId: initialWoId ? String(initialWoId) : "",
+        clientId: initialClientId ? String(initialClientId) : "",
       });
     }
-  }, [open, delivery, defaultWorkOrderId, defaultClientId, workOrders, clients, reset]);
+  }, [open, delivery, initialWoId, initialClientId, reset]);
 
   const handleClose = () => {
     onOpenChange({ open: false });

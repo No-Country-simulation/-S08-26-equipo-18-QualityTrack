@@ -25,10 +25,6 @@ import type { WorkOrder } from "../../services/workOrderService";
 import type { QualityControl } from "../../services/qualityService";
 import type { Delivery } from "../../services/deliveryService";
 import type { Document } from "../../services/documentService";
-import { MOCK_WORK_ORDERS } from "../../test/mocks/mockWorkOrders";
-import { MOCK_QUALITY_CONTROLS } from "../../test/mocks/mockQualityControls";
-import { MOCK_DELIVERIES } from "../../test/mocks/mockDeliveries";
-import { MOCK_DOCUMENTS } from "../../test/mocks/mockDocuments";
 
 export interface WorkOrderTraceabilitySummary {
   workOrder: WorkOrder;
@@ -54,10 +50,10 @@ export interface TraceabilityCompletenessCardProps {
 }
 
 export function TraceabilityCompletenessCard({
-  workOrders = MOCK_WORK_ORDERS,
-  qualityControls = MOCK_QUALITY_CONTROLS,
-  deliveries = MOCK_DELIVERIES,
-  documents = MOCK_DOCUMENTS,
+  workOrders = [],
+  qualityControls = [],
+  deliveries = [],
+  documents = [],
   onNavigateToWorkOrder,
 }: TraceabilityCompletenessCardProps) {
   const navigate = useNavigate();

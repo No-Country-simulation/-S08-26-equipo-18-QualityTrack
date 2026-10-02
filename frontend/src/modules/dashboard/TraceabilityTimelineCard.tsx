@@ -28,11 +28,6 @@ import type { Request } from "../../services/requestService";
 import type { Quotation } from "../../services/quotationService";
 import type { QualityControl } from "../../services/qualityService";
 import type { Delivery } from "../../services/deliveryService";
-import { MOCK_WORK_ORDERS } from "../../test/mocks/mockWorkOrders";
-import { MOCK_REQUESTS } from "../../test/mocks/mockRequests";
-import { MOCK_QUOTATIONS } from "../../test/mocks/mockQuotations";
-import { MOCK_QUALITY_CONTROLS } from "../../test/mocks/mockQualityControls";
-import { MOCK_DELIVERIES } from "../../test/mocks/mockDeliveries";
 
 export type TimelineEventType =
   | "ALL"
@@ -66,11 +61,11 @@ export interface TraceabilityTimelineCardProps {
 }
 
 export function TraceabilityTimelineCard({
-  workOrders = MOCK_WORK_ORDERS,
-  requests = MOCK_REQUESTS,
-  quotations = MOCK_QUOTATIONS,
-  qualityControls = MOCK_QUALITY_CONTROLS,
-  deliveries = MOCK_DELIVERIES,
+  workOrders = [],
+  requests = [],
+  quotations = [],
+  qualityControls = [],
+  deliveries = [],
   limit = 5,
   onNavigate,
 }: TraceabilityTimelineCardProps) {

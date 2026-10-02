@@ -1,20 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { Box, Flex, Heading, HStack, Text } from "@chakra-ui/react";
-import {
-  LuPencil,
-  LuPlus,
-  LuShieldCheck,
-  LuTrash2,
-} from "react-icons/lu";
+import { LuPencil, LuPlus, LuShieldCheck, LuTrash2 } from "react-icons/lu";
 import { Alert } from "../components/Alert";
 import { Button } from "../components/Button";
 import { Can } from "../components/Can";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { DataTable } from "../components/DataTable";
 import { QUALITY_COLUMNS, QualityFormModal } from "../modules/quality";
-import { MOCK_QUALITY_CONTROLS } from "../test/mocks/mockQualityControls";
-import { MOCK_WORK_ORDERS } from "../test/mocks/mockWorkOrders";
-import { ApiError } from "../services/api";
+import { errorMessage } from "../utils/errorMessage";
 import { qualityService } from "../services/qualityService";
 import type {
   CreateQualityControlDto,
@@ -25,22 +18,20 @@ import type { WorkOrder } from "../services/workOrderService";
 
 type QualityControlRecord = QualityControl & Record<string, unknown>;
 
-function errorMessage(error: unknown): string {
-  return error instanceof ApiError
-    ? error.message
-    : "Ocurrio un error inesperado.";
-}
-
 export default function QualityPage() {
   const [controls, setControls] = useState<QualityControlRecord[]>([]);
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [selectedControl, setSelectedControl] =
-    useState<QualityControl | null>(null);
-  const [deleteCandidate, setDeleteCandidate] =
-    useState<QualityControl | null>(null);
+  const [selectedControl, setSelectedControl] = useState<QualityControl | null>(
+    null,
+  );
+  const [deleteCandidate, setDeleteCandidate] = useState<QualityControl | null>(
+    null,
+  );
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [notification, setNotification] = useState<{
     status: "success" | "error";
     message: string;
@@ -60,28 +51,16 @@ export default function QualityPage() {
     setLoading(true);
     setLoadError(null);
     try {
-      let qcData: QualityControl[];
-      try {
-        qcData = await qualityService.getAll();
-      } catch (backendErr) {
-        console.warn(
-          "Backend no disponible para controles de calidad, utilizando datos locales.",
-          backendErr,
-        );
-        qcData = MOCK_QUALITY_CONTROLS;
-      }
-      setControls(qcData as QualityControlRecord[]);
-
-      try {
-        const woData = await workOrderService.getAll();
-        setWorkOrders(woData.length > 0 ? woData : MOCK_WORK_ORDERS);
-      } catch {
-        setWorkOrders(MOCK_WORK_ORDERS);
-      }
+      const [records, related0] = await Promise.all([
+        qualityService.getAll(),
+        workOrderService.getAll(),
+      ]);
+      setControls(records as QualityControlRecord[]);
+      setWorkOrders(related0);
     } catch (error) {
       setLoadError(errorMessage(error));
-      setControls(MOCK_QUALITY_CONTROLS as QualityControlRecord[]);
-      setWorkOrders(MOCK_WORK_ORDERS);
+      setControls([]);
+      setWorkOrders([]);
     } finally {
       setLoading(false);
     }
@@ -102,91 +81,42 @@ export default function QualityPage() {
   };
 
   const handleOpenDelete = (control: QualityControl) => {
+    setDeleteError(null);
     setDeleteCandidate(control);
   };
 
   const handleSaveControl = async (formData: CreateQualityControlDto) => {
-    const associatedWo = workOrders.find((w) => w.id === formData.workOrderId);
-
     if (selectedControl) {
-      // Edicion de control existente
-      try {
-        const updated = await qualityService.update(
-          selectedControl.id,
-          formData,
-        );
-        setControls((prev) =>
-          prev.map((item) =>
-            item.id === selectedControl.id
-              ? ({
-                  ...item,
-                  ...updated,
-                  workOrder: associatedWo,
-                  updatedAt: new Date().toISOString(),
-                } as QualityControlRecord)
-              : item,
-          ),
-        );
-        showNotification("Control de calidad actualizado correctamente.");
-      } catch {
-        setControls((prev) =>
-          prev.map((item) =>
-            item.id === selectedControl.id
-              ? ({
-                  ...item,
-                  ...formData,
-                  workOrder: associatedWo,
-                  updatedAt: new Date().toISOString(),
-                } as QualityControlRecord)
-              : item,
-          ),
-        );
-        showNotification("Control de calidad actualizado correctamente.");
-      }
+      const updated = await qualityService.update(selectedControl.id, formData);
+      setControls((prev) =>
+        prev.map((item) =>
+          item.id === selectedControl.id
+            ? (updated as QualityControlRecord)
+            : item,
+        ),
+      );
+      showNotification("Control de calidad actualizada correctamente.");
     } else {
-      // Alta de nuevo control
-      try {
-        const created = await qualityService.create(formData);
-        const newControl = {
-          ...created,
-          workOrder: associatedWo,
-        } as QualityControlRecord;
-        setControls((prev) => [newControl, ...prev]);
-        showNotification("Control de calidad registrado con exito.");
-      } catch {
-        const newId =
-          controls.length > 0 ? Math.max(...controls.map((c) => c.id)) + 1 : 1;
-        const newControl: QualityControlRecord = {
-          id: newId,
-          ...formData,
-          workOrder: associatedWo,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        } as QualityControlRecord;
-
-        setControls((prev) => [newControl, ...prev]);
-        showNotification("Control de calidad registrado con exito.");
-      }
+      const created = await qualityService.create(formData);
+      setControls((prev) => [created as QualityControlRecord, ...prev]);
+      showNotification("Control de calidad creada correctamente.");
     }
   };
 
   const handleConfirmDelete = async () => {
-    if (!deleteCandidate) return;
-    const target = deleteCandidate;
-    setDeleteCandidate(null);
-
+    if (!deleteCandidate || isDeleting) return;
+    setIsDeleting(true);
+    setDeleteError(null);
     try {
-      await qualityService.delete(target.id);
-    } catch {
-      // Fallback local
-    }
-
-    setControls((prev) =>
-      prev.filter((item) => item.id !== target.id),
-    );
-    showNotification(
-      `Control de calidad "#QC-${target.id}" eliminado.`,
-    );
+      await qualityService.delete(deleteCandidate.id);
+      setControls((prev) =>
+        prev.filter((item) => item.id !== deleteCandidate.id),
+      );
+      setDeleteCandidate(null);
+      showNotification("Control de calidad eliminada correctamente.");
+    } catch (error) {
+      setDeleteError(errorMessage(error));
+    } finally { setIsDeleting(false); }
   };
 
   return (
@@ -239,7 +169,12 @@ export default function QualityPage() {
         emptyDescription="Cuando registres el primer control de calidad, aparecera aqui."
         toolbarActions={
           <Can perform="quality:inspect">
-            <Button colorPalette="blue" size="sm" onClick={handleOpenCreate}>
+            <Button
+              colorPalette="blue"
+              size="sm"
+              disabled={loading || Boolean(loadError)}
+              onClick={handleOpenCreate}
+            >
               <LuPlus style={{ marginRight: "6px" }} />
               Nuevo control
             </Button>
@@ -287,6 +222,8 @@ export default function QualityPage() {
 
       {/* Dialogo de confirmacion de eliminacion */}
       <ConfirmDialog
+        error={deleteError}
+        isLoading={isDeleting}
         open={Boolean(deleteCandidate)}
         onOpenChange={({ open }) => {
           if (!open) setDeleteCandidate(null);

@@ -139,18 +139,14 @@ export function QualityFormModal({
           observations: control.observations || "",
         });
       } else {
-        const initialWoId = defaultWorkOrderId
-          ? String(defaultWorkOrderId)
-          : workOrders.length === 1
-            ? String(workOrders[0].id)
-            : "";
         reset({
           ...DEFAULT_VALUES,
-          workOrderId: initialWoId,
+          performedAt: getTodayDateString(),
+          workOrderId: initialWorkOrderId,
         });
       }
     }
-  }, [open, control, defaultWorkOrderId, workOrders, reset]);
+  }, [open, control, initialWorkOrderId, reset]);
 
   const handleClose = () => {
     onOpenChange({ open: false });

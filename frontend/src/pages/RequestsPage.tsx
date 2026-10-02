@@ -7,21 +7,13 @@ import { Can } from "../components/Can";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { DataTable } from "../components/DataTable";
 import { REQUEST_COLUMNS, RequestFormModal } from "../modules/requests";
-import { MOCK_CLIENTS } from "../test/mocks/mockClients";
-import { MOCK_REQUESTS } from "../test/mocks/mockRequests";
-import { ApiError } from "../services/api";
+import { errorMessage } from "../utils/errorMessage";
 import { clientService } from "../services/clientService";
 import type { Client } from "../services/clientService";
 import { requestService } from "../services/requestService";
 import type { CreateRequestDto, Request } from "../services/requestService";
 
 type RequestRecord = Request & Record<string, unknown>;
-
-function errorMessage(error: unknown): string {
-  return error instanceof ApiError
-    ? error.message
-    : "Ocurrio un error inesperado.";
-}
 
 export default function RequestsPage() {
   const [requests, setRequests] = useState<RequestRecord[]>([]);
@@ -31,6 +23,8 @@ export default function RequestsPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<Request | null>(null);
   const [deleteCandidate, setDeleteCandidate] = useState<Request | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [notification, setNotification] = useState<{
     status: "success" | "error";
     message: string;
@@ -50,31 +44,16 @@ export default function RequestsPage() {
     setLoading(true);
     setLoadError(null);
     try {
-      let reqData: Request[];
-      try {
-        reqData = await requestService.getAll();
-      } catch (backendErr) {
-        console.warn(
-          "Backend no disponible para solicitudes, utilizando datos locales.",
-          backendErr,
-        );
-        reqData = MOCK_REQUESTS;
-      }
-      setRequests(reqData as RequestRecord[]);
-
-      try {
-        const clientRes = await clientService.list({
-          limit: 100,
-          status: "all",
-        });
-        setClients(clientRes.items.length > 0 ? clientRes.items : MOCK_CLIENTS);
-      } catch {
-        setClients(MOCK_CLIENTS);
-      }
+      const [records, related0] = await Promise.all([
+        requestService.getAll(),
+        clientService.list({ limit: 100, status: "all" }),
+      ]);
+      setRequests(records as RequestRecord[]);
+      setClients(related0.items);
     } catch (error) {
       setLoadError(errorMessage(error));
-      setRequests(MOCK_REQUESTS as RequestRecord[]);
-      setClients(MOCK_CLIENTS);
+      setRequests([]);
+      setClients([]);
     } finally {
       setLoading(false);
     }
@@ -95,89 +74,40 @@ export default function RequestsPage() {
   };
 
   const handleOpenDelete = (req: Request) => {
+    setDeleteError(null);
     setDeleteCandidate(req);
   };
 
   const handleSaveRequest = async (formData: CreateRequestDto) => {
-    const associatedClient = clients.find((c) => c.id === formData.clientId);
-
     if (selectedRequest) {
-      // Edicion de solicitud existente
-      try {
-        const updated = await requestService.update(
-          selectedRequest.id,
-          formData,
-        );
-        setRequests((prev) =>
-          prev.map((item) =>
-            item.id === selectedRequest.id
-              ? ({
-                  ...item,
-                  ...updated,
-                  client: associatedClient,
-                  updatedAt: new Date().toISOString(),
-                } as RequestRecord)
-              : item,
-          ),
-        );
-        showNotification("Solicitud actualizada correctamente.");
-      } catch {
-        setRequests((prev) =>
-          prev.map((item) =>
-            item.id === selectedRequest.id
-              ? ({
-                  ...item,
-                  ...formData,
-                  client: associatedClient,
-                  updatedAt: new Date().toISOString(),
-                } as RequestRecord)
-              : item,
-          ),
-        );
-        showNotification("Solicitud actualizada correctamente.");
-      }
+      const updated = await requestService.update(selectedRequest.id, formData);
+      setRequests((prev) =>
+        prev.map((item) =>
+          item.id === selectedRequest.id ? (updated as RequestRecord) : item,
+        ),
+      );
+      showNotification("Solicitud actualizada correctamente.");
     } else {
-      // Alta de nueva solicitud
-      try {
-        const created = await requestService.create(formData);
-        const newRequest = {
-          ...created,
-          client: associatedClient,
-        } as RequestRecord;
-        setRequests((prev) => [newRequest, ...prev]);
-        showNotification("Solicitud creada con exito.");
-      } catch {
-        const newId =
-          requests.length > 0 ? Math.max(...requests.map((r) => r.id)) + 1 : 1;
-        const newRequest: RequestRecord = {
-          id: newId,
-          ...formData,
-          client: associatedClient,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        } as RequestRecord;
-
-        setRequests((prev) => [newRequest, ...prev]);
-        showNotification("Solicitud creada con exito.");
-      }
+      const created = await requestService.create(formData);
+      setRequests((prev) => [created as RequestRecord, ...prev]);
+      showNotification("Solicitud creada correctamente.");
     }
   };
 
   const handleConfirmDelete = async () => {
-    if (!deleteCandidate) return;
-    const target = deleteCandidate;
-    setDeleteCandidate(null);
-
+    if (!deleteCandidate || isDeleting) return;
+    setIsDeleting(true);
+    setDeleteError(null);
     try {
-      await requestService.delete(target.id);
-    } catch {
-      // Continuar eliminacion local ante fallback
-    }
-
-    setRequests((prev) =>
-      prev.filter((item) => item.id !== target.id),
-    );
-    showNotification(`Solicitud "${target.requestNumber}" eliminada.`);
+      await requestService.delete(deleteCandidate.id);
+      setRequests((prev) =>
+        prev.filter((item) => item.id !== deleteCandidate.id),
+      );
+      setDeleteCandidate(null);
+      showNotification("Solicitud eliminada correctamente.");
+    } catch (error) {
+      setDeleteError(errorMessage(error));
+    } finally { setIsDeleting(false); }
   };
 
   return (
@@ -224,7 +154,12 @@ export default function RequestsPage() {
         emptyDescription="Cuando crees la primera solicitud, aparecera aqui."
         toolbarActions={
           <Can perform="requests:create">
-            <Button colorPalette="blue" size="sm" onClick={handleOpenCreate}>
+            <Button
+              colorPalette="blue"
+              size="sm"
+              disabled={loading || Boolean(loadError)}
+              onClick={handleOpenCreate}
+            >
               <LuPlus style={{ marginRight: "6px" }} />
               Nueva solicitud
             </Button>
@@ -272,6 +207,8 @@ export default function RequestsPage() {
 
       {/* Dialogo de confirmacion de eliminacion */}
       <ConfirmDialog
+        error={deleteError}
+        isLoading={isDeleting}
         open={Boolean(deleteCandidate)}
         onOpenChange={({ open }) => {
           if (!open) setDeleteCandidate(null);

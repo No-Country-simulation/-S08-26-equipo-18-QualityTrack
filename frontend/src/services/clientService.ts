@@ -7,11 +7,11 @@ export interface Client {
   taxId: string;
   email: string;
   phone: string;
-  contactName?: string;
-  address?: string;
-  city?: string;
-  province?: string;
-  notes?: string;
+  contactName?: string | null;
+  address?: string | null;
+  city?: string | null;
+  province?: string | null;
+  notes?: string | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string | null;

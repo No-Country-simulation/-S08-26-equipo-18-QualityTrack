@@ -5,7 +5,7 @@ export function onlyDigits(value: string | number): string {
 }
 
 export function isValidCuit(value: string | number): boolean {
-  return onlyDigits(value).length === 11;
+  return /^[\d.\s-]+$/.test(String(value)) && onlyDigits(value).length === 11;
 }
 
 /**
@@ -33,8 +33,7 @@ export const validators = {
   cuit(message = "El CUIT debe tener 11 digitos numericos"): ValidatorFn<string | number> {
     return (value) => {
       if (!value) return null;
-      const clean = String(value).replace(/\D/g, "");
-      return clean.length === 11 ? null : message;
+      return isValidCuit(value) ? null : message;
     };
   },
 
@@ -51,9 +50,6 @@ export const validators = {
       }
       if (digits.length > 15) {
         return "El telefono no puede superar los 15 digitos numericos";
-      }
-      if (trimmed.length > 20) {
-        return "El telefono no puede superar los 20 caracteres";
       }
       return null;
     };

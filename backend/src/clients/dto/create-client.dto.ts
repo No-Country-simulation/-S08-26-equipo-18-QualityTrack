@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { Transform } from "class-transformer";
-import { IsEmail, IsNotEmpty, IsOptional, IsString, MaxLength } from "class-validator";
+import { IsEmail, IsNotEmpty, IsOptional, IsString, Matches, MaxLength } from "class-validator";
 import { IsCuit } from "../cuit";
 
 // Se normaliza antes de validar: si no, un correo pegado con un espacio al final
@@ -34,35 +34,37 @@ export class CreateClientDto {
     @IsString()
     @IsNotEmpty()
     @MaxLength(255)
+    @Matches(/^\+?[\d\s\-()]+$/, { message: 'El teléfono solo admite números, espacios, guiones, paréntesis y un prefijo +.' })
+    @Matches(/^(?:\D*\d){7,15}\D*$/, { message: 'El teléfono debe tener entre 7 y 15 dígitos.' })
     phone: string;
 
-    @ApiPropertyOptional({ example: "Ana Gómez", maxLength: 255 })
+    @ApiPropertyOptional({ type: String, example: "Ana Gómez", maxLength: 255, nullable: true })
     @IsOptional()
     @IsString()
     @MaxLength(255)
-    contactName?: string;
+    contactName?: string | null;
 
-    @ApiPropertyOptional({ example: "Av. Mitre 1234", maxLength: 255 })
+    @ApiPropertyOptional({ type: String, example: "Av. Mitre 1234", maxLength: 255, nullable: true })
     @IsOptional()
     @IsString()
     @MaxLength(255)
-    address?: string;
+    address?: string | null;
 
-    @ApiPropertyOptional({ example: "Avellaneda", maxLength: 255 })
+    @ApiPropertyOptional({ type: String, example: "Avellaneda", maxLength: 255, nullable: true })
     @IsOptional()
     @IsString()
     @MaxLength(255)
-    city?: string;
+    city?: string | null;
 
-    @ApiPropertyOptional({ example: "Buenos Aires", maxLength: 255 })
+    @ApiPropertyOptional({ type: String, example: "Buenos Aires", maxLength: 255, nullable: true })
     @IsOptional()
     @IsString()
     @MaxLength(255)
-    province?: string;
+    province?: string | null;
 
-    @ApiPropertyOptional({ maxLength: 5000 })
+    @ApiPropertyOptional({ type: String, maxLength: 5000, nullable: true })
     @IsOptional()
     @IsString()
     @MaxLength(5000)
-    notes?: string;
+    notes?: string | null;
 }
