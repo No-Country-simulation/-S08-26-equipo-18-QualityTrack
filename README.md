@@ -476,6 +476,35 @@ Al cambiar de OT, el detalle limpia las relaciones, descarta respuestas tardías
 y muestra una vista 404 si la orden no existe. Los errores de consulta de cada
 sección se muestran como errores, sin confundirse con listas vacías.
 
+### Indicadores del dashboard
+
+El dashboard consulta las APIs existentes según los permisos de la sesión.
+Muestra órdenes pendientes/aprobadas/en proceso, inspecciones y entregas
+registradas. “Pendientes de cotización” cuenta solicitudes sin ninguna
+cotización vinculada; distintas versiones o decisiones no duplican solicitudes.
+Este conteo requiere permiso de lectura de solicitudes y cotizaciones.
+
+La **cobertura parcial del expediente** evalúa cinco presencias: solicitud,
+cotización, inspección, entrega y documento registrado. Incluye documentos de la
+OT y de su origen con las mismas reglas del detalle, sin duplicados ni archivos
+asignados explícitamente a otra OT. No certifica el flujo completo: aprobación
+interna, materiales, hojas, operaciones y personal se consultan en el expediente.
+Tampoco infiere conformidad de una inspección ni disponibilidad física de un
+archivo histórico. Administrador, Supervisor y Calidad pueden consultar esta
+cobertura; otros roles ven sus indicadores autorizados sin pedir módulos prohibidos.
+
+Cada consulta fallida muestra un error y permite reintentar. Un indicador sin
+datos verificados muestra `—`; no se convierte en cero ni completa la cobertura.
+Las consultas exitosas vacías sí muestran cero y listas vacías. La actividad se
+ordena por fecha y usa identificadores reales de registros, sin inventar remitos,
+dictámenes o eventos. Cambiar de sesión/rol descarta los resultados anteriores.
+
+La integración HTTP incluye un expediente nuevo que recorre cliente → solicitud
+→ cotización aceptada → OT aprobada → material/personal/hoja/operación → calidad
+→ entrega y documento del origen. Una aplicación nueva y otra sesión recuperan
+sus vínculos, responsables y bytes originales. Estos registros se generan
+exclusivamente en la base aislada de pruebas.
+
 ### Comprobaciones antes de integrar cambios
 
 ```bash
@@ -975,17 +1004,16 @@ La infraestructura inicial se encuentra preparada:
 * `.gitignore` → ✅
 * Ejecución mediante Docker → ✅
 
-Pendiente de implementación:
+El MVP incorpora autenticación y revocación de sesiones, permisos por rol,
+administración de usuarios/clientes, origen comercial, OT y aprobación interna,
+producción, calidad, entregas y documentos privados persistentes. MikroORM,
+migraciones e interfaces están conectados a las APIs; el dashboard muestra
+indicadores de alcance explícito.
 
-* Configuración de MikroORM
-* Migraciones de base de datos
-* Modelos y entidades
-* API de negocio
-* Autenticación y autorización
-* Módulos funcionales
-* Interfaz funcional
-* Testing completo
-* Despliegue
+Antes de promover `develop` a `main`, completar la revisión del PR y los checks
+de CI. Después de integrar, comprobar los despliegues de frontend/backend y
+repetir el recorrido básico con datos del entorno publicado. Las pruebas locales
+y de integración aislada no sustituyen esa verificación.
 
 ---
 

@@ -2,6 +2,18 @@
 
 Registro append-only, lo más nuevo arriba. Una entrada por ciclo de cambio cerrado.
 
+## 2026-10-02 · Indicadores respaldados por datos y recorrido integrado del expediente
+Type: feature
+
+Dashboard conectado a consultas autorizadas por rol. Solicitudes sin cotización
+contadas por relación; cobertura explícitamente parcial de cinco elementos con
+documentos del origen y OT sin duplicados. Actividad ordenada por fecha, sin
+dictámenes de conformidad ni números de remito inventados. Errores diferenciados
+de cero y consultas vacías, reintento y protección ante cambio de sesión/rol.
+Prueba HTTP de un único expediente con usuarios de los cinco roles y
+recuperación desde una aplicación y sesión nuevas. Sin migraciones, ampliación
+de permisos, cambios de secretos ni dependencias adicionales.
+
 ## 2026-10-02 · Archivos reales y expediente documental de OT
 Type: feature
 
