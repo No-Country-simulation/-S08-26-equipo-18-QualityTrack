@@ -83,7 +83,7 @@ describe('Fallos de escritura conservan datos y formulario', () => {
     await screen.findByText('No hay solicitudes registradas')
     await click(screen.getByRole('button', { name: 'Nueva solicitud' }))
     const dialog = await screen.findByRole('dialog')
-    fireEvent.change(within(dialog).getByPlaceholderText('SOL-2026-001'), { target: { value: 'SOL-NUEVA' } })
+    expect(within(dialog).getByLabelText('Nro. de solicitud')).toHaveAttribute('readonly')
     fireEvent.change(within(dialog).getByPlaceholderText(/Ej: Fabricacion/), { target: { value: 'Registro del servidor' } })
     fireEvent.change(within(dialog).getByPlaceholderText(/Detalles de planos/), { target: { value: 'Detalle persistible' } })
     fireEvent.change(within(dialog).getByRole('combobox'), { target: { value: '1' } })

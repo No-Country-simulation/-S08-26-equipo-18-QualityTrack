@@ -122,6 +122,7 @@ export class CommercialService {
       const record = new Request();
       record.client = await this.client(em, dto.clientId, true);
       record.createdBy = actor;
+      record.requestNumber = await this.nextNumber(em, 'request');
       this.assignRequest(record, dto);
       await em.persist(record).flush();
       return requestResponse(record);
@@ -162,7 +163,7 @@ export class CommercialService {
     });
   }
   private assignRequest(record: Request, dto: UpdateRequestDto) {
-    for (const field of ['requestNumber', 'title', 'description'] as const)
+    for (const field of ['title', 'description'] as const)
       if (dto[field] !== undefined) record[field] = dto[field];
     if (dto.receivedAt !== undefined)
       record.receivedAt = new Date(dto.receivedAt);
@@ -187,7 +188,7 @@ export class CommercialService {
       record.client = client;
       record.request = request;
       record.createdBy = actor;
-      record.quotationNumber = dto.quotationNumber;
+      record.quotationNumber = await this.nextNumber(em, 'quotation');
       await this.assignQuotation(em, record, dto);
       await em.flush();
       return this.withItems(em, record);
@@ -396,6 +397,14 @@ export class CommercialService {
   private nonempty(dto: object) {
     if (!Object.keys(dto).length)
       throw new BadRequestException('Indicá al menos un campo.');
+  }
+  private async nextNumber(em: EntityManager, type: 'request' | 'quotation') {
+    const sequence =
+      type === 'request' ? 'request_number_seq' : 'quotation_number_seq';
+    const [row] = await em
+      .getConnection()
+      .execute('select nextval(?::regclass)::text as value', [sequence]);
+    return `${type === 'request' ? 'SOL' : 'COT'}-${row.value.padStart(6, '0')}`;
   }
   private id(id: number) {
     if (id < 1 || id > 2147483647)

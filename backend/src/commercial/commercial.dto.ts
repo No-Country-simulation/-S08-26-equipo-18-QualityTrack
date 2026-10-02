@@ -39,12 +39,6 @@ const Decimal = (positive = false) =>
 
 export class CreateRequestDto {
   @ApiProperty() @IsInt() @Min(1) @Max(2147483647) clientId: number;
-  @ApiProperty({ maxLength: 100 })
-  @Transform(trim)
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(100)
-  requestNumber: string;
   @ApiProperty({ maxLength: 500 })
   @Transform(trim)
   @IsString()
@@ -66,7 +60,18 @@ export class CreateRequestDto {
 }
 export class UpdateRequestDto extends PartialType(CreateRequestDto, {
   skipNullProperties: false,
-}) {}
+}) {
+  @ApiProperty({
+    required: false,
+    description: 'Identificador inmutable; no admite un valor diferente.',
+  })
+  @IsOptional()
+  @Transform(trim)
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  requestNumber?: string;
+}
 
 export class QuotationItemDto {
   @ApiProperty({ maxLength: 5000 })
@@ -103,12 +108,6 @@ export class QuotationItemDto {
 export class CreateQuotationDto {
   @ApiProperty() @IsInt() @Min(1) @Max(2147483647) clientId: number;
   @ApiProperty() @IsInt() @Min(1) @Max(2147483647) requestId: number;
-  @ApiProperty({ maxLength: 100 })
-  @Transform(trim)
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(100)
-  quotationNumber: string;
   @ApiProperty({ default: 1 })
   @IsInt()
   @Min(1)
@@ -136,7 +135,18 @@ export class CreateQuotationDto {
 }
 export class UpdateQuotationDto extends PartialType(CreateQuotationDto, {
   skipNullProperties: false,
-}) {}
+}) {
+  @ApiProperty({
+    required: false,
+    description: 'Identificador inmutable; no admite un valor diferente.',
+  })
+  @IsOptional()
+  @Transform(trim)
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  quotationNumber?: string;
+}
 export class QuotationDecisionDto {
   @ApiProperty({ enum: ['accepted', 'rejected'] })
   @IsIn(['accepted', 'rejected'])

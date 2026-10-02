@@ -254,8 +254,11 @@ La API ofrece `GET/POST /requests`, `GET/PUT /requests/:id`,
 servidor. No existen acciones de borrado físico para estos registros.
 
 Las altas requieren un cliente activo. La solicitud seleccionada debe pertenecer
-al mismo cliente de la cotización. Los números se ingresan manualmente, son únicos
-y no pueden cambiarse al editar; tampoco puede cambiarse el cliente ni el origen.
+al mismo cliente de la cotización. El servidor genera los números visibles con
+secuencias independientes: `SOL-000001` y `COT-000001`. Los IDs internos también
+son automáticos. El navegador no calcula ni envía estos números; se asignan al
+guardar, son únicos y pueden tener saltos por transacciones fallidas. No pueden
+cambiarse al editar; tampoco puede cambiarse el cliente ni el origen.
 Una solicitud con cotizaciones conserva sus datos técnicos sin edición posterior.
 Fecha de entrega solicitada y vigencia de la oferta son opcionales: omitirlas en
 una actualización conserva el valor y enviar `null` lo limpia. La entrega
@@ -272,19 +275,67 @@ Las cotizaciones comienzan pendientes y pueden editarse mientras estén en ese
 estado. Aceptar requiere cliente activo, vigencia no vencida, ítems e importes
 coherentes. La decisión se confirma en pantalla y conserva quién la registró y
 cuándo; repetir la misma decisión no cambia esa evidencia. Aceptadas y rechazadas
-se consultan mediante **Ver detalle** y quedan sin edición. Una nueva oferta debe
-crearse con un número distinto. Esta decisión comercial no constituye la
+se consultan mediante **Ver detalle** y quedan sin edición. Una nueva oferta recibe
+otro número automáticamente. Esta decisión comercial no constituye la
 aprobación interna de una OT; el alta de OT desde una oferta aceptada corresponde
-a la siguiente etapa.
+a la gestión de órdenes de trabajo descrita a continuación.
 
 La migración `Migration20261002170000_quotation_decision` conserva las cotizaciones
 e ítems existentes y agrega estado pendiente, sin inventar aceptación, autor ni
 fecha. Los importes históricos se mantienen visibles: si son inconsistentes,
-deben corregirse explícitamente antes de aceptar. Para actualizar una base local:
+deben corregirse explícitamente antes de aceptar.
+
+La migración `Migration20261002190000_commercial_numbers` agrega las secuencias
+sin renumerar registros anteriores. Continúa por encima del mayor correlativo
+existente del formato `SOL-n` o `COT-n`. Los números manuales anteriores conservan
+su valor y sus relaciones. El alta por API no admite `requestNumber` ni
+`quotationNumber` enviados por el cliente. Para actualizar una base local:
 
 ```bash
 docker compose run --rm --no-deps backend pnpm migration:up
 ```
+
+### Órdenes de trabajo y aprobación interna
+
+Administrador y Supervisor crean y editan OT; Producción y Calidad pueden
+consultarlas. Administración no tiene acceso al módulo de OT. El alta desde
+**Nueva orden de trabajo** consulta cotizaciones reales y ofrece únicamente las
+aceptadas de clientes activos, mostrando su cliente y solicitud. Sin una fuente
+elegible se explica el requisito y no se permite guardar.
+
+`POST /work-orders` recibe `quotationId`, título, descripción, prioridad e inicio
+y fin planificados. El servidor deriva cliente y solicitud, exige aceptación
+comercial registrada y genera un número único con una secuencia PostgreSQL.
+No acepta número, autor, estado ni relaciones alternativas desde el navegador.
+Una misma oferta puede originar varias OT; no se impone una cardinalidad comercial
+que el equipo no haya definido. La lectura es `GET /work-orders` y
+`GET /work-orders/:id`; la edición permitida es `PUT /work-orders/:id`.
+
+La OT nueva comienza pendiente, con una aprobación interna pendiente sin actor ni
+fecha de decisión. Desde su detalle, Administrador y Supervisor pueden aprobar
+o rechazar: `PUT /approvals/:id/decide` recibe `status` (`APPROVED` o `REJECTED`)
+y comentarios opcionales. La API también ofrece consultas `/approvals`,
+`/approvals/:id` y `/approvals/work-order/:id`, y `POST /approvals` para registrar
+la primera decisión por `workOrderId`. Usuario y fecha los fija el servidor;
+decisión y estado de OT cambian en la misma transacción. Aprobar deja la OT
+`APPROVED`; rechazar la cancela conservando evidencia. Repetir la decisión conserva
+el primer dictamen y una decisión opuesta devuelve 409. La aceptación de la oferta
+por el cliente y esta autorización interna de ejecución son registros distintos.
+
+Editar conserva número y origen. El estado `APPROVED` no puede asignarse desde
+el formulario de edición. Pasar a `IN_PROGRESS` o `COMPLETED` requiere aprobación
+interna y fechas reales coherentes; completar exige inicio y fin reales.
+No se permite editar una OT completada o cancelada ni borrar físicamente OT.
+Las operaciones, materiales y personal se incorporan en la siguiente etapa.
+
+La migración `Migration20261002180000_work_order_origin` agrega el vínculo a la
+oferta y las restricciones de número y aprobación única. Conserva OT anteriores
+con origen no documentado, sin inventar cliente, solicitud ni cotización; sus
+datos se pueden consultar y editar según su estado. No se permite inventar su
+aprobación o comenzar ejecución sin un origen documentado. Si existen números
+duplicados o varias aprobaciones por OT, la migración se detiene para su revisión
+con datos verificables: no renumera ni elimina evidencia silenciosamente.
+Actualizar la base local con `docker compose run --rm --no-deps backend pnpm migration:up`.
 
 ### Comprobaciones antes de integrar cambios
 
@@ -497,6 +548,12 @@ frontend/
 ```
 
 Los cambios realizados en el código se reflejan dentro de los contenedores sin necesidad de reconstruir las imágenes en cada modificación.
+
+Backend y frontend utilizan polling para detectar cambios en los volúmenes de
+Docker Desktop sobre Windows. Si la API conserva una validación anterior,
+reiniciar el backend con `docker compose restart backend`. Después de modificar
+variables de Docker Compose, aplicar la configuración con
+`docker compose up -d backend`.
 
 ---
 

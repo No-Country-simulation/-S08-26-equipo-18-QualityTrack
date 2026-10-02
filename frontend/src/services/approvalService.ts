@@ -1,4 +1,4 @@
-﻿import { api } from "./api";
+import { api } from "./api";
 import type { WorkOrder } from "./workOrderService";
 
 export type ApprovalStatus = "PENDING" | "APPROVED" | "REJECTED";
@@ -6,7 +6,7 @@ export type ApprovalStatus = "PENDING" | "APPROVED" | "REJECTED";
 export interface ApprovalUser {
   id: number;
   name: string;
-  email: string;
+  email?: string;
   role?: string;
 }
 
@@ -14,25 +14,24 @@ export interface Approval {
   id: number;
   workOrderId: number;
   workOrder?: WorkOrder;
-  decidedById?: number;
-  decidedBy?: ApprovalUser;
+  decidedById?: number | null;
+  decidedBy?: ApprovalUser | null;
   status: ApprovalStatus;
-  decisionAt?: string;
-  comments?: string;
+  decisionAt?: string | null;
+  comments?: string | null;
   createdAt?: string;
   updatedAt?: string;
 }
 
 export type CreateApprovalDto = {
   workOrderId: number;
-  status?: ApprovalStatus;
-  comments?: string;
+  status: "APPROVED" | "REJECTED";
+  comments?: string | null;
 };
 
 export type DecideApprovalDto = {
   status: "APPROVED" | "REJECTED";
-  comments?: string;
-  decidedById?: number;
+  comments?: string | null;
 };
 
 export const approvalService = {

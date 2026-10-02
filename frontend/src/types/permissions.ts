@@ -31,6 +31,7 @@ export type Permission =
     // Órdenes de Trabajo (OT)
     | 'workOrders:view'
     | 'workOrders:create'
+    | 'workOrders:approve'
     | 'workOrders:edit'
     | 'workOrders:delete'
     | 'workOrders:assign'
@@ -66,7 +67,7 @@ export const ROLE_PERMISSIONS: Record<string, Permission[]> = {
         'workOrders:view',
         'workOrders:create',
         'workOrders:edit',
-        'workOrders:delete',
+        'workOrders:approve',
         'workOrders:assign',
         'workOrders:execute',
         'quality:view',
@@ -92,6 +93,7 @@ export const ROLE_PERMISSIONS: Record<string, Permission[]> = {
         'workOrders:view',
         'workOrders:create',
         'workOrders:edit',
+        'workOrders:approve',
         'workOrders:assign',
         'workOrders:execute',
         'quality:view',

@@ -1,17 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Box, Flex, Heading, HStack, Text } from "@chakra-ui/react";
-import { LuEye, LuPencil, LuPlus, LuTrash2, LuWrench } from "react-icons/lu";
+import { LuEye, LuPencil, LuPlus, LuWrench } from "react-icons/lu";
 import { Alert } from "../components/Alert";
 import { Button } from "../components/Button";
 import { Can } from "../components/Can";
-import { ConfirmDialog } from "../components/ConfirmDialog";
+import { quotationService } from "../services/quotationService";
+import type { Quotation } from "../services/quotationService";
 import { DataTable } from "../components/DataTable";
 import { WORK_ORDER_COLUMNS, WorkOrderFormModal } from "../modules/workOrders";
 import { errorMessage } from "../utils/errorMessage";
 import { workOrderService } from "../services/workOrderService";
 import type {
   CreateWorkOrderDto,
+  UpdateWorkOrderDto,
   WorkOrder,
   WorkOrderStatus,
 } from "../services/workOrderService";
@@ -39,11 +41,7 @@ export default function WorkOrdersPage() {
   const [selectedWorkOrder, setSelectedWorkOrder] = useState<WorkOrder | null>(
     null,
   );
-  const [deleteCandidate, setDeleteCandidate] = useState<WorkOrder | null>(
-    null,
-  );
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [quotations, setQuotations] = useState<Quotation[]>([]);
   const [notification, setNotification] = useState<{
     status: "success" | "error";
     message: string;
@@ -83,14 +81,13 @@ export default function WorkOrdersPage() {
     return workOrders.filter((wo) => wo.status === statusFilter);
   }, [workOrders, statusFilter]);
 
-  // Siguiente numero de orden correlativo automatico
-  const nextWorkOrderNumber = useMemo(() => {
-    return workOrders.length > 0
-      ? Math.max(...workOrders.map((wo) => wo.workOrderNumber)) + 1
-      : 1001;
-  }, [workOrders]);
-
-  const handleOpenCreate = () => {
+  const handleOpenCreate = async () => {
+    try {
+      setQuotations(await quotationService.getAll());
+    } catch (error) {
+      showNotification(errorMessage(error), "error");
+      return;
+    }
     setSelectedWorkOrder(null);
     setIsFormOpen(true);
   };
@@ -100,16 +97,13 @@ export default function WorkOrdersPage() {
     setIsFormOpen(true);
   };
 
-  const handleOpenDelete = (wo: WorkOrder) => {
-    setDeleteError(null);
-    setDeleteCandidate(wo);
-  };
-
   const handleViewDetail = (wo: WorkOrder) => {
     navigate(`/work-orders/${wo.id}`);
   };
 
-  const handleSaveWorkOrder = async (formData: CreateWorkOrderDto) => {
+  const handleSaveWorkOrder = async (
+    formData: CreateWorkOrderDto | UpdateWorkOrderDto,
+  ) => {
     if (selectedWorkOrder) {
       const updated = await workOrderService.update(
         selectedWorkOrder.id,
@@ -124,26 +118,12 @@ export default function WorkOrdersPage() {
       );
       showNotification("Orden de trabajo actualizada correctamente.");
     } else {
-      const created = await workOrderService.create(formData);
+      const created = await workOrderService.create(
+        formData as CreateWorkOrderDto,
+      );
       setWorkOrders((prev) => [created as WorkOrderRecord, ...prev]);
       showNotification("Orden de trabajo creada correctamente.");
     }
-  };
-
-  const handleConfirmDelete = async () => {
-    if (!deleteCandidate || isDeleting) return;
-    setIsDeleting(true);
-    setDeleteError(null);
-    try {
-      await workOrderService.delete(deleteCandidate.id);
-      setWorkOrders((prev) =>
-        prev.filter((item) => item.id !== deleteCandidate.id),
-      );
-      setDeleteCandidate(null);
-      showNotification("Orden de trabajo eliminada correctamente.");
-    } catch (error) {
-      setDeleteError(errorMessage(error));
-    } finally { setIsDeleting(false); }
   };
 
   return (
@@ -237,24 +217,12 @@ export default function WorkOrdersPage() {
                 size="xs"
                 variant="ghost"
                 colorPalette="blue"
+                disabled={["COMPLETED", "CANCELLED"].includes(wo.status)}
                 onClick={() => handleOpenEdit(wo)}
                 title="Editar orden de trabajo"
                 aria-label="Editar orden de trabajo"
               >
                 <LuPencil size={14} />
-              </Button>
-            </Can>
-
-            <Can perform="workOrders:delete">
-              <Button
-                size="xs"
-                variant="ghost"
-                colorPalette="red"
-                onClick={() => handleOpenDelete(wo)}
-                title="Eliminar orden de trabajo"
-                aria-label="Eliminar orden de trabajo"
-              >
-                <LuTrash2 size={14} />
               </Button>
             </Can>
           </HStack>
@@ -266,25 +234,8 @@ export default function WorkOrdersPage() {
         open={isFormOpen}
         onOpenChange={({ open }) => setIsFormOpen(open)}
         workOrder={selectedWorkOrder}
-        nextWorkOrderNumber={nextWorkOrderNumber}
+        quotations={quotations}
         onSave={handleSaveWorkOrder}
-      />
-
-      {/* Dialogo de confirmacion de eliminacion */}
-      <ConfirmDialog
-        error={deleteError}
-        isLoading={isDeleting}
-        open={Boolean(deleteCandidate)}
-        onOpenChange={({ open }) => {
-          if (!open) setDeleteCandidate(null);
-        }}
-        title="Eliminar orden de trabajo"
-        description={`Estas seguro de que deseas eliminar la orden de trabajo "OT-${deleteCandidate?.workOrderNumber} - ${deleteCandidate?.title}"? Esta accion no se puede deshacer.`}
-        confirmText="Eliminar"
-        cancelText="Cancelar"
-        confirmColorPalette="red"
-        onConfirm={handleConfirmDelete}
-        onCancel={() => setDeleteCandidate(null)}
       />
     </Box>
   );

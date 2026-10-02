@@ -22,7 +22,7 @@ test('HTTP authorization and logout against an isolated PostgreSQL database', {
     const databaseConfig = require('../dist/src/config/database.config').default;
     const legacyOrm = await PostgreSqlORM.init(databaseConfig);
     const legacyPasswordHash = await require('bcryptjs').hash(randomBytes(24).toString('hex'), 10);
-    let legacyId, legacyQuoteId, legacyQuoteBefore;
+    let legacyId, legacyQuoteId, legacyQuoteBefore, legacyWorkOrderId, legacyWorkOrderBefore;
     try {
         const rows = await legacyOrm.em.getConnection().execute(
             'insert into "user" (first_name, last_name, email, password, role_id, created_at, updated_at) values (?, ?, ?, ?, (select id from role where name = ?), now(), now()) returning id',
@@ -31,10 +31,17 @@ test('HTTP authorization and logout against an isolated PostgreSQL database', {
         legacyId = rows[0].id;
         const connection = legacyOrm.em.getConnection();
         const [client] = await connection.execute('insert into client (business_name, tax_id, email, phone, is_active, created_at, updated_at) values (?, ?, ?, ?, true, now(), now()) returning id', ['Migration client', '90000000001', 'migration-client@example.test', '123456789']);
-        const [request] = await connection.execute('insert into request (client_id, request_number, title, description, received_at, created_by_id, created_at, updated_at) values (?, ?, ?, ?, now(), ?, now(), now()) returning id', [client.id, 'SOL-LEGACY', 'Existing request', 'Existing source', legacyId]);
-        const [quote] = await connection.execute('insert into quotation (client_id, request_id, quotation_number, version, description, subtotal, tax_amount, currency, created_by_id, created_at, updated_at) values (?, ?, ?, 1, ?, ?, ?, ?, ?, now(), now()) returning id', [client.id, request.id, 'COT-LEGACY', 'Existing offer', '123.45', '25.92', 'ARS', legacyId]);
+        const [request] = await connection.execute('insert into request (client_id, request_number, title, description, received_at, created_by_id, created_at, updated_at) values (?, ?, ?, ?, now(), ?, now(), now()) returning id', [client.id, 'SOL-000123', 'Existing request', 'Existing source', legacyId]);
+        const [quote] = await connection.execute('insert into quotation (client_id, request_id, quotation_number, version, description, subtotal, tax_amount, currency, created_by_id, created_at, updated_at) values (?, ?, ?, 1, ?, ?, ?, ?, ?, now(), now()) returning id', [client.id, request.id, 'COT-000045', 'Existing offer', '123.45', '25.92', 'ARS', legacyId]);
         legacyQuoteId = quote.id;
         await connection.execute('insert into quotation_item (quotation_id, description, quantity, unit_price, subtotal, notes) values (?, ?, ?, ?, ?, ?)', [quote.id, 'Existing item', '3.00', '41.15', '123.45', 'Preserved notes']);
+        const [legacyWorkOrder] = await connection.execute('insert into work_order (work_order_number, title, description, priority, status, created_by_id, planned_start_date, planned_end_date, created_at) values (1100, ?, ?, ?, ?, ?, now(), now(), now()) returning id', ['Legacy WO', 'Preserve historical origin', 'MEDIUM', 'APPROVED', legacyId]);
+        legacyWorkOrderId = legacyWorkOrder.id;
+        legacyWorkOrderBefore = (await connection.execute('select * from work_order where id = ?', [legacyWorkOrderId]))[0];
+        const [duplicate] = await connection.execute('insert into work_order (work_order_number, title, description, priority, status, created_by_id, planned_start_date, planned_end_date, created_at) values (1100, ?, ?, ?, ?, ?, now(), now(), now()) returning id', ['Duplicate fixture', 'Must not be renumbered', 'MEDIUM', 'PENDING', legacyId]);
+        assert.throws(() => execFileSync(process.execPath, [cli, 'migration:up', '--config', './mikro-orm.config.ts'], { stdio: 'pipe' }));
+        assert.equal((await connection.execute('select work_order_number from work_order where id = ?', [duplicate.id]))[0].work_order_number, 1100);
+        await connection.execute('delete from work_order where id = ?', [duplicate.id]);
         legacyQuoteBefore = (await connection.execute('select * from quotation where id = ?', [quote.id]))[0];
     } finally { await legacyOrm.close(); }
     execFileSync(process.execPath, [cli, 'migration:up', '--config', './mikro-orm.config.ts'], { stdio: 'inherit' });
@@ -378,6 +385,7 @@ test('HTTP authorization and logout against an isolated PostgreSQL database', {
             assert.equal((await call('POST', '/auth/refresh', null, { refreshToken: first.refreshToken })).status, 401);
         });
         await require('./commercial-http.cjs')(t, { call, em, users, sessions, roleNames, admin, legacyQuoteId });
+        await require('./work-orders-http.cjs')(t, { call, em, users, sessions, roleNames, admin, legacyWorkOrderId, legacyWorkOrderBefore });
         const created = await call('POST', '/clients', admin.accessToken, input());
         assert.equal(created.status, 201);
         const client = await created.json();

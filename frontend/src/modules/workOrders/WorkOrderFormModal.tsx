@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Box, HStack, SimpleGrid, VStack } from "@chakra-ui/react";
+import { HStack, SimpleGrid, Text, VStack } from "@chakra-ui/react";
 import { Alert } from "../../components/Alert";
 import { Button } from "../../components/Button";
 import { FormField } from "../../components/FormField";
@@ -14,71 +14,45 @@ import type { Request } from "../../services/requestService";
 import type { Quotation } from "../../services/quotationService";
 import type {
   CreateWorkOrderDto,
+  UpdateWorkOrderDto,
   WorkOrder,
-  WorkOrderPriority,
-  WorkOrderStatus,
 } from "../../services/workOrderService";
-
 export interface WorkOrderFormModalProps {
   open: boolean;
   onOpenChange: (details: { open: boolean }) => void;
   workOrder?: WorkOrder | null;
-  nextWorkOrderNumber?: number;
   clients?: Client[];
   requests?: Request[];
   quotations?: Quotation[];
-  onSave: (data: CreateWorkOrderDto) => Promise<void> | void;
+  onSave: (
+    data: CreateWorkOrderDto | UpdateWorkOrderDto,
+  ) => Promise<void> | void;
 }
-
-interface WorkOrderFormValues {
-  workOrderNumber: string;
-  title: string;
-  description: string;
-  priority: WorkOrderPriority;
-  status: WorkOrderStatus;
-  clientId: string;
-  requestId: string;
-  quotationId: string;
-  plannedStartDate: string;
-  plannedEndDate: string;
-  actualStartDate: string;
-  actualEndDate: string;
-}
-
-const getTodayDateString = () => new Date().toISOString().split("T")[0];
-const getFutureDateString = (daysAhead: number) => {
-  const d = new Date();
-  d.setDate(d.getDate() + daysAhead);
-  return d.toISOString().split("T")[0];
-};
-
-const DEFAULT_VALUES: WorkOrderFormValues = {
-  workOrderNumber: "",
+const defaults = () => ({
   title: "",
   description: "",
   priority: "MEDIUM",
   status: "PENDING",
-  clientId: "",
-  requestId: "",
   quotationId: "",
-  plannedStartDate: getTodayDateString(),
-  plannedEndDate: getFutureDateString(14),
+  plannedStartDate: new Date().toISOString().slice(0, 10),
+  plannedEndDate: "",
   actualStartDate: "",
   actualEndDate: "",
-};
-
+});
 export function WorkOrderFormModal({
   open,
   onOpenChange,
   workOrder,
-  nextWorkOrderNumber,
-  clients = [],
-  requests = [],
   quotations = [],
   onSave,
 }: WorkOrderFormModalProps) {
-  const isEditing = Boolean(workOrder);
-
+  const editing = Boolean(workOrder);
+  const eligible = quotations.filter(
+    (q) =>
+      q.decisionStatus === "accepted" &&
+      q.client?.isActive &&
+      q.request?.clientId === q.clientId,
+  );
   const {
     values,
     errors,
@@ -89,130 +63,99 @@ export function WorkOrderFormModal({
     handleBlur,
     handleSubmit,
     reset,
-  } = useForm<WorkOrderFormValues>({
-    initialValues: DEFAULT_VALUES,
+  } = useForm<ReturnType<typeof defaults>>({
+    initialValues: defaults(),
     rules: {
-      workOrderNumber: [
-        validators.required("El numero de orden de trabajo es obligatorio"),
+      title: [validators.required(), validators.maxLength(500)],
+      description: [validators.required(), validators.maxLength(5000)],
+      quotationId: [
+        (value) =>
+          editing || eligible.some((q) => String(q.id) === value)
+            ? null
+            : "Seleccioná una cotización aceptada de un cliente activo.",
       ],
-      title: [validators.required("El titulo de la orden es obligatorio")],
-      description: [
-        validators.required("La descripcion tecnica es obligatoria"),
-      ],
-      clientId: [validators.required("Debes seleccionar un cliente")],
-      plannedStartDate: [
-        validators.required("La fecha de inicio planificada es obligatoria"),
-        validators.date("La fecha de inicio debe estar completa (DD/MM/AAAA)"),
-      ],
+      plannedStartDate: [validators.required(), validators.date()],
       plannedEndDate: [
-        validators.required("La fecha de fin planificada es obligatoria"),
-        validators.date("La fecha de fin debe estar completa (DD/MM/AAAA)"),
-        validators.dateAfterOrEqual(
-          (): string => values.plannedStartDate,
-          "La fecha de fin no puede ser anterior a la fecha de inicio"
-        ),
+        validators.required(),
+        validators.date(),
+        validators.dateAfterOrEqual((): string => values.plannedStartDate),
       ],
-      actualStartDate: [
-        validators.date("La fecha de inicio real debe estar completa (DD/MM/AAAA)"),
-      ],
+      actualStartDate: [validators.date()],
       actualEndDate: [
-        validators.date("La fecha de fin real debe estar completa (DD/MM/AAAA)"),
-        validators.dateAfterOrEqual(
-          (): string => values.actualStartDate,
-          "La fecha de fin real no puede ser anterior a la fecha de inicio real"
-        ),
+        validators.date(),
+        validators.dateAfterOrEqual((): string => values.actualStartDate),
       ],
     },
-    onSubmit: async (formValues) => {
-      const numericWoNumber = parseInt(formValues.workOrderNumber, 10);
-      const plannedStartIso = toDateIso(formValues.plannedStartDate) ?? new Date().toISOString();
-      const plannedEndIso = toDateIso(formValues.plannedEndDate) ?? new Date().toISOString();
-      const actualStartIso = toDateIso(formValues.actualStartDate);
-      const actualEndIso = toDateIso(formValues.actualEndDate);
-
-      await onSave({
-        workOrderNumber: numericWoNumber,
-        title: formValues.title.trim(),
-        description: formValues.description.trim(),
-        priority: formValues.priority,
-        status: formValues.status,
-        clientId: Number(formValues.clientId),
-        requestId: formValues.requestId ? Number(formValues.requestId) : undefined,
-        quotationId: formValues.quotationId ? Number(formValues.quotationId) : undefined,
-        plannedStartDate: plannedStartIso,
-        plannedEndDate: plannedEndIso,
-        actualStartDate: actualStartIso,
-        actualEndDate: actualEndIso,
-      });
-
+    onSubmit: async (data) => {
+      const fields = {
+        title: data.title.trim(),
+        description: data.description.trim(),
+        priority: data.priority as WorkOrder["priority"],
+        plannedStartDate: toDateIso(data.plannedStartDate)!,
+        plannedEndDate: toDateIso(data.plannedEndDate)!,
+      };
+      await onSave(
+        editing
+          ? {
+              ...fields,
+              status: data.status as WorkOrder["status"],
+              actualStartDate: toDateIso(data.actualStartDate) ?? null,
+              actualEndDate: toDateIso(data.actualEndDate) ?? null,
+            }
+          : { ...fields, quotationId: Number(data.quotationId) },
+      );
       onOpenChange({ open: false });
     },
   });
-
   useEffect(() => {
-    if (open) {
-      if (workOrder) {
-        reset({
-          workOrderNumber: String(workOrder.workOrderNumber),
-          title: workOrder.title,
-          description: workOrder.description,
-          priority: workOrder.priority,
-          status: workOrder.status,
-          clientId: workOrder.clientId ? String(workOrder.clientId) : "",
-          requestId: workOrder.requestId ? String(workOrder.requestId) : "",
-          quotationId: workOrder.quotationId ? String(workOrder.quotationId) : "",
-          plannedStartDate: workOrder.plannedStartDate
-            ? workOrder.plannedStartDate.split("T")[0]
-            : getTodayDateString(),
-          plannedEndDate: workOrder.plannedEndDate
-            ? workOrder.plannedEndDate.split("T")[0]
-            : getFutureDateString(14),
-          actualStartDate: workOrder.actualStartDate
-            ? workOrder.actualStartDate.split("T")[0]
-            : "",
-          actualEndDate: workOrder.actualEndDate
-            ? workOrder.actualEndDate.split("T")[0]
-            : "",
-        });
-      } else {
-        reset({
-          ...DEFAULT_VALUES,
-          workOrderNumber: String(nextWorkOrderNumber || 1001),
-        });
-      }
-    }
-  }, [open, workOrder, nextWorkOrderNumber, reset]);
-
-  const handleClose = () => {
-    onOpenChange({ open: false });
+    if (open)
+      reset(
+        workOrder
+          ? {
+              title: workOrder.title,
+              description: workOrder.description,
+              priority: workOrder.priority,
+              status: workOrder.status,
+              quotationId: String(workOrder.quotationId ?? ""),
+              plannedStartDate: workOrder.plannedStartDate?.slice(0, 10) ?? "",
+              plannedEndDate: workOrder.plannedEndDate?.slice(0, 10) ?? "",
+              actualStartDate: workOrder.actualStartDate?.slice(0, 10) ?? "",
+              actualEndDate: workOrder.actualEndDate?.slice(0, 10) ?? "",
+            }
+          : defaults(),
+      );
+  }, [open, workOrder, reset]);
+  const selected = editing
+    ? workOrder?.quotation
+    : eligible.find((q) => String(q.id) === values.quotationId);
+  const close = () => {
+    if (!isSubmitting) onOpenChange({ open: false });
   };
-
   return (
     <Modal
       open={open}
-      onOpenChange={onOpenChange}
-      title={isEditing ? "Editar orden de trabajo" : "Nueva orden de trabajo"}
+      onOpenChange={({ open: next }) => {
+        if (!isSubmitting) onOpenChange({ open: next });
+      }}
+      title={editing ? "Editar orden de trabajo" : "Nueva orden de trabajo"}
       size="xl"
       footer={
-        <HStack gap={2} justify="flex-end" w="full">
-          <Button
-            variant="outline"
-            onClick={handleClose}
-            disabled={isSubmitting}
-          >
+        <HStack>
+          <Button variant="outline" onClick={close} disabled={isSubmitting}>
             Cancelar
           </Button>
           <Button
-            colorPalette="blue"
-            onClick={() => handleSubmit()}
+            aria-label={editing ? "Guardar cambios" : "Crear orden de trabajo"}
             loading={isSubmitting}
+            disabled={isSubmitting || (!editing && !eligible.length)}
+            onClick={() => handleSubmit()}
           >
-            {isEditing ? "Guardar cambios" : "Crear orden de trabajo"}
+            {editing ? "Guardar cambios" : "Crear orden de trabajo"}
           </Button>
         </HStack>
       }
     >
-      <VStack gap={4} align="stretch">
+      <VStack align="stretch" gap={4}>
         {submitError && (
           <Alert
             status="error"
@@ -220,232 +163,144 @@ export function WorkOrderFormModal({
             description={submitError}
           />
         )}
-
-        {/* Fila 1: Numero de OT y Titulo */}
-        <SimpleGrid columns={{ base: 1, md: 3 }} gap={3}>
+        <Text>
+          Número de OT:{" "}
+          {editing
+            ? workOrder?.workOrderNumber
+            : "Se asignará al guardar en el servidor"}
+        </Text>
+        {editing ? (
+          <Text>
+            Origen:{" "}
+            {selected
+              ? `${selected.quotationNumber} · ${selected.request?.requestNumber} · ${selected.client?.businessName}`
+              : "Origen histórico no documentado"}
+          </Text>
+        ) : (
           <FormField
-            label="Nro. de orden de trabajo"
+            label="Cotización aceptada"
             required
-            error={touched.workOrderNumber ? errors.workOrderNumber : null}
-            helperText={
-              isEditing
-                ? "Identificador inmutable de trazabilidad de planta"
-                : "Generado automaticamente por el sistema"
-            }
-          >
-            <Input
-              type="number"
-              placeholder="1007"
-              value={values.workOrderNumber}
-              disabled
-              readOnly
-              cursor="not-allowed"
-              bg="gray.100"
-              color="gray.700"
-              onChange={(e) => handleChange("workOrderNumber", e.target.value)}
-              onBlur={() => handleBlur("workOrderNumber")}
-            />
-          </FormField>
-
-          <Box gridColumn={{ base: "span 1", md: "span 2" }}>
-            <FormField
-              label="Titulo de la orden"
-              required
-              error={touched.title ? errors.title : null}
-            >
-              <Input
-                placeholder="Ej: Fabricacion de pernos de anclaje M24"
-                value={values.title}
-                onChange={(e) => handleChange("title", e.target.value)}
-                onBlur={() => handleBlur("title")}
-              />
-            </FormField>
-          </Box>
-        </SimpleGrid>
-
-        {/* Fila 1b: Relaciones de trazabilidad */}
-        <SimpleGrid columns={{ base: 1, md: 3 }} gap={3}>
-          <FormField
-            label="Cliente"
-            required
-            error={touched.clientId ? errors.clientId : null}
+            error={touched.quotationId ? errors.quotationId : null}
           >
             <Select
-              value={values.clientId}
-              onChange={(e) => {
-                handleChange("clientId", e.target.value);
-                handleChange("requestId", "");
-                handleChange("quotationId", "");
-              }}
-              onBlur={() => handleBlur("clientId")}
+              aria-label="Cotización aceptada"
+              value={values.quotationId}
+              onChange={(e) => handleChange("quotationId", e.target.value)}
             >
-              <option value="">-- Seleccionar cliente --</option>
-              {clients.map((c) => (
-                <option key={c.id} value={String(c.id)}>
-                  {c.businessName}
+              <option value="">Seleccioná una cotización</option>
+              {eligible.map((q) => (
+                <option key={q.id} value={q.id}>
+                  {q.quotationNumber} · {q.client?.businessName} ·{" "}
+                  {q.request?.requestNumber}
                 </option>
               ))}
             </Select>
           </FormField>
-
-          <FormField
-            label="Solicitud de origen"
-            helperText="Opcional: solicitud que origino esta OT"
-          >
-            <Select
-              value={values.requestId}
-              onChange={(e) => {
-                handleChange("requestId", e.target.value);
-                handleChange("quotationId", "");
-              }}
-              onBlur={() => handleBlur("requestId")}
-            >
-              <option value="">-- Sin solicitud vinculada --</option>
-              {requests
-                .filter((r) =>
-                  values.clientId ? String(r.clientId) === values.clientId : true
-                )
-                .map((r) => (
-                  <option key={r.id} value={String(r.id)}>
-                    {r.requestNumber} - {r.title}
-                  </option>
-                ))}
-            </Select>
-          </FormField>
-
-          <FormField
-            label="Cotizacion aprobada"
-            helperText="Opcional: cotizacion que dio origen a esta OT"
-          >
-            <Select
-              value={values.quotationId}
-              onChange={(e) => handleChange("quotationId", e.target.value)}
-              onBlur={() => handleBlur("quotationId")}
-            >
-              <option value="">-- Sin cotizacion vinculada --</option>
-              {quotations
-                .filter((q) =>
-                  values.requestId
-                    ? String(q.requestId) === values.requestId
-                    : values.clientId
-                      ? String(q.clientId) === values.clientId
-                      : true
-                )
-                .map((q) => (
-                  <option key={q.id} value={String(q.id)}>
-                    {q.quotationNumber} - {q.description.substring(0, 40)}
-                  </option>
-                ))}
-            </Select>
-          </FormField>
-        </SimpleGrid>
-
-        {/* Fila 2: Prioridad y Estado */}
-        <SimpleGrid columns={{ base: 1, md: 2 }} gap={3}>
-          <FormField label="Prioridad operativa" required>
-            <Select
-              value={values.priority}
-              onChange={(e) => handleChange("priority", e.target.value)}
-              onBlur={() => handleBlur("priority")}
-            >
-              <option value="LOW">Baja</option>
-              <option value="MEDIUM">Media</option>
-              <option value="HIGH">Alta</option>
-              <option value="URGENT">Urgente</option>
-            </Select>
-          </FormField>
-
-          <FormField label="Estado de ejecucion" required>
-            <Select
-              value={values.status}
-              onChange={(e) => handleChange("status", e.target.value)}
-              onBlur={() => handleBlur("status")}
-            >
-              <option value="PENDING">Pendiente</option>
-              <option value="APPROVED">Aprobada</option>
-              <option value="IN_PROGRESS">En progreso</option>
-              <option value="COMPLETED">Completada</option>
-              <option value="CANCELLED">Cancelada</option>
-            </Select>
-          </FormField>
-        </SimpleGrid>
-
-        {/* Fila 3: Fechas planificadas */}
-        <SimpleGrid columns={{ base: 1, md: 2 }} gap={3}>
-          <FormField
-            label="Fecha inicio planificada"
-            required
-            error={touched.plannedStartDate ? errors.plannedStartDate : null}
-          >
-            <Input
-              type="date"
-              value={values.plannedStartDate}
-              onChange={(e) => handleChange("plannedStartDate", e.target.value)}
-              onBlur={() => handleBlur("plannedStartDate")}
-            />
-          </FormField>
-
-          <FormField
-            label="Fecha fin planificada"
-            required
-            error={touched.plannedEndDate ? errors.plannedEndDate : null}
-          >
-            <Input
-              type="date"
-              value={values.plannedEndDate}
-              onChange={(e) => handleChange("plannedEndDate", e.target.value)}
-              onBlur={() => handleBlur("plannedEndDate")}
-            />
-          </FormField>
-        </SimpleGrid>
-
-        {/* Fila 4: Fechas reales (opcionales para seguimiento) */}
-        <SimpleGrid columns={{ base: 1, md: 2 }} gap={3}>
-          <FormField
-            label="Fecha inicio real"
-            error={touched.actualStartDate ? errors.actualStartDate : null}
-            helperText="Registro de inicio efectivo en planta"
-          >
-            <Input
-              type="date"
-              value={values.actualStartDate}
-              onChange={(e) => handleChange("actualStartDate", e.target.value)}
-              onBlur={() => handleBlur("actualStartDate")}
-            />
-          </FormField>
-
-          <FormField
-            label="Fecha fin real"
-            error={touched.actualEndDate ? errors.actualEndDate : null}
-            helperText="Registro de finalizacion y cierre"
-          >
-            <Input
-              type="date"
-              value={values.actualEndDate}
-              onChange={(e) => handleChange("actualEndDate", e.target.value)}
-              onBlur={() => handleBlur("actualEndDate")}
-            />
-          </FormField>
-        </SimpleGrid>
-
-        {/* Fila 5: Descripcion tecnica */}
+        )}
+        {!editing && !eligible.length && (
+          <Alert
+            status="info"
+            title="No hay cotizaciones elegibles"
+            description="Se necesita una cotización aceptada de un cliente activo para crear una OT."
+          />
+        )}
+        {!editing && selected && (
+          <Text>
+            Cliente: {selected.client?.businessName}. Solicitud:{" "}
+            {selected.request?.requestNumber}. El origen se deriva de la
+            cotización.
+          </Text>
+        )}
         <FormField
-          label="Descripcion tecnica y especificaciones"
+          label="Título de la orden"
+          required
+          error={touched.title ? errors.title : null}
+        >
+          <Input
+            aria-label="Título de la orden"
+            value={values.title}
+            onChange={(e) => handleChange("title", e.target.value)}
+            onBlur={() => handleBlur("title")}
+          />
+        </FormField>
+        <FormField
+          label="Descripción técnica"
           required
           error={touched.description ? errors.description : null}
-          helperText="Detalles de materiales, planos, procesos CNC y requerimientos tecnicos..."
         >
           <Textarea
-            placeholder="Especificaciones de mecanizado, tolerancias, ruta de proceso y planos..."
+            aria-label="Descripción técnica"
             value={values.description}
             onChange={(e) => handleChange("description", e.target.value)}
             onBlur={() => handleBlur("description")}
-            rows={3}
           />
         </FormField>
+        <FormField label="Prioridad">
+          <Select
+            aria-label="Prioridad"
+            value={values.priority}
+            onChange={(e) => handleChange("priority", e.target.value)}
+          >
+            {["LOW", "MEDIUM", "HIGH", "URGENT"].map((value, i) => (
+              <option key={value} value={value}>
+                {["Baja", "Media", "Alta", "Urgente"][i]}
+              </option>
+            ))}
+          </Select>
+        </FormField>
+        {editing && (
+          <FormField
+            label="Estado de ejecución"
+            helperText="La aprobación se registra desde el detalle de la OT."
+          >
+            <Select
+              aria-label="Estado de ejecución"
+              value={values.status}
+              onChange={(e) => handleChange("status", e.target.value)}
+            >
+              <option value={workOrder!.status}>{workOrder!.status}</option>
+              {["IN_PROGRESS", "COMPLETED", "CANCELLED"]
+                .filter((s) => s !== workOrder!.status)
+                .map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+            </Select>
+          </FormField>
+        )}
+        <SimpleGrid columns={2} gap={3}>
+          {(
+            [
+              "plannedStartDate",
+              "plannedEndDate",
+              ...(editing ? ["actualStartDate", "actualEndDate"] : []),
+            ] as (keyof typeof values)[]
+          ).map((key) => (
+            <FormField
+              key={key}
+              label={
+                {
+                  plannedStartDate: "Inicio planificado",
+                  plannedEndDate: "Fin planificado",
+                  actualStartDate: "Inicio real",
+                  actualEndDate: "Fin real",
+                }[key as "plannedStartDate"]
+              }
+              error={touched[key] ? errors[key] : null}
+            >
+              <Input
+                type="date"
+                aria-label={key}
+                value={values[key]}
+                onChange={(e) => handleChange(key, e.target.value)}
+                onBlur={() => handleBlur(key)}
+              />
+            </FormField>
+          ))}
+        </SimpleGrid>
       </VStack>
     </Modal>
   );
 }
-
 export default WorkOrderFormModal;

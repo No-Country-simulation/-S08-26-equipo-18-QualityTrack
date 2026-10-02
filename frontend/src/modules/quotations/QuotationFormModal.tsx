@@ -95,10 +95,6 @@ export function QuotationFormModal({
   } = useForm<QuotationFormValues>({
     initialValues: DEFAULT_VALUES,
     rules: {
-      quotationNumber: [
-        validators.required("El numero de cotizacion es obligatorio"),
-        validators.maxLength(100),
-      ],
       clientId: [validators.required("Debes seleccionar un cliente")],
       requestId: [validators.required("Debes seleccionar una solicitud")],
       description: [
@@ -141,7 +137,6 @@ export function QuotationFormModal({
       const validUntilIso = toDateIso(formValues.validUntil);
 
       await onSave({
-        quotationNumber: formValues.quotationNumber.trim(),
         version: numericVersion,
         clientId: numericClientId,
         requestId: numericRequestId,
@@ -354,19 +349,15 @@ export function QuotationFormModal({
           <Box gridColumn={{ base: "span 1", md: "span 2" }}>
             <FormField
               label="Nro. de cotizacion"
-              required
-              error={touched.quotationNumber ? errors.quotationNumber : null}
-              helperText="Codigo interno de cotizacion (ej: COT-2026-006)"
+              helperText="Número generado por el servidor; no se puede modificar."
             >
               <Input
-                placeholder="COT-2026-006"
+                placeholder="Se asignará al guardar"
                 aria-label="Nro. de cotizacion"
-                readOnly={isEditing || readOnly}
-                value={values.quotationNumber}
-                onChange={(e) =>
-                  handleChange("quotationNumber", e.target.value)
+                readOnly
+                value={
+                  isEditing ? values.quotationNumber : "Se asignará al guardar"
                 }
-                onBlur={() => handleBlur("quotationNumber")}
               />
             </FormField>
           </Box>

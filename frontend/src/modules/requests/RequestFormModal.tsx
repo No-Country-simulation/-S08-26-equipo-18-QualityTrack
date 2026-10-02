@@ -62,10 +62,6 @@ export function RequestFormModal({
   } = useForm<RequestFormValues>({
     initialValues: DEFAULT_VALUES,
     rules: {
-      requestNumber: [
-        validators.required("El numero de solicitud es obligatorio"),
-        validators.maxLength(100),
-      ],
       title: [
         validators.required("El titulo de la solicitud es obligatorio"),
         validators.maxLength(500),
@@ -99,7 +95,6 @@ export function RequestFormModal({
       );
 
       await onSave({
-        requestNumber: formValues.requestNumber.trim(),
         title: formValues.title.trim(),
         description: formValues.description.trim(),
         clientId: numericClientId,
@@ -187,18 +182,16 @@ export function RequestFormModal({
         <SimpleGrid columns={{ base: 1, md: 2 }} gap={3}>
           <FormField
             label="Nro. de solicitud"
-            required
-            error={touched.requestNumber ? errors.requestNumber : null}
-            helperText="Codigo interno de trazabilidad (ej: SOL-2026-001)"
+            helperText="Número generado por el servidor; no se puede modificar."
           >
             <Input
-              placeholder="SOL-2026-001"
-              readOnly={isEditing}
+              placeholder="Se asignará al guardar"
+              readOnly
               maxLength={100}
-              value={values.requestNumber}
+              value={
+                isEditing ? values.requestNumber : "Se asignará al guardar"
+              }
               aria-label="Nro. de solicitud"
-              onChange={(e) => handleChange("requestNumber", e.target.value)}
-              onBlur={() => handleBlur("requestNumber")}
             />
           </FormField>
 

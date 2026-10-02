@@ -2,6 +2,20 @@
 
 Registro append-only, lo más nuevo arriba. Una entrada por ciclo de cambio cerrado.
 
+## 2026-10-02 · Numeración automática de solicitudes y cotizaciones
+Type:     fix
+Change:   solicitudes y cotizaciones reciben números SOL/COT generados por el servidor mediante secuencias independientes. Los formularios indican que el número se asignará al guardar y muestran el número existente sin permitir edición.
+Reason:   evitar pedir al usuario identificadores manuales y garantizar números distintos en altas simultáneas.
+Impact:   DTOs de alta sin número del navegador, UNIQUE existente conservado y migración de secuencias que continúa desde correlativos históricos compatibles. Ningún registro previo se renumera; sus IDs y relaciones se conservan. Las secuencias pueden tener saltos por operaciones fallidas.
+
+## 2026-10-02 · Origen y aprobación interna de órdenes de trabajo
+Type:     add
+Change:   API y formulario de OT desde cotización aceptada, con cliente y solicitud derivados; numeración única de servidor y origen consultable desde el detalle. Administrador y Supervisor gestionan OT y su aprobación interna; Producción y Calidad consultan.
+Reason:   convertir el origen comercial aceptado en un trabajo persistido sin números calculados por el navegador ni relaciones inventadas.
+Impact:   secuencia PostgreSQL y UNIQUE, alta de OT/aprobación pendiente atómica, dictamen con actor y fecha reales y actualización transaccional del estado. Edición conserva identidad/origen, valida fechas y no elude aprobación. Sin borrado físico ni reapertura de OT cerradas. Migración conserva los datos históricos sin completar origen ficticio y se detiene ante números o aprobaciones duplicados para revisión explícita.
+
+Operaciones, materiales y personal corresponden a la siguiente etapa. Sin cambios de secretos ni nuevas dependencias.
+
 ## 2026-10-02 · Solicitudes, cotizaciones y decisión comercial
 Type:     add
 Change:   APIs autenticadas de solicitudes y cotizaciones con ítems, formularios conectados y consulta del detalle. Administrador, Supervisor y Administración pueden gestionar el origen comercial; Producción consulta solicitudes. Administrador y Supervisor registran aceptación o rechazo con confirmación.

@@ -2,16 +2,15 @@ const assert = require('node:assert/strict');
 
 module.exports = async (t, { call, em, users, sessions, roleNames, admin, legacyQuoteId }) => {
   const token = admin.accessToken;
-  let serial = 0;
   const clientResponse = await call('POST', '/clients', token, { businessName: 'Commercial fixture', taxId: '90000000002', email: 'commercial@example.test', phone: '123456789' });
   assert.equal(clientResponse.status, 201); const client = await clientResponse.json();
   const otherResponse = await call('POST', '/clients', token, { businessName: 'Other commercial fixture', taxId: '90000000003', email: 'other-commercial@example.test', phone: '123456789' });
   assert.equal(otherResponse.status, 201); const other = await otherResponse.json();
-  const requestInput = () => ({ clientId: client.id, requestNumber: `SOL-HTTP-${++serial}`, title: 'Technical source', description: 'Drawing and requirements', receivedAt: '2026-10-01T00:00:00.000Z', requestedDeliveryDate: '2026-10-03T00:00:00.000Z' });
-  const firstRequest = await call('POST', '/requests', token, requestInput()); assert.equal(firstRequest.status, 201); const request = await firstRequest.json();
-  const quoteInput = () => ({ clientId: client.id, requestId: request.id, quotationNumber: `COT-HTTP-${++serial}`, version: 1, description: 'Commercial conditions', currency: 'ARS', validUntil: null,
+  const requestInput = () => ({ clientId: client.id, title: 'Technical source', description: 'Drawing and requirements', receivedAt: '2026-10-01T00:00:00.000Z', requestedDeliveryDate: '2026-10-03T00:00:00.000Z' });
+  const firstRequest = await call('POST', '/requests', token, requestInput()); assert.equal(firstRequest.status, 201); const request = await firstRequest.json(); assert.match(request.requestNumber, /^SOL-\d{6,}$/); assert.ok(BigInt(request.requestNumber.slice(4)) > 123n);
+  const quoteInput = () => ({ clientId: client.id, requestId: request.id, version: 1, description: 'Commercial conditions', currency: 'ARS', validUntil: null,
     items: [{ description: 'Fractional piece', quantity: '0.50', unitPrice: '0.01', notes: 'Preserve' }, { description: 'Second piece', quantity: '3.00', unitPrice: '0.10' }] });
-  const firstQuote = await call('POST', '/quotations', token, quoteInput()); assert.equal(firstQuote.status, 201); const quote = await firstQuote.json();
+  const firstQuote = await call('POST', '/quotations', token, quoteInput()); assert.equal(firstQuote.status, 201); const quote = await firstQuote.json(); assert.match(quote.quotationNumber, /^COT-\d{6,}$/); assert.ok(BigInt(quote.quotationNumber.slice(4)) > 45n);
   const editableRequest = await (await call('POST', '/requests', token, requestInput())).json();
   const editableQuote = await (await call('POST', '/quotations', token, quoteInput())).json();
   const snapshot = async () => ({ requests: await em.getConnection().execute('select * from request order by id'), quotations: await em.getConnection().execute('select * from quotation order by id'), items: await em.getConnection().execute('select * from quotation_item order by id') });
@@ -39,7 +38,7 @@ module.exports = async (t, { call, em, users, sessions, roleNames, admin, legacy
       const before = await snapshot(); assert.equal((await call('POST', '/requests', token, { ...requestInput(), ...override })).status, 400); assert.deepEqual(await snapshot(), before);
     }
     assert.equal((await call('POST', '/requests', token, { ...requestInput(), clientId: 2147483647 })).status, 404);
-    const duplicate = requestInput(); const race = await Promise.all([1, 2].map(() => call('POST', '/requests', token, duplicate))); assert.deepEqual(race.map(result => result.status).sort(), [201, 409]);
+    const duplicate = requestInput(); const race = await Promise.all([1, 2].map(() => call('POST', '/requests', token, duplicate))); assert.deepEqual(race.map(result => result.status), [201, 201]); const numbers = await Promise.all(race.map(result => result.json())); assert.notEqual(numbers[0].requestNumber ?? numbers[0].quotationNumber, numbers[1].requestNumber ?? numbers[1].quotationNumber);
     const response = await call('POST', '/requests', token, { ...requestInput(), title: ' Trimmed ' }); assert.equal(response.status, 201); const editable = await json(response);
     assert.equal(editable.title, 'Trimmed'); assert.equal(editable.createdById, users.get('Administrador').id);
     assert.equal((await call('PUT', `/requests/${editable.id}`, token, { requestedDeliveryDate: null, title: 'Changed' })).status, 200);
@@ -57,7 +56,7 @@ module.exports = async (t, { call, em, users, sessions, roleNames, admin, legacy
     assert.equal(draft.subtotal, '0.31'); assert.equal(draft.taxAmount, '0.07'); assert.equal(draft.total, '0.38'); assert.equal(draft.items[0].subtotal, 0.01);
     assert.equal(draft.decisionStatus, 'pending'); assert.equal(draft.decidedById, null); assert.equal(draft.decidedAt, null);
     const reloaded = await json(await call('GET', `/quotations/${draft.id}`, token)); assert.deepEqual(reloaded, draft);
-    for (const override of [{ items: [] }, { items: null }, { version: 1.5 }, { currency: 'EUR' }, { validUntil: '2026-02-30' }, { subtotal: '999' }, { taxAmount: '999' }, { createdById: 1 }, { decisionStatus: 'accepted' }, { items: Array(101).fill({ description: 'Many', quantity: 1, unitPrice: 1 }) }]) {
+    for (const override of [{ quotationNumber: 'COT-FORGED' }, { items: [] }, { items: null }, { version: 1.5 }, { currency: 'EUR' }, { validUntil: '2026-02-30' }, { subtotal: '999' }, { taxAmount: '999' }, { createdById: 1 }, { decisionStatus: 'accepted' }, { items: Array(101).fill({ description: 'Many', quantity: 1, unitPrice: 1 }) }]) {
       const before = await snapshot(); assert.equal((await call('POST', '/quotations', token, { ...quoteInput(), ...override })).status, 400); assert.deepEqual(await snapshot(), before);
     }
     for (const item of [{ description: '', quantity: 1, unitPrice: 1 }, { description: 'X', quantity: 0, unitPrice: 1 }, { description: 'X', quantity: '1e2', unitPrice: 1 }, { description: 'X', quantity: true, unitPrice: 1 }, { description: 'X', quantity: 1.001, unitPrice: 1 }, { description: 'X', quantity: 1, unitPrice: -1 }, { description: 'X', quantity: 1, unitPrice: null }, { description: 'X', quantity: 1, unitPrice: 1, subtotal: 1 }, { description: 'X', quantity: 1, unitPrice: 1, quotationId: draft.id }, { description: 'X', quantity: '999999999999.99', unitPrice: '999999999999.99' }]) {
@@ -66,7 +65,7 @@ module.exports = async (t, { call, em, users, sessions, roleNames, admin, legacy
     assert.equal((await call('POST', '/quotations', token, { ...quoteInput(), requestId: 2147483647 })).status, 404);
     const mismatched = await (await call('POST', '/clients', token, { businessName: 'Mismatch', taxId: '90000000004', email: 'mismatch@example.test', phone: '123456789' })).json();
     assert.equal((await call('POST', '/quotations', token, { ...quoteInput(), clientId: mismatched.id })).status, 400);
-    const duplicate = quoteInput(); const race = await Promise.all([1, 2].map(() => call('POST', '/quotations', token, duplicate))); assert.deepEqual(race.map(result => result.status).sort(), [201, 409]);
+    const duplicate = quoteInput(); const race = await Promise.all([1, 2].map(() => call('POST', '/quotations', token, duplicate))); assert.deepEqual(race.map(result => result.status), [201, 201]); const numbers = await Promise.all(race.map(result => result.json())); assert.notEqual(numbers[0].requestNumber ?? numbers[0].quotationNumber, numbers[1].requestNumber ?? numbers[1].quotationNumber);
     const oldItems = draft.items;
     assert.equal((await call('PUT', `/quotations/${draft.id}`, token, { description: 'New draft description', validUntil: null })).status, 200);
     const unchangedItems = await json(await call('GET', `/quotations/${draft.id}`, token)); assert.deepEqual(unchangedItems.items, oldItems); assert.equal(unchangedItems.version, 1);
