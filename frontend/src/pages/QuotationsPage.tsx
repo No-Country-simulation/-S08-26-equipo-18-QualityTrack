@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Box, Flex, Heading, HStack, Text } from "@chakra-ui/react";
-import { LuPencil, LuPlus, LuReceiptText, LuTrash2 } from "react-icons/lu";
+import { LuPencil, LuPlus, LuReceiptText } from "react-icons/lu";
 import { Alert } from "../components/Alert";
 import { Button } from "../components/Button";
 import { Can } from "../components/Can";
@@ -27,14 +27,16 @@ export default function QuotationsPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [readOnly, setReadOnly] = useState(false);
   const [selectedQuotation, setSelectedQuotation] = useState<Quotation | null>(
     null,
   );
-  const [deleteCandidate, setDeleteCandidate] = useState<Quotation | null>(
-    null,
-  );
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [decision, setDecision] = useState<{
+    quotation: Quotation;
+    status: "accepted" | "rejected";
+  } | null>(null);
+  const [decisionError, setDecisionError] = useState<string | null>(null);
+  const [decisionPending, setDecisionPending] = useState(false);
   const [notification, setNotification] = useState<{
     status: "success" | "error";
     message: string;
@@ -56,11 +58,11 @@ export default function QuotationsPage() {
     try {
       const [records, related0, related1] = await Promise.all([
         quotationService.getAll(),
-        clientService.list({ limit: 100, status: "all" }),
+        clientService.listActive(),
         requestService.getAll(),
       ]);
       setQuotations(records as QuotationRecord[]);
-      setClients(related0.items);
+      setClients(related0);
       setRequests(related1);
     } catch (error) {
       setLoadError(errorMessage(error));
@@ -77,18 +79,15 @@ export default function QuotationsPage() {
   }, [load]);
 
   const handleOpenCreate = () => {
+    setReadOnly(false);
     setSelectedQuotation(null);
     setIsFormOpen(true);
   };
 
   const handleOpenEdit = (quotation: Quotation) => {
+    setReadOnly(false);
     setSelectedQuotation(quotation);
     setIsFormOpen(true);
-  };
-
-  const handleOpenDelete = (quotation: Quotation) => {
-    setDeleteError(null);
-    setDeleteCandidate(quotation);
   };
 
   const handleSaveQuotation = async (formData: CreateQuotationDto) => {
@@ -112,22 +111,32 @@ export default function QuotationsPage() {
     }
   };
 
-  const handleConfirmDelete = async () => {
-    if (!deleteCandidate || isDeleting) return;
-    setIsDeleting(true);
-    setDeleteError(null);
+  const handleDecision = async () => {
+    if (!decision || decisionPending) return;
+    setDecisionPending(true);
+    setDecisionError(null);
     try {
-      await quotationService.delete(deleteCandidate.id);
-      setQuotations((prev) =>
-        prev.filter((item) => item.id !== deleteCandidate.id),
+      const updated = await quotationService.decide(
+        decision.quotation.id,
+        decision.status,
       );
-      setDeleteCandidate(null);
-      showNotification("Cotización eliminada correctamente.");
+      setQuotations((current) =>
+        current.map((record) =>
+          record.id === updated.id ? (updated as QuotationRecord) : record,
+        ),
+      );
+      setDecision(null);
+      showNotification(
+        updated.decisionStatus === "accepted"
+          ? "Aceptación del cliente registrada."
+          : "Rechazo del cliente registrado.",
+      );
     } catch (error) {
-      setDeleteError(errorMessage(error));
-    } finally { setIsDeleting(false); }
+      setDecisionError(errorMessage(error));
+    } finally {
+      setDecisionPending(false);
+    }
   };
-
   return (
     <Box>
       {/* Encabezado de la vista */}
@@ -151,14 +160,12 @@ export default function QuotationsPage() {
           </Text>
         </Box>
       </Flex>
-
       {/* Alerta de notificacion temporal */}
       {notification && (
         <Box mb={4}>
           <Alert status={notification.status} title={notification.message} />
         </Box>
       )}
-
       {/* Tabla universal con busqueda, ordenamiento y paginacion */}
       <DataTable<QuotationRecord>
         columns={QUOTATION_COLUMNS}
@@ -185,35 +192,58 @@ export default function QuotationsPage() {
         }
         actions={(quotation) => (
           <HStack gap={1}>
+            <Button
+              size="xs"
+              variant="outline"
+              aria-label={`Ver detalle de ${quotation.quotationNumber}`}
+              onClick={() => {
+                setReadOnly(true);
+                setSelectedQuotation(quotation);
+                setIsFormOpen(true);
+              }}
+            >
+              Ver detalle
+            </Button>
             <Can perform="quotations:edit">
               <Button
                 size="xs"
                 variant="ghost"
                 colorPalette="blue"
+                disabled={Boolean(
+                  quotation.decisionStatus &&
+                  quotation.decisionStatus !== "pending",
+                )}
                 onClick={() => handleOpenEdit(quotation)}
                 title="Editar cotizacion"
                 aria-label="Editar cotizacion"
               >
                 <LuPencil size={14} />
               </Button>
-            </Can>
-
-            <Can perform="quotations:delete">
-              <Button
-                size="xs"
-                variant="ghost"
-                colorPalette="red"
-                onClick={() => handleOpenDelete(quotation)}
-                title="Eliminar cotizacion"
-                aria-label="Eliminar cotizacion"
-              >
-                <LuTrash2 size={14} />
-              </Button>
+            </Can>{" "}
+            <Can perform="quotations:approve">
+              {(!quotation.decisionStatus ||
+                quotation.decisionStatus === "pending") &&
+                (["accepted", "rejected"] as const).map((status) => (
+                  <Button
+                    key={status}
+                    size="xs"
+                    variant="outline"
+                    colorPalette={status === "accepted" ? "green" : "red"}
+                    aria-label={`${status === "accepted" ? "Registrar aceptación" : "Registrar rechazo"} de ${quotation.quotationNumber}`}
+                    onClick={() => {
+                      setDecision({ quotation, status });
+                      setDecisionError(null);
+                    }}
+                  >
+                    {status === "accepted"
+                      ? "Registrar aceptación"
+                      : "Registrar rechazo"}
+                  </Button>
+                ))}
             </Can>
           </HStack>
         )}
       />
-
       {/* Modal de formulario de Alta / Edicion */}
       <QuotationFormModal
         open={isFormOpen}
@@ -221,24 +251,25 @@ export default function QuotationsPage() {
         quotation={selectedQuotation}
         clients={clients}
         requests={requests}
+        readOnly={readOnly}
         onSave={handleSaveQuotation}
-      />
-
-      {/* Dialogo de confirmacion de eliminacion */}
+      />{" "}
       <ConfirmDialog
-        error={deleteError}
-        isLoading={isDeleting}
-        open={Boolean(deleteCandidate)}
+        open={Boolean(decision)}
         onOpenChange={({ open }) => {
-          if (!open) setDeleteCandidate(null);
+          if (!open && !decisionPending) setDecision(null);
         }}
-        title="Eliminar cotizacion"
-        description={`Estas seguro de que deseas eliminar la cotizacion "${deleteCandidate?.quotationNumber}"? Esta accion no se puede deshacer.`}
-        confirmText="Eliminar"
-        cancelText="Cancelar"
-        confirmColorPalette="red"
-        onConfirm={handleConfirmDelete}
-        onCancel={() => setDeleteCandidate(null)}
+        title={
+          decision?.status === "accepted"
+            ? "Registrar aceptación del cliente"
+            : "Registrar rechazo del cliente"
+        }
+        description={`Confirmá la decisión comunicada por el cliente sobre ${decision?.quotation.quotationNumber}. Se guardarán tu usuario y la fecha, y la oferta conservará sus datos comerciales.`}
+        confirmText="Registrar decisión"
+        confirmColorPalette={decision?.status === "accepted" ? "green" : "red"}
+        isLoading={decisionPending}
+        error={decisionError}
+        onConfirm={() => void handleDecision()}
       />
     </Box>
   );

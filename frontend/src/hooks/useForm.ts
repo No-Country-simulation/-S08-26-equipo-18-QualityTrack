@@ -57,6 +57,7 @@ export function useForm<T extends Record<string, any>>({
   const [touched, setTouched] = useState<Partial<Record<keyof T, boolean>>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const submittingRef = useRef(false);
 
   // Valida un solo campo según sus reglas configuradas
   const validateSingleField = useCallback(
@@ -130,6 +131,7 @@ export function useForm<T extends Record<string, any>>({
     if (e && typeof e.preventDefault === "function") {
       e.preventDefault();
     }
+    if (submittingRef.current) return;
 
     const allTouched: Partial<Record<keyof T, boolean>> = {};
     for (const key of Object.keys(values) as (keyof T)[]) {
@@ -143,6 +145,7 @@ export function useForm<T extends Record<string, any>>({
       return;
     }
 
+    submittingRef.current = true;
     setIsSubmitting(true);
     setSubmitError(null);
 
@@ -170,6 +173,7 @@ export function useForm<T extends Record<string, any>>({
         setSubmitError("Ocurrió un error inesperado al guardar el formulario.");
       }
     } finally {
+      submittingRef.current = false;
       setIsSubmitting(false);
     }
   };

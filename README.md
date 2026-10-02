@@ -240,6 +240,52 @@ Tras actualizar un entorno local existente, ejecutar:
 docker compose run --rm --no-deps backend pnpm migration:up
 ```
 
+### Solicitudes y cotizaciones
+
+Solicitudes y Cotizaciones usan la API y conservan sus registros al recargar.
+Administrador, Supervisor y Administración pueden consultar, crear y editar;
+Producción puede consultar solicitudes. Solo Administrador y Supervisor registran
+la aceptación o el rechazo comercial informado por el cliente.
+
+La API ofrece `GET/POST /requests`, `GET/PUT /requests/:id`,
+`GET/POST /quotations`, `GET/PUT /quotations/:id` y
+`PATCH /quotations/:id/decision`. El último recibe únicamente
+`{"status":"accepted"}` o `{"status":"rejected"}`; autor y fecha se toman del
+servidor. No existen acciones de borrado físico para estos registros.
+
+Las altas requieren un cliente activo. La solicitud seleccionada debe pertenecer
+al mismo cliente de la cotización. Los números se ingresan manualmente, son únicos
+y no pueden cambiarse al editar; tampoco puede cambiarse el cliente ni el origen.
+Una solicitud con cotizaciones conserva sus datos técnicos sin edición posterior.
+Fecha de entrega solicitada y vigencia de la oferta son opcionales: omitirlas en
+una actualización conserva el valor y enviar `null` lo limpia. La entrega
+solicitada no puede ser anterior a la recepción de la solicitud.
+
+Cada oferta necesita entre 1 y 100 ítems, cantidades positivas y precios no
+negativos con hasta dos decimales. El servidor calcula y guarda los subtotales
+por ítem, el subtotal de la oferta y el impuesto del 21 % que utiliza actualmente
+el formulario; no acepta importes calculados ni autores enviados por el navegador.
+El cálculo redondea cada ítem a centavos y la cotización con sus ítems se guarda
+en una sola transacción. La moneda admitida es ARS o USD.
+
+Las cotizaciones comienzan pendientes y pueden editarse mientras estén en ese
+estado. Aceptar requiere cliente activo, vigencia no vencida, ítems e importes
+coherentes. La decisión se confirma en pantalla y conserva quién la registró y
+cuándo; repetir la misma decisión no cambia esa evidencia. Aceptadas y rechazadas
+se consultan mediante **Ver detalle** y quedan sin edición. Una nueva oferta debe
+crearse con un número distinto. Esta decisión comercial no constituye la
+aprobación interna de una OT; el alta de OT desde una oferta aceptada corresponde
+a la siguiente etapa.
+
+La migración `Migration20261002170000_quotation_decision` conserva las cotizaciones
+e ítems existentes y agrega estado pendiente, sin inventar aceptación, autor ni
+fecha. Los importes históricos se mantienen visibles: si son inconsistentes,
+deben corregirse explícitamente antes de aceptar. Para actualizar una base local:
+
+```bash
+docker compose run --rm --no-deps backend pnpm migration:up
+```
+
 ### Comprobaciones antes de integrar cambios
 
 ```bash

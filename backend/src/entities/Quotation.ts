@@ -1,10 +1,11 @@
-import { Entity, ManyToOne, PrimaryKey, Property, Unique } from "@mikro-orm/decorators/legacy";
+import { Check, Entity, ManyToOne, PrimaryKey, Property, Unique } from "@mikro-orm/decorators/legacy";
 import { BaseEntity } from "./BaseEntity";
 import { Client } from "./Client";
 import { Request } from "./Request";
 import { User } from "./User";
 
 @Entity()
+@Check({ name: 'quotation_decision_consistent', expression: "(decision_status = 'pending' and decided_by_id is null and decided_at is null) or (decision_status in ('accepted', 'rejected') and decided_by_id is not null and decided_at is not null)" })
 export class Quotation extends BaseEntity {
     @PrimaryKey({ type: "integer" })
     id: number;
@@ -40,7 +41,7 @@ export class Quotation extends BaseEntity {
     currency: string;
 
     @Property({ type: "timestamptz", nullable: true })
-    validUntil?: Date;
+    validUntil?: Date | null;
 
     // TODO revisar: status (posible enum, sin definir en el diagrama)
     // @Property({ type: "varchar" })
@@ -48,4 +49,13 @@ export class Quotation extends BaseEntity {
 
     @ManyToOne(() => User, { index: true })
     createdBy: User;
+
+    @Property({ type: 'varchar', length: 10, default: 'pending' })
+    decisionStatus: 'pending' | 'accepted' | 'rejected' = 'pending';
+
+    @ManyToOne(() => User, { nullable: true, index: true, deleteRule: 'restrict' })
+    decidedBy?: User | null;
+
+    @Property({ type: 'timestamptz', nullable: true })
+    decidedAt?: Date | null;
 }

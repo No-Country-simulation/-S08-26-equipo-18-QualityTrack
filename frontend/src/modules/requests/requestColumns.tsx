@@ -3,7 +3,7 @@ import { Box, Text } from "@chakra-ui/react";
 import type { ColumnDef } from "../../components/DataTable";
 import type { Request } from "../../services/requestService";
 
-export function formatDate(isoString?: string): string {
+export function formatDate(isoString?: string | null): string {
   if (!isoString) return "—";
   try {
     const d = new Date(isoString);

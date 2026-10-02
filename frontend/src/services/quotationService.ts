@@ -9,7 +9,7 @@ export interface QuotationItem {
   quantity: number;
   unitPrice: number;
   subtotal: number;
-  notes?: string;
+  notes?: string | null;
 }
 
 export interface Quotation {
@@ -24,17 +24,21 @@ export interface Quotation {
   subtotal: string;
   taxAmount: string;
   currency: string;
-  validUntil?: string;
+  validUntil?: string | null;
   items?: QuotationItem[];
   createdById?: number;
   createdAt: string;
-  updatedAt: string;
+  updatedAt: string | null;
+  total?: string;
+  decisionStatus?: "pending" | "accepted" | "rejected";
+  decidedAt?: string | null;
+  decidedById?: number | null;
+  decidedBy?: { id: number; firstName: string; lastName: string } | null;
 }
 
-export type CreateQuotationDto = Omit<
-  Quotation,
-  "id" | "client" | "request" | "createdAt" | "updatedAt"
->;
+export type CreateQuotationDto = Pick<Quotation, "clientId" | "requestId" | "quotationNumber" | "version" | "description" | "currency" | "validUntil"> & {
+  items: Pick<QuotationItem, "description" | "quantity" | "unitPrice" | "notes">[];
+};
 export type UpdateQuotationDto = Partial<CreateQuotationDto>;
 
 export const quotationService = {
@@ -50,8 +54,8 @@ export const quotationService = {
   update(id: number | string, data: UpdateQuotationDto): Promise<Quotation> {
     return api.put<Quotation>(`/quotations/${id}`, data);
   },
-  delete(id: number | string): Promise<void> {
-    return api.delete<void>(`/quotations/${id}`);
+  decide(id: number | string, status: "accepted" | "rejected"): Promise<Quotation> {
+    return api.patch<Quotation>(`/quotations/${id}/decision`, { status });
   },
 };
 

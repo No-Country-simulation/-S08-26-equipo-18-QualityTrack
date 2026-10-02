@@ -1783,6 +1783,57 @@
           "enumItems": [],
           "mappedType": "string"
         },
+        "decided_at": {
+          "name": "decided_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "decided_by_id": {
+          "name": "decided_by_id",
+          "type": "int",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
+        "decision_status": {
+          "name": "decision_status",
+          "type": "varchar(10)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 10,
+          "precision": null,
+          "scale": null,
+          "default": "'pending'",
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
         "description": {
           "name": "description",
           "type": "varchar(5000)",
@@ -1960,6 +2011,16 @@
         },
         {
           "columnNames": [
+            "decided_by_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "quotation_decided_by_id_index",
+          "primary": false,
+          "unique": false
+        },
+        {
+          "columnNames": [
             "id"
           ],
           "composite": false,
@@ -1989,7 +2050,14 @@
           "unique": false
         }
       ],
-      "checks": [],
+      "checks": [
+        {
+          "name": "quotation_decision_consistent",
+          "expression": "((decision_status = 'pending'::text) AND (decided_by_id IS NULL) AND (decided_at IS NULL)) OR ((decision_status = ANY (ARRAY['accepted'::character varying, 'rejected'::character varying])) AND (decided_by_id IS NOT NULL) AND (decided_at IS NOT NULL))",
+          "definition": "CHECK (((((decision_status)::text = 'pending'::text) AND (decided_by_id IS NULL) AND (decided_at IS NULL)) OR (((decision_status)::text = ANY ((ARRAY['accepted'::character varying, 'rejected'::character varying])::text[])) AND (decided_by_id IS NOT NULL) AND (decided_at IS NOT NULL))))",
+          "columnName": "decided_at"
+        }
+      ],
       "triggers": [],
       "foreignKeys": {
         "quotation_client_id_foreign": {
@@ -2013,6 +2081,19 @@
             "id"
           ],
           "referencedTableName": "public.user"
+        },
+        "quotation_decided_by_id_foreign": {
+          "columnNames": [
+            "decided_by_id"
+          ],
+          "constraintName": "quotation_decided_by_id_foreign",
+          "localTableName": "public.quotation",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "referencedTableName": "public.user",
+          "updateRule": "cascade",
+          "deleteRule": "restrict"
         },
         "quotation_request_id_foreign": {
           "columnNames": [

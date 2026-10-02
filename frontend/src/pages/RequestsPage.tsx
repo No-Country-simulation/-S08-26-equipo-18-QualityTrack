@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { Box, Flex, Heading, HStack, Text } from "@chakra-ui/react";
-import { LuClipboardList, LuPencil, LuPlus, LuTrash2 } from "react-icons/lu";
+import { LuClipboardList, LuPencil, LuPlus } from "react-icons/lu";
 import { Alert } from "../components/Alert";
 import { Button } from "../components/Button";
 import { Can } from "../components/Can";
-import { ConfirmDialog } from "../components/ConfirmDialog";
+import { usePermissions } from "../hooks/usePermissions";
 import { DataTable } from "../components/DataTable";
 import { REQUEST_COLUMNS, RequestFormModal } from "../modules/requests";
 import { errorMessage } from "../utils/errorMessage";
@@ -16,15 +16,14 @@ import type { CreateRequestDto, Request } from "../services/requestService";
 type RequestRecord = Request & Record<string, unknown>;
 
 export default function RequestsPage() {
+  const { can } = usePermissions();
+  const canLoadClients = can("clients:view");
   const [requests, setRequests] = useState<RequestRecord[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<Request | null>(null);
-  const [deleteCandidate, setDeleteCandidate] = useState<Request | null>(null);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
   const [notification, setNotification] = useState<{
     status: "success" | "error";
     message: string;
@@ -46,10 +45,10 @@ export default function RequestsPage() {
     try {
       const [records, related0] = await Promise.all([
         requestService.getAll(),
-        clientService.list({ limit: 100, status: "all" }),
+        canLoadClients ? clientService.listActive() : Promise.resolve([]),
       ]);
       setRequests(records as RequestRecord[]);
-      setClients(related0.items);
+      setClients(related0);
     } catch (error) {
       setLoadError(errorMessage(error));
       setRequests([]);
@@ -57,7 +56,7 @@ export default function RequestsPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [canLoadClients]);
 
   useEffect(() => {
     void load();
@@ -71,11 +70,6 @@ export default function RequestsPage() {
   const handleOpenEdit = (req: Request) => {
     setSelectedRequest(req);
     setIsFormOpen(true);
-  };
-
-  const handleOpenDelete = (req: Request) => {
-    setDeleteError(null);
-    setDeleteCandidate(req);
   };
 
   const handleSaveRequest = async (formData: CreateRequestDto) => {
@@ -92,22 +86,6 @@ export default function RequestsPage() {
       setRequests((prev) => [created as RequestRecord, ...prev]);
       showNotification("Solicitud creada correctamente.");
     }
-  };
-
-  const handleConfirmDelete = async () => {
-    if (!deleteCandidate || isDeleting) return;
-    setIsDeleting(true);
-    setDeleteError(null);
-    try {
-      await requestService.delete(deleteCandidate.id);
-      setRequests((prev) =>
-        prev.filter((item) => item.id !== deleteCandidate.id),
-      );
-      setDeleteCandidate(null);
-      showNotification("Solicitud eliminada correctamente.");
-    } catch (error) {
-      setDeleteError(errorMessage(error));
-    } finally { setIsDeleting(false); }
   };
 
   return (
@@ -133,14 +111,12 @@ export default function RequestsPage() {
           </Text>
         </Box>
       </Flex>
-
       {/* Alerta de notificacion temporal */}
       {notification && (
         <Box mb={4}>
           <Alert status={notification.status} title={notification.message} />
         </Box>
       )}
-
       {/* Tabla universal con busqueda, ordenamiento y paginacion */}
       <DataTable<RequestRecord>
         columns={REQUEST_COLUMNS}
@@ -179,23 +155,9 @@ export default function RequestsPage() {
                 <LuPencil size={14} />
               </Button>
             </Can>
-
-            <Can perform="requests:delete">
-              <Button
-                size="xs"
-                variant="ghost"
-                colorPalette="red"
-                onClick={() => handleOpenDelete(req)}
-                title="Eliminar solicitud"
-                aria-label="Eliminar solicitud"
-              >
-                <LuTrash2 size={14} />
-              </Button>
-            </Can>
           </HStack>
         )}
       />
-
       {/* Modal de formulario de Alta / Edicion */}
       <RequestFormModal
         open={isFormOpen}
@@ -203,24 +165,7 @@ export default function RequestsPage() {
         request={selectedRequest}
         clients={clients}
         onSave={handleSaveRequest}
-      />
-
-      {/* Dialogo de confirmacion de eliminacion */}
-      <ConfirmDialog
-        error={deleteError}
-        isLoading={isDeleting}
-        open={Boolean(deleteCandidate)}
-        onOpenChange={({ open }) => {
-          if (!open) setDeleteCandidate(null);
-        }}
-        title="Eliminar solicitud"
-        description={`Estas seguro de que deseas eliminar la solicitud "${deleteCandidate?.requestNumber} - ${deleteCandidate?.title}"? Esta accion no se puede deshacer.`}
-        confirmText="Eliminar"
-        cancelText="Cancelar"
-        confirmColorPalette="red"
-        onConfirm={handleConfirmDelete}
-        onCancel={() => setDeleteCandidate(null)}
-      />
+      />{" "}
     </Box>
   );
 }

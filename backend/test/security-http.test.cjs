@@ -22,13 +22,20 @@ test('HTTP authorization and logout against an isolated PostgreSQL database', {
     const databaseConfig = require('../dist/src/config/database.config').default;
     const legacyOrm = await PostgreSqlORM.init(databaseConfig);
     const legacyPasswordHash = await require('bcryptjs').hash(randomBytes(24).toString('hex'), 10);
-    let legacyId;
+    let legacyId, legacyQuoteId, legacyQuoteBefore;
     try {
         const rows = await legacyOrm.em.getConnection().execute(
             'insert into "user" (first_name, last_name, email, password, role_id, created_at, updated_at) values (?, ?, ?, ?, (select id from role where name = ?), now(), now()) returning id',
             ['Legacy', 'Account', 'migration-legacy@example.test', legacyPasswordHash, 'Calidad'],
         );
         legacyId = rows[0].id;
+        const connection = legacyOrm.em.getConnection();
+        const [client] = await connection.execute('insert into client (business_name, tax_id, email, phone, is_active, created_at, updated_at) values (?, ?, ?, ?, true, now(), now()) returning id', ['Migration client', '90000000001', 'migration-client@example.test', '123456789']);
+        const [request] = await connection.execute('insert into request (client_id, request_number, title, description, received_at, created_by_id, created_at, updated_at) values (?, ?, ?, ?, now(), ?, now(), now()) returning id', [client.id, 'SOL-LEGACY', 'Existing request', 'Existing source', legacyId]);
+        const [quote] = await connection.execute('insert into quotation (client_id, request_id, quotation_number, version, description, subtotal, tax_amount, currency, created_by_id, created_at, updated_at) values (?, ?, ?, 1, ?, ?, ?, ?, ?, now(), now()) returning id', [client.id, request.id, 'COT-LEGACY', 'Existing offer', '123.45', '25.92', 'ARS', legacyId]);
+        legacyQuoteId = quote.id;
+        await connection.execute('insert into quotation_item (quotation_id, description, quantity, unit_price, subtotal, notes) values (?, ?, ?, ?, ?, ?)', [quote.id, 'Existing item', '3.00', '41.15', '123.45', 'Preserved notes']);
+        legacyQuoteBefore = (await connection.execute('select * from quotation where id = ?', [quote.id]))[0];
     } finally { await legacyOrm.close(); }
     execFileSync(process.execPath, [cli, 'migration:up', '--config', './mikro-orm.config.ts'], { stdio: 'inherit' });
     require('reflect-metadata');
@@ -49,6 +56,12 @@ test('HTTP authorization and logout against an isolated PostgreSQL database', {
         const orm = app.get(MikroORM);
         app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
         await app.listen(0, '127.0.0.1');
+        const { SwaggerModule, DocumentBuilder } = require('@nestjs/swagger');
+        const schema = SwaggerModule.createDocument(app, new DocumentBuilder().setTitle('Security fixture').build());
+        assert.ok(schema.paths['/requests'].post);
+        assert.ok(schema.paths['/quotations/{id}/decision'].patch);
+        assert.ok(schema.components.schemas.QuotationResponseDto.properties.decidedAt.nullable);
+        assert.equal(schema.components.schemas.QuotationItemDto.properties.quantity.oneOf.length, 2);
         const base = await app.getUrl();
         const em = orm.em.fork();
         const legacyUser = await em.findOneOrFail(User, { id: legacyId });
@@ -56,6 +69,10 @@ test('HTTP authorization and logout against an isolated PostgreSQL database', {
         assert.equal(legacyUser.isActive, true);
         assert.equal(legacyUser.password, legacyPasswordHash);
         assert.equal(legacyUser.email, 'migration-legacy@example.test');
+        const legacyQuote = (await em.getConnection().execute('select * from quotation where id = ?', [legacyQuoteId]))[0];
+        for (const key of Object.keys(legacyQuoteBefore)) assert.deepEqual(legacyQuote[key], legacyQuoteBefore[key]);
+        assert.equal(legacyQuote.decision_status, 'pending');
+        assert.equal(legacyQuote.decided_by_id, null); assert.equal(legacyQuote.decided_at, null);
         const password = randomBytes(24).toString('hex');
         const passwordHash = await hash(password, 10);
         const sessions = new Map();
@@ -360,6 +377,7 @@ test('HTTP authorization and logout against an isolated PostgreSQL database', {
             assert.equal((await call('GET', '/auth/me', first.accessToken)).status, 401);
             assert.equal((await call('POST', '/auth/refresh', null, { refreshToken: first.refreshToken })).status, 401);
         });
+        await require('./commercial-http.cjs')(t, { call, em, users, sessions, roleNames, admin, legacyQuoteId });
         const created = await call('POST', '/clients', admin.accessToken, input());
         assert.equal(created.status, 201);
         const client = await created.json();
