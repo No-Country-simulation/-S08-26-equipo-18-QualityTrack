@@ -12,6 +12,7 @@ import { CommercialModule } from './commercial/commercial.module';
 import { WorkOrdersModule } from './work-orders/work-orders.module';
 import { ProductionModule } from './production/production.module';
 import { QualityDeliveriesModule } from './quality-deliveries/quality-deliveries.module';
+import { DocumentsModule } from './documents/documents.module';
 
 @Module({
     imports: [
@@ -27,6 +28,7 @@ import { QualityDeliveriesModule } from './quality-deliveries/quality-deliveries
         WorkOrdersModule,
         ProductionModule,
         QualityDeliveriesModule,
+        DocumentsModule,
     ],
     controllers: [AppController],
     providers: [AppService],

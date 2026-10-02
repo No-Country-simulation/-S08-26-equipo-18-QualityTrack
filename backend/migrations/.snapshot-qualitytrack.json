@@ -873,6 +873,23 @@
           "enumItems": [],
           "mappedType": "integer"
         },
+        "sha256": {
+          "name": "sha256",
+          "type": "varchar(64)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 64,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "string"
+        },
         "storage_path": {
           "name": "storage_path",
           "type": "varchar(1000)",
@@ -1021,7 +1038,13 @@
           "unique": false
         }
       ],
-      "checks": [],
+      "checks": [
+        {
+          "name": "document_has_parent",
+          "expression": "work_order_id is not null or request_id is not null or quotation_id is not null",
+          "definition": "check (work_order_id is not null or request_id is not null or quotation_id is not null)"
+        }
+      ],
       "triggers": [],
       "foreignKeys": {
         "document_document_type_id_foreign": {
@@ -1044,8 +1067,7 @@
           "referencedColumnNames": [
             "id"
           ],
-          "referencedTableName": "public.quotation",
-          "deleteRule": "set null"
+          "referencedTableName": "public.quotation"
         },
         "document_request_id_foreign": {
           "columnNames": [
@@ -1056,8 +1078,7 @@
           "referencedColumnNames": [
             "id"
           ],
-          "referencedTableName": "public.request",
-          "deleteRule": "set null"
+          "referencedTableName": "public.request"
         },
         "document_uploaded_by_id_foreign": {
           "columnNames": [
@@ -1079,8 +1100,7 @@
           "referencedColumnNames": [
             "id"
           ],
-          "referencedTableName": "public.work_order",
-          "deleteRule": "set null"
+          "referencedTableName": "public.work_order"
         }
       },
       "comment": null

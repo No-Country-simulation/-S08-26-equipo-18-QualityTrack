@@ -1,69 +1,56 @@
-﻿import { api } from "./api";
-import type { WorkOrder } from "./workOrderService";
-import type { Request } from "./requestService";
-import type { Quotation } from "./quotationService";
-
+import { api } from "./api";
 export interface DocumentType {
   id: number;
   name: string;
-  description?: string;
-  createdAt?: string;
-  updatedAt?: string;
+  description?: string | null;
 }
-
 export interface Document {
   id: number;
-  workOrderId?: number;
-  workOrder?: WorkOrder;
-  requestId?: number;
-  request?: Request;
-  quotationId?: number;
-  quotation?: Quotation;
+  workOrderId?: number | null;
+  requestId?: number | null;
+  quotationId?: number | null;
   documentTypeId: number;
   documentType?: DocumentType;
   fileName: string;
-  storagePath: string;
   mimeType: string;
   fileSize: number;
   version: number;
   uploadedById?: number;
+  uploadedBy?: { id: number; firstName: string; lastName: string };
   uploadedAt: string;
-  description?: string;
-  createdAt: string;
-  updatedAt: string;
+  description?: string | null;
+  downloadAvailable?: boolean;
 }
-
-export type CreateDocumentDto = Omit<
-  Document,
-  "id" | "workOrder" | "request" | "quotation" | "documentType" | "createdAt" | "updatedAt"
->;
-export type UpdateDocumentDto = Partial<CreateDocumentDto>;
-
+export interface DocumentConfig {
+  maxFileSize: number;
+  allowedExtensions: string[];
+}
 export const documentService = {
-  getAll(): Promise<Document[]> {
-    return api.get<Document[]>("/documents");
-  },
-  getById(id: number | string): Promise<Document> {
-    return api.get<Document>(`/documents/${id}`);
-  },
-  getByWorkOrder(workOrderId: number | string): Promise<Document[]> {
-    return api.get<Document[]>(`/documents/work-order/${workOrderId}`);
-  },
-  getByRequest(requestId: number | string): Promise<Document[]> {
-    return api.get<Document[]>(`/documents/request/${requestId}`);
-  },
-  getByQuotation(quotationId: number | string): Promise<Document[]> {
-    return api.get<Document[]>(`/documents/quotation/${quotationId}`);
-  },
-  getDocumentTypes(): Promise<DocumentType[]> {
-    return api.get<DocumentType[]>("/documents/types");
-  },
-  upload(data: FormData): Promise<Document> {
-    return api.post<Document>("/documents/upload", data);
-  },
-  delete(id: number | string): Promise<void> {
-    return api.delete<void>(`/documents/${id}`);
-  },
+  getAll: () => api.get<Document[]>("/documents"),
+  getById: (id: number | string) => api.get<Document>(`/documents/${id}`),
+  getByWorkOrder: (id: number | string) =>
+    api.get<Document[]>(`/documents/work-order/${id}`),
+  getByRequest: (id: number | string) =>
+    api.get<Document[]>(`/documents/request/${id}`),
+  getByQuotation: (id: number | string) =>
+    api.get<Document[]>(`/documents/quotation/${id}`),
+  getDocumentTypes: () => api.get<DocumentType[]>("/documents/types"),
+  getConfig: () => api.get<DocumentConfig>("/documents/config"),
+  upload: (data: FormData) =>
+    api.post<Document>("/documents/upload", data, {
+      headers: { "Content-Type": null },
+    }),
+  download: (id: number | string) =>
+    api.get<Blob>(`/documents/${id}/download`, { responseType: "blob" }),
 };
-
+export function saveDocumentFile(blob: Blob, fileName: string) {
+  const url = URL.createObjectURL(blob),
+    link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
 export default documentService;

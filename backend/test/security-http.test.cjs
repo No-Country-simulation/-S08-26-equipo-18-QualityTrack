@@ -3,6 +3,8 @@ const assert = require('node:assert/strict');
 const { randomBytes } = require('node:crypto');
 const { execFileSync } = require('node:child_process');
 const path = require('node:path');
+const { mkdtempSync, rmSync } = require('node:fs');
+const { tmpdir } = require('node:os');
 require('reflect-metadata');
 
 // Opt-in: never migrate a developer's regular database or any remote database.
@@ -12,6 +14,12 @@ test('HTTP authorization and logout against an isolated PostgreSQL database', {
     assert.ok(['localhost', '127.0.0.1', 'postgres'].includes(process.env.DB_HOST));
     assert.equal(process.env.POSTGRES_DB, 'qualitytrack_security');
     assert.equal(process.env.DB_SSL, 'false');
+    // Each run owns its files, independently of Docker/CI environment defaults.
+    const documentDirectory = mkdtempSync(path.join(tmpdir(), 'qualitytrack-documents-test-'));
+    process.env.DOCUMENT_STORAGE_DIR = documentDirectory;
+    process.env.DOCUMENT_MAX_FILE_BYTES = '1024';
+    process.env.DOCUMENT_ALLOWED_EXTENSIONS = 'pdf,png,jpg,jpeg,txt,csv';
+    t.after(() => rmSync(documentDirectory, { recursive: true, force: true }));
     process.env.JWT_ACCESS_SECRET ||= randomBytes(32).toString('hex');
     // Nest builds src/ only. Use the same source migration CLI as local setup
     // rather than silently looking for missing compiled migrations.
@@ -58,8 +66,11 @@ test('HTTP authorization and logout against an isolated PostgreSQL database', {
         await connection.execute('delete from work_order_user where id=?', [duplicatePerson.id]);
         await connection.execute('insert into quality_control (work_order_id,performed_by_id,specification,expected_value,measured_value) values (?, ?, ?, ?, ?)',[legacyWorkOrderId,legacyId,'Historical visual',null,null]);
         await connection.execute('insert into delivery (work_order_id,client_id,delivery_date,quantity,notes,created_at,updated_at) values (?, ?, now(), ?, ?, now(), now())',[legacyWorkOrderId,client.id,1,'Historical delivery']);
+        const [documentType]=await connection.execute('insert into document_type (name,created_at,updated_at) values (?,now(),now()) returning id',['Historical type']);
+        await connection.execute('insert into document (work_order_id,document_type_id,file_name,storage_path,mime_type,file_size,version,uploaded_by_id,uploaded_at,description) values (?, ?, ?, ?, ?, ?, ?, ?, now(), ?)',[legacyWorkOrderId,documentType.id,'historical.pdf','/legacy/storage/file.pdf','application/pdf',123,2,legacyId,'Historical description']);
+        await connection.execute('insert into document (document_type_id,file_name,storage_path,mime_type,file_size,version,uploaded_by_id,uploaded_at) values (?, ?, ?, ?, ?, ?, ?, now())',[documentType.id,'orphan.pdf','/legacy/storage/orphan.pdf','application/pdf',123,1,legacyId]);
         legacyProductionBefore={};
-        for(const table of ['route_sheet','operation','material','work_order_material','work_order_user','quality_control','delivery']) legacyProductionBefore[table]=await connection.execute(`select * from ${table} order by id`);
+        for(const table of ['route_sheet','operation','material','work_order_material','work_order_user','quality_control','delivery','document']) legacyProductionBefore[table]=await connection.execute(`select * from ${table} order by id`);
         legacyQuoteBefore = (await connection.execute('select * from quotation where id = ?', [quote.id]))[0];
     } finally { await legacyOrm.close(); }
     execFileSync(process.execPath, [cli, 'migration:up', '--config', './mikro-orm.config.ts'], { stdio: 'inherit' });
@@ -99,6 +110,7 @@ test('HTTP authorization and logout against an isolated PostgreSQL database', {
                 const after=await em.getConnection().execute(`select * from ${table} order by id`);
                 assert.equal(after.length,rows.length);
                 for(let i=0;i<rows.length;i++)for(const key of Object.keys(rows[i]))assert.deepEqual(after[i][key],rows[i][key],`${table}.${key}`);
+                if(table==='document')for(const row of after)assert.equal(row.sha256,null);
                 if(table==='delivery')for(const row of after)assert.equal(row.created_by_id,null);
                 for(const row of after)for(const key of ['assigned_by_id','executed_by_id','unassigned_at','unassigned_by_id','updated_by_id'])if(key in row)assert.equal(row[key],null);
             }
@@ -118,8 +130,8 @@ test('HTTP authorization and logout against an isolated PostgreSQL database', {
         await em.persist(unknown).flush();
         const call = (method, endpoint, token, body) => fetch(base + endpoint, {
             method,
-            headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-            ...(body ? { body: JSON.stringify(body) } : {}),
+            headers: { ...(body instanceof FormData ? {} : {'Content-Type': 'application/json'}), ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+            ...(body ? { body: body instanceof FormData ? body : JSON.stringify(body) } : {}),
         });
         for (const [index, name] of roleNames.entries()) {
             const user = new User();
@@ -415,6 +427,7 @@ test('HTTP authorization and logout against an isolated PostgreSQL database', {
         await require('./work-orders-http.cjs')(t, { call, em, users, sessions, roleNames, admin, legacyWorkOrderId, legacyWorkOrderBefore });
         await require('./production-http.cjs')(t, { call, em, users, sessions, roleNames, admin, legacyWorkOrderId });
         await require('./quality-deliveries-http.cjs')(t, { call, em, users, sessions, admin, legacyWorkOrderId });
+        await require('./documents-http.cjs')(t, { call, em, users, sessions, admin, password, legacyWorkOrderId });
         const created = await call('POST', '/clients', admin.accessToken, input());
         assert.equal(created.status, 201);
         const client = await created.json();
