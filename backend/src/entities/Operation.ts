@@ -1,7 +1,9 @@
-import { Entity, ManyToOne, PrimaryKey, Property } from "@mikro-orm/decorators/legacy";
+import { Entity, ManyToOne, PrimaryKey, Property, Unique } from "@mikro-orm/decorators/legacy";
 import { RouteSheet } from "./RouteSheet";
+import { User } from "./User";
 
 @Entity()
+@Unique({properties:['routeSheet', 'operationNumber']})
 export class Operation {
     @PrimaryKey({ type: "integer" })
     id: number;
@@ -16,10 +18,10 @@ export class Operation {
     name: string;
 
     @Property({ type: "varchar", length: 5000, nullable: true })
-    description?: string;
+    description?: string | null;
 
     @Property({ type: "varchar", length: 500, nullable: true })
-    machine?: string;
+    machine?: string | null;
 
     // TODO revisar: definir el ciclo de vida de la operación mediante un enum.
     // Los estados deben representar las etapas por las que pasa una operación
@@ -28,17 +30,23 @@ export class Operation {
     // status: string;
 
     @Property({ type: "timestamptz", nullable: true })
-    plannedStart?: Date;
+    plannedStart?: Date | null;
 
     @Property({ type: "timestamptz", nullable: true })
-    plannedEnd?: Date;
+    plannedEnd?: Date | null;
 
     @Property({ type: "timestamptz", nullable: true })
-    actualStart?: Date;
+    actualStart?: Date | null;
 
     @Property({ type: "timestamptz", nullable: true })
-    actualEnd?: Date;
+    actualEnd?: Date | null;
 
     @Property({ type: "varchar", length: 5000, nullable: true })
-    notes?: string;
+    notes?: string | null;
+
+    @ManyToOne(() => User, {nullable:true, index:true, deleteRule:'no action'})
+    createdBy?: User | null;
+
+    @ManyToOne(() => User, {nullable:true, index:true, deleteRule:'no action'})
+    executedBy?: User | null;
 }

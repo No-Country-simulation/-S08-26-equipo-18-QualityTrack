@@ -1,8 +1,9 @@
-import { Entity, ManyToOne, PrimaryKey, Property } from "@mikro-orm/decorators/legacy";
+import { Entity, ManyToOne, PrimaryKey, Property, Index } from "@mikro-orm/decorators/legacy";
 import { WorkOrder } from "./WorkOrder";
 import { User } from "./User";
 
 @Entity()
+@Index({name:'work_order_user_active_unique', expression:'create unique index "work_order_user_active_unique" on "work_order_user" ("work_order_id", "user_id") where "unassigned_at" is null'})
 export class WorkOrderUser {
     @PrimaryKey({ type: "integer" })
     id: number;
@@ -22,4 +23,13 @@ export class WorkOrderUser {
 
     @Property({ type: "timestamptz", onCreate: () => new Date() })
     assignedAt: Date = new Date();
+
+    @ManyToOne(() => User, {nullable:true, index:true, deleteRule:'no action'})
+    assignedBy?: User | null;
+
+    @Property({type:'timestamptz',nullable:true})
+    unassignedAt?: Date | null;
+
+    @ManyToOne(() => User, {nullable:true,index:true,deleteRule:'no action'})
+    unassignedBy?: User | null;
 }

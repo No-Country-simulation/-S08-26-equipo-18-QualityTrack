@@ -1271,6 +1271,23 @@
           "enumItems": [],
           "mappedType": "datetime"
         },
+        "created_by_id": {
+          "name": "created_by_id",
+          "type": "int",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
         "description": {
           "name": "description",
           "type": "varchar(5000)",
@@ -1287,6 +1304,23 @@
           "collation": null,
           "enumItems": [],
           "mappedType": "string"
+        },
+        "executed_by_id": {
+          "name": "executed_by_id",
+          "type": "int",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "integer"
         },
         "id": {
           "name": "id",
@@ -1414,7 +1448,7 @@
           "autoincrement": false,
           "primary": false,
           "nullable": false,
-          "unique": false,
+          "unique": true,
           "length": null,
           "precision": null,
           "scale": null,
@@ -1426,6 +1460,26 @@
         }
       },
       "indexes": [
+        {
+          "columnNames": [
+            "created_by_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "operation_created_by_id_index",
+          "primary": false,
+          "unique": false
+        },
+        {
+          "columnNames": [
+            "executed_by_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "operation_executed_by_id_index",
+          "primary": false,
+          "unique": false
+        },
         {
           "columnNames": [
             "id"
@@ -1445,11 +1499,44 @@
           "keyName": "operation_route_sheet_id_index",
           "primary": false,
           "unique": false
+        },
+        {
+          "columnNames": [
+            "route_sheet_id",
+            "operation_number"
+          ],
+          "composite": true,
+          "constraint": true,
+          "keyName": "operation_route_sheet_id_operation_number_unique",
+          "primary": false,
+          "unique": true
         }
       ],
       "checks": [],
       "triggers": [],
       "foreignKeys": {
+        "operation_created_by_id_foreign": {
+          "columnNames": [
+            "created_by_id"
+          ],
+          "constraintName": "operation_created_by_id_foreign",
+          "localTableName": "public.operation",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "referencedTableName": "public.user"
+        },
+        "operation_executed_by_id_foreign": {
+          "columnNames": [
+            "executed_by_id"
+          ],
+          "constraintName": "operation_executed_by_id_foreign",
+          "localTableName": "public.operation",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "referencedTableName": "public.user"
+        },
         "operation_route_sheet_id_foreign": {
           "columnNames": [
             "route_sheet_id"
@@ -3683,6 +3770,23 @@
       "name": "work_order_material",
       "schema": "public",
       "columns": {
+        "assigned_by_id": {
+          "name": "assigned_by_id",
+          "type": "int",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
         "certificate_number": {
           "name": "certificate_number",
           "type": "varchar(100)",
@@ -3840,6 +3944,16 @@
       "indexes": [
         {
           "columnNames": [
+            "assigned_by_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "work_order_material_assigned_by_id_index",
+          "primary": false,
+          "unique": false
+        },
+        {
+          "columnNames": [
             "material_id"
           ],
           "composite": false,
@@ -3872,6 +3986,17 @@
       "checks": [],
       "triggers": [],
       "foreignKeys": {
+        "work_order_material_assigned_by_id_foreign": {
+          "columnNames": [
+            "assigned_by_id"
+          ],
+          "constraintName": "work_order_material_assigned_by_id_foreign",
+          "localTableName": "public.work_order_material",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "referencedTableName": "public.user"
+        },
         "work_order_material_material_id_foreign": {
           "columnNames": [
             "material_id"
@@ -3918,6 +4043,23 @@
           "enumItems": [],
           "mappedType": "datetime"
         },
+        "assigned_by_id": {
+          "name": "assigned_by_id",
+          "type": "int",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
         "id": {
           "name": "id",
           "type": "int",
@@ -3925,6 +4067,40 @@
           "autoincrement": true,
           "primary": true,
           "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
+        "unassigned_at": {
+          "name": "unassigned_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "unassigned_by_id": {
+          "name": "unassigned_by_id",
+          "type": "int",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
           "unique": false,
           "length": null,
           "precision": null,
@@ -3959,7 +4135,7 @@
           "autoincrement": false,
           "primary": false,
           "nullable": false,
-          "unique": false,
+          "unique": true,
           "length": null,
           "precision": null,
           "scale": null,
@@ -3973,6 +4149,28 @@
       "indexes": [
         {
           "columnNames": [
+            "work_order_id",
+            "user_id"
+          ],
+          "composite": true,
+          "constraint": false,
+          "keyName": "work_order_user_active_unique",
+          "primary": false,
+          "unique": true,
+          "where": "unassigned_at IS NULL"
+        },
+        {
+          "columnNames": [
+            "assigned_by_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "work_order_user_assigned_by_id_index",
+          "primary": false,
+          "unique": false
+        },
+        {
+          "columnNames": [
             "id"
           ],
           "composite": false,
@@ -3980,6 +4178,16 @@
           "keyName": "work_order_user_pkey",
           "primary": true,
           "unique": true
+        },
+        {
+          "columnNames": [
+            "unassigned_by_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "work_order_user_unassigned_by_id_index",
+          "primary": false,
+          "unique": false
         },
         {
           "columnNames": [
@@ -4005,6 +4213,28 @@
       "checks": [],
       "triggers": [],
       "foreignKeys": {
+        "work_order_user_assigned_by_id_foreign": {
+          "columnNames": [
+            "assigned_by_id"
+          ],
+          "constraintName": "work_order_user_assigned_by_id_foreign",
+          "localTableName": "public.work_order_user",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "referencedTableName": "public.user"
+        },
+        "work_order_user_unassigned_by_id_foreign": {
+          "columnNames": [
+            "unassigned_by_id"
+          ],
+          "constraintName": "work_order_user_unassigned_by_id_foreign",
+          "localTableName": "public.work_order_user",
+          "referencedColumnNames": [
+            "id"
+          ],
+          "referencedTableName": "public.user"
+        },
         "work_order_user_user_id_foreign": {
           "columnNames": [
             "user_id"

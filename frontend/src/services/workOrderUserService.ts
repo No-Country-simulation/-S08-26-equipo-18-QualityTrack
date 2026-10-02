@@ -5,8 +5,8 @@ export interface WorkOrderAssignedUser {
   id: number;
   firstName: string;
   lastName: string;
-  email: string;
   role?: string;
+  isActive: boolean;
 }
 
 export interface WorkOrderUser {
@@ -15,10 +15,10 @@ export interface WorkOrderUser {
   workOrder?: WorkOrder;
   userId: number;
   user?: WorkOrderAssignedUser;
-  role?: string;
-  shift?: string;
-  notes?: string;
   assignedAt: string;
+  assignedBy?: WorkOrderAssignedUser | null;
+  unassignedAt?: string | null;
+  unassignedBy?: WorkOrderAssignedUser | null;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -26,14 +26,12 @@ export interface WorkOrderUser {
 export type AssignWorkOrderUserDto = {
   workOrderId: number;
   userId: number;
-  role?: string;
-  shift?: string;
-  notes?: string;
 };
 
-export type UpdateWorkOrderUserDto = Partial<AssignWorkOrderUserDto>;
-
 export const workOrderUserService = {
+  getAvailable(): Promise<WorkOrderAssignedUser[]> {
+    return api.get<WorkOrderAssignedUser[]>("/work-order-users/available");
+  },
   getAll(): Promise<WorkOrderUser[]> {
     return api.get<WorkOrderUser[]>("/work-order-users");
   },
@@ -46,14 +44,8 @@ export const workOrderUserService = {
   assign(data: AssignWorkOrderUserDto): Promise<WorkOrderUser> {
     return api.post<WorkOrderUser>("/work-order-users", data);
   },
-  update(
-    id: number | string,
-    data: UpdateWorkOrderUserDto,
-  ): Promise<WorkOrderUser> {
-    return api.put<WorkOrderUser>(`/work-order-users/${id}`, data);
-  },
-  unassign(id: number | string): Promise<void> {
-    return api.delete<void>(`/work-order-users/${id}`);
+  unassign(id: number | string): Promise<WorkOrderUser> {
+    return api.patch<WorkOrderUser>(`/work-order-users/${id}/unassign`, {});
   },
 };
 

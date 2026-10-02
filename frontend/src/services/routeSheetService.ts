@@ -6,17 +6,17 @@ export interface RouteSheet {
   workOrderId: number;
   workOrder?: WorkOrder;
   routeNumber: string;
-  instructions?: string;
+  instructions?: string | null;
   createdById?: number;
   createdAt: string;
-  updatedAt: string;
+  updatedAt?: string | null;
 }
 
-export type CreateRouteSheetDto = Omit<
+export type CreateRouteSheetDto = Pick<
   RouteSheet,
-  "id" | "workOrder" | "createdAt" | "updatedAt"
+  "workOrderId" | "instructions"
 >;
-export type UpdateRouteSheetDto = Partial<CreateRouteSheetDto>;
+export type UpdateRouteSheetDto = Pick<CreateRouteSheetDto, "instructions">;
 
 export const routeSheetService = {
   getAll(): Promise<RouteSheet[]> {
@@ -31,14 +31,8 @@ export const routeSheetService = {
   create(data: CreateRouteSheetDto): Promise<RouteSheet> {
     return api.post<RouteSheet>("/route-sheets", data);
   },
-  update(
-    id: number | string,
-    data: UpdateRouteSheetDto,
-  ): Promise<RouteSheet> {
+  update(id: number | string, data: UpdateRouteSheetDto): Promise<RouteSheet> {
     return api.put<RouteSheet>(`/route-sheets/${id}`, data);
-  },
-  delete(id: number | string): Promise<void> {
-    return api.delete<void>(`/route-sheets/${id}`);
   },
 };
 

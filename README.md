@@ -326,7 +326,7 @@ Editar conserva número y origen. El estado `APPROVED` no puede asignarse desde
 el formulario de edición. Pasar a `IN_PROGRESS` o `COMPLETED` requiere aprobación
 interna y fechas reales coherentes; completar exige inicio y fin reales.
 No se permite editar una OT completada o cancelada ni borrar físicamente OT.
-Las operaciones, materiales y personal se incorporan en la siguiente etapa.
+Las hojas de ruta, operaciones, materiales y personal se gestionan desde su detalle.
 
 La migración `Migration20261002180000_work_order_origin` agrega el vínculo a la
 oferta y las restricciones de número y aprobación única. Conserva OT anteriores
@@ -336,6 +336,58 @@ aprobación o comenzar ejecución sin un origen documentado. Si existen números
 duplicados o varias aprobaciones por OT, la migración se detiene para su revisión
 con datos verificables: no renumera ni elimina evidencia silenciosamente.
 Actualizar la base local con `docker compose run --rm --no-deps backend pnpm migration:up`.
+
+### Producción: hojas de ruta, operaciones, materiales y personal
+
+Administrador y Supervisor pueden planificar y asignar recursos a OT abiertas
+con origen documentado. Producción puede registrar ejecución; Calidad consulta
+este tramo. Administración no accede a estas APIs. Los permisos se comprueban
+en el servidor y el actor se obtiene de la sesión.
+
+- **Hojas de ruta:** `GET/POST /route-sheets`, `GET/PUT /route-sheets/:id` y
+  `GET /route-sheets/work-order/:id`. Número automático `HR-000001`, instrucciones
+  opcionales y autor real. Una OT puede tener varias hojas, todas consultables.
+- **Operaciones:** `GET/POST /operations`, `GET/PUT /operations/:id` y
+  `GET /operations/route-sheet/:id`. Número automático `OP-001` dentro de cada
+  hoja; nombre, descripción, máquina, planificación y notas persistidos. Padre
+  y número inmutables; una operación iniciada conserva su planificación.
+- **Ejecución:** `PATCH /operations/:id/execution` registra `actualStart` y/o
+  `actualEnd`, con aprobación interna y fechas coherentes que no estén en el futuro.
+  Las fechas guardadas son inmutables. El primer inicio real pasa la OT a
+  `IN_PROGRESS` en la misma transacción; completar una operación no completa
+  automáticamente toda la OT. La respuesta identifica al usuario que registró
+  el último inicio o fin. Repetir los mismos valores conserva ese registro.
+- **Catálogo:** `GET/POST /materials` y `GET /materials/:id`. Crear exige código
+  único y nombre; especificación y fabricante pertenecen al material. La
+  asignación no crea materiales implícitamente ni acepta un nombre libre.
+- **Partidas:** `POST /work-order-materials` recibe `workOrderId`, `materialId`,
+  cantidad positiva con hasta dos decimales y lote/unidad/certificado/fecha de
+  recepción/notas opcionales. `GET/PUT /work-order-materials/:id` consulta o edita
+  la partida; `/work-order-materials` lista y `GET /work-orders/:id/materials`
+  filtra por OT. Se permiten varios lotes del mismo material, sin sumar inventario.
+  Un opcional enviado como `null` se limpia y un campo omitido se conserva.
+- **Personal:** `GET /work-order-users/available` ofrece usuarios activos a
+  quienes pueden asignarlos, sin exponer DNI, email ni credenciales ni abrir la
+  administración de cuentas. `POST /work-order-users` recibe solamente OT y
+  usuario; conserva fecha y responsable de la asignación. Una persona puede
+  participar en varias OT, con una sola asignación activa en cada una.
+  `PATCH /work-order-users/:id/unassign` finaliza la asignación con fecha y autor
+  de baja; permite una nueva asignación sin borrar la anterior. Consultas:
+  `/work-order-users`, `/work-order-users/:id` y `/work-orders/:id/users`.
+
+El personal muestra su rol vigente del sistema. No hay campos de puesto, turno
+o notas de asignación que se descarten al guardar. Tampoco se expone un proveedor
+por partida: el fabricante se consulta desde el catálogo. Las OT completadas o
+canceladas conservan sus asociaciones y rechazan cambios. Este tramo no ofrece
+borrado físico de hojas, operaciones, materiales o asignaciones.
+
+`Migration20261002200000_production` incorpora responsables nullable para
+históricos, baja de asignaciones, secuencia de hojas y restricciones de duplicados.
+Conserva registros y números previos sin inventar autores. Si hay usuarios
+repetidos en una misma OT u operaciones con el mismo número dentro de una hoja,
+se detiene para su revisión sin eliminar ni fusionar evidencia. Aplicar con
+`docker compose run --rm --no-deps backend pnpm migration:up`; no volver a ejecutar
+el seed sobre la base habitual para probar este flujo.
 
 ### Comprobaciones antes de integrar cambios
 

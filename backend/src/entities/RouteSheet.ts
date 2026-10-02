@@ -22,7 +22,7 @@ export class RouteSheet extends BaseEntity {
     // status: string;
 
     @Property({ type: "varchar", length: 5000, nullable: true })
-    instructions?: string;
+    instructions?: string | null;
 
     @ManyToOne(() => User, { index: true })
     createdBy: User;

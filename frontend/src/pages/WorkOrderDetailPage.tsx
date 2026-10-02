@@ -11,7 +11,6 @@ import {
 } from "@chakra-ui/react";
 import {
   LuArrowLeft,
-  LuBoxes,
   LuBuilding2,
   LuCalendar,
   LuCheck,
@@ -19,12 +18,10 @@ import {
   LuDownload,
   LuFileSpreadsheet,
   LuFileText,
-  LuLayers,
   LuPencil,
   LuPlus,
   LuShieldCheck,
   LuUpload,
-  LuUsers,
   LuWrench,
   LuX,
 } from "react-icons/lu";
@@ -34,9 +31,7 @@ import { Button } from "../components/Button";
 import { Can } from "../components/Can";
 import { Card } from "../components/Card";
 import { FormField } from "../components/FormField";
-import { Input } from "../components/Input";
 import { Modal } from "../components/Modal";
-import { Select } from "../components/Select";
 import { Table } from "../components/Table";
 import { Textarea } from "../components/Textarea";
 import {
@@ -65,42 +60,22 @@ import type {
   CreateWorkOrderDto, UpdateWorkOrderDto,
   WorkOrder,
 } from "../services/workOrderService";
-import { routeSheetService } from "../services/routeSheetService";
-import type { RouteSheet } from "../services/routeSheetService";
-import { operationService } from "../services/operationService";
-import type { Operation } from "../services/operationService";
 import { documentService } from "../services/documentService";
 import type { Document } from "../services/documentService";
 import { approvalService } from "../services/approvalService";
 import type { Approval } from "../services/approvalService";
-import { materialService } from "../services/materialService";
-import type { WorkOrderMaterial } from "../services/materialService";
-import { workOrderUserService } from "../services/workOrderUserService";
-import type { WorkOrderAssignedUser, WorkOrderUser } from "../services/workOrderUserService";
-
 import type { Request } from "../services/requestService";
 
 import type { Quotation } from "../services/quotationService";
 
-import { errorMessage } from "../utils/errorMessage";
+import { ProductionPanel } from "../modules/production/ProductionPanel";
 
-// Pending the real user catalogue; never offer fixture identities.
-const availableOperators: WorkOrderAssignedUser[] = [];
+import { errorMessage } from "../utils/errorMessage";
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
-}
-
-function getOperationBadge(op: Operation) {
-  if (op.actualStart && op.actualEnd) {
-    return { label: "Completada", color: "green" };
-  }
-  if (op.actualStart && !op.actualEnd) {
-    return { label: "En proceso", color: "blue" };
-  }
-  return { label: "Programada", color: "gray" };
 }
 
 export default function WorkOrderDetailPage() {
@@ -120,31 +95,7 @@ export default function WorkOrderDetailPage() {
 
   const [qualityControls, setQualityControls] = useState<QualityControl[]>([]);
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
-  const [routeSheet, setRouteSheet] = useState<RouteSheet | undefined>();
-  const [operations, setOperations] = useState<Operation[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
-  const [workOrderMaterials, setWorkOrderMaterials] = useState<WorkOrderMaterial[]>([]);
-  const [isMaterialModalOpen, setIsMaterialModalOpen] = useState(false);
-  const [newMaterialForm, setNewMaterialForm] = useState({
-    materialName: "",
-    specification: "",
-    lotNumber: "",
-    certificateNumber: "",
-    supplier: "",
-    quantity: "",
-    unit: "kg",
-    notes: "",
-  });
-
-  const [workOrderUsers, setWorkOrderUsers] = useState<WorkOrderUser[]>([]);
-  const [isUserModalOpen, setIsUserModalOpen] = useState(false);
-  const [newUserForm, setNewUserForm] = useState({
-    userId: "",
-    role: "Operador CNC principal",
-    shift: "Turno mañana (06:00 - 14:00)",
-    notes: "",
-  });
-
   const [availableClients, setAvailableClients] = useState<Client[]>([]);
   const [availableRequests, setAvailableRequests] = useState<Request[]>([]);
   const [availableQuotations, setAvailableQuotations] = useState<Quotation[]>([]);
@@ -166,8 +117,8 @@ export default function WorkOrderDetailPage() {
     setLoadError(null);
     setSectionErrors([]);
     setWorkOrder(null); setApproval(null);
-    setQualityControls([]); setDeliveries([]); setRouteSheet(undefined);
-    setOperations([]); setDocuments([]); setWorkOrderMaterials([]); setWorkOrderUsers([]);
+    setQualityControls([]); setDeliveries([]);
+    setDocuments([]);
     setAvailableClients([]); setAvailableRequests([]); setAvailableQuotations([]);
     try {
       const activeWo = await workOrderService.getById(id);
@@ -181,15 +132,7 @@ export default function WorkOrderDetailPage() {
         qualityService.getByWorkOrder(activeWo.id).then(data => { if (version === loadVersion.current) setQualityControls(data); }).catch(error => { failures.push("calidad: " + errorMessage(error)); }),
         deliveryService.getByWorkOrder(activeWo.id).then(data => { if (version === loadVersion.current) setDeliveries(data); }).catch(error => { failures.push("entregas: " + errorMessage(error)); }),
         documentService.getByWorkOrder(activeWo.id).then(data => { if (version === loadVersion.current) setDocuments(data); }).catch(error => { failures.push("documentos: " + errorMessage(error)); }),
-        materialService.getByWorkOrder(activeWo.id).then(data => { if (version === loadVersion.current) setWorkOrderMaterials(data); }).catch(error => { failures.push("materiales: " + errorMessage(error)); }),
-        workOrderUserService.getByWorkOrder(activeWo.id).then(data => { if (version === loadVersion.current) setWorkOrderUsers(data); }).catch(error => { failures.push("personal: " + errorMessage(error)); }),
         approvalService.getByWorkOrder(activeWo.id).then(data => { if (version === loadVersion.current) setApproval(data ?? null); }).catch(error => { failures.push("aprobación: " + errorMessage(error)); }),
-        routeSheetService.getByWorkOrder(activeWo.id).then(async sheets => {
-          if (version !== loadVersion.current) return;
-          setRouteSheet(sheets[0]);
-          const ops = sheets[0] ? await operationService.getByRouteSheet(sheets[0].id) : [];
-          if (version === loadVersion.current) setOperations(ops);
-        }).catch(error => { failures.push("hoja de ruta/operaciones: " + errorMessage(error)); }),
       ]);
       if (version === loadVersion.current) setSectionErrors(failures);
     } catch (error) {
@@ -262,113 +205,6 @@ export default function WorkOrderDetailPage() {
         : "Orden de trabajo rechazada.",
       isApproved ? "success" : "error",
     );
-  };
-
-  const handleOpenMaterialModal = () => {
-    setActionError(null);
-    setNewMaterialForm({
-      materialName: "",
-      specification: "",
-      lotNumber: "",
-      certificateNumber: "",
-      supplier: "",
-      quantity: "",
-      unit: "kg",
-      notes: "",
-    });
-    setIsMaterialModalOpen(true);
-  };
-
-  const handleSaveMaterial = async () => {
-    if (!workOrder) return;
-    if (!newMaterialForm.materialName.trim()) {
-      setActionError("El nombre o aleacion del material es obligatorio.");
-      return;
-    }
-    if (!newMaterialForm.quantity.trim() || !Number.isFinite(Number(newMaterialForm.quantity)) || Number(newMaterialForm.quantity) <= 0) {
-      setActionError("La cantidad debe ser un número mayor a cero.");
-      return;
-    }
-    try {
-      const created = await materialService.assign({
-        workOrderId: workOrder.id,
-        materialName: newMaterialForm.materialName.trim(),
-        specification: newMaterialForm.specification.trim() || undefined,
-        lotNumber: newMaterialForm.lotNumber.trim() || undefined,
-        certificateNumber: newMaterialForm.certificateNumber.trim() || undefined,
-        supplier: newMaterialForm.supplier.trim() || undefined,
-        quantity: newMaterialForm.quantity,
-        unit: newMaterialForm.unit || "kg",
-        notes: newMaterialForm.notes.trim() || undefined,
-      });
-      setWorkOrderMaterials((prev) => [...prev, created]);
-    } catch (error) {
-      setActionError(errorMessage(error));
-      return;
-    }
-    setIsMaterialModalOpen(false);
-    showNotification("Partida de materia prima asignada con exito a la orden.");
-  };
-
-  const handleOpenUserModal = () => {
-    setActionError(null);
-    setNewUserForm({
-      userId: "",
-      role: "Operador CNC principal",
-      shift: "Turno mañana (06:00 - 14:00)",
-      notes: "",
-    });
-    setIsUserModalOpen(true);
-  };
-
-  const handleAssignUser = async () => {
-    if (!workOrder) return;
-    const selectedUser = availableOperators.find(
-      (u) => String(u.id) === newUserForm.userId,
-    );
-    if (!selectedUser) {
-      showNotification("Debe seleccionar un operario valido.", "error");
-      return;
-    }
-    const alreadyAssigned = workOrderUsers.some(
-      (u) => u.userId === selectedUser.id && u.role === newUserForm.role,
-    );
-    if (alreadyAssigned) {
-      showNotification(
-        `${selectedUser.firstName} ${selectedUser.lastName} ya esta asignado con ese rol en esta orden.`,
-        "error",
-      );
-      return;
-    }
-
-    try {
-      const created = await workOrderUserService.assign({
-        workOrderId: workOrder.id,
-        userId: selectedUser.id,
-        role: newUserForm.role.trim() || "Operador",
-        shift: newUserForm.shift.trim() || undefined,
-        notes: newUserForm.notes.trim() || undefined,
-      });
-      setWorkOrderUsers((prev) => [...prev, { ...created, user: selectedUser }]);
-    } catch (error) {
-      setActionError(errorMessage(error));
-      return;
-    }
-    setIsUserModalOpen(false);
-    showNotification(
-      `${selectedUser.firstName} ${selectedUser.lastName} asignado con exito a la orden.`,
-    );
-  };
-
-  const handleRemoveUser = async (assignmentId: number) => {
-    try {
-      await workOrderUserService.unassign(assignmentId);
-    } catch (error) {
-      showNotification(errorMessage(error), "error");
-      return;
-    }
-    setWorkOrderUsers((prev) => prev.filter((u) => u.id !== assignmentId));
-    showNotification("Asignacion de personal removida de la orden.");
   };
 
   const handleBack = () => {
@@ -1024,422 +860,7 @@ export default function WorkOrderDetailPage() {
         </Card>
       </Box>
 
-      {/* Tarea 5.3: Materia prima y trazabilidad de materiales */}
-      <Box mt={6}>
-        <Card
-          title={
-            <Flex
-              justify="space-between"
-              align="center"
-              w="full"
-              wrap="wrap"
-              gap={2}
-            >
-              <HStack gap={2}>
-                <LuBoxes color="#2563EB" size={20} />
-                <Text fontWeight="bold" fontSize="md" color="gray.800">
-                  Materia prima y trazabilidad de materiales
-                </Text>
-                {workOrderMaterials.length > 0 && (
-                  <Badge colorPalette="blue" variant="subtle">
-                    {workOrderMaterials.length}{" "}
-                    {workOrderMaterials.length === 1 ? "partida" : "partidas"}
-                  </Badge>
-                )}
-              </HStack>
-              <Can perform="workOrders:edit">
-                <Button
-                  size="xs"
-                  colorPalette="blue"
-                  variant="outline"
-                  onClick={handleOpenMaterialModal}
-                >
-                  <LuPlus style={{ marginRight: "4px" }} />
-                  Asignar material
-                </Button>
-              </Can>
-            </Flex>
-          }
-          description="Partidas de materia prima, coladas, certificados de calidad de origen y proveedores para cumplimiento de normas de auditoria"
-        >
-          {workOrderMaterials.length > 0 ? (
-            <Box overflowX="auto">
-              <Table.Root size="sm">
-                <Table.Header>
-                  <Table.Row bg="gray.50">
-                    <Table.ColumnHeader fontSize="xs">
-                      Material / Aleacion
-                    </Table.ColumnHeader>
-                    <Table.ColumnHeader fontSize="xs">
-                      Lote / Colada
-                    </Table.ColumnHeader>
-                    <Table.ColumnHeader fontSize="xs">
-                      Certificado de calidad
-                    </Table.ColumnHeader>
-                    <Table.ColumnHeader fontSize="xs">
-                      Origen / Proveedor
-                    </Table.ColumnHeader>
-                    <Table.ColumnHeader fontSize="xs">
-                      Cantidad asignada
-                    </Table.ColumnHeader>
-                    <Table.ColumnHeader fontSize="xs">
-                      Recepcion
-                    </Table.ColumnHeader>
-                    <Table.ColumnHeader fontSize="xs">
-                      Observaciones
-                    </Table.ColumnHeader>
-                  </Table.Row>
-                </Table.Header>
-                <Table.Body>
-                  {workOrderMaterials.map((mat) => (
-                    <Table.Row key={mat.id}>
-                      <Table.Cell>
-                        <Text
-                          fontWeight="semibold"
-                          fontSize="xs"
-                          color="gray.800"
-                        >
-                          {mat.materialName}
-                        </Text>
-                        {mat.specification && (
-                          <Text fontSize="2xs" color="gray.500">
-                            Norma: {mat.specification}
-                          </Text>
-                        )}
-                      </Table.Cell>
-                      <Table.Cell>
-                        {mat.lotNumber ? (
-                          <Text
-                            fontFamily="mono"
-                            fontSize="xs"
-                            fontWeight="semibold"
-                            color="blue.700"
-                          >
-                            {mat.lotNumber}
-                          </Text>
-                        ) : (
-                          <Text fontSize="xs" color="gray.400">
-                            —
-                          </Text>
-                        )}
-                      </Table.Cell>
-                      <Table.Cell>
-                        {mat.certificateNumber ? (
-                          <Badge
-                            colorPalette="green"
-                            variant="subtle"
-                            size="sm"
-                            fontFamily="mono"
-                          >
-                            {mat.certificateNumber}
-                          </Badge>
-                        ) : (
-                          <Text fontSize="xs" color="gray.400">
-                            Sin cert. registrado
-                          </Text>
-                        )}
-                      </Table.Cell>
-                      <Table.Cell fontSize="xs" color="gray.700">
-                        {mat.supplier || "No especificado"}
-                      </Table.Cell>
-                      <Table.Cell fontSize="xs">
-                        <Text fontWeight="semibold" color="gray.800">
-                          {mat.quantity} {mat.unit || "kg"}
-                        </Text>
-                      </Table.Cell>
-                      <Table.Cell fontSize="xs" color="gray.600">
-                        {mat.receivedAt ? formatDate(mat.receivedAt) : "—"}
-                      </Table.Cell>
-                      <Table.Cell fontSize="xs" color="gray.600" maxW="240px">
-                        <Text title={mat.notes}>
-                          {mat.notes || "—"}
-                        </Text>
-                      </Table.Cell>
-                    </Table.Row>
-                  ))}
-                </Table.Body>
-              </Table.Root>
-            </Box>
-          ) : (
-            <Box py={6} textAlign="center">
-              <Text fontSize="xs" color="gray.500" fontStyle="italic">
-                No se registraron partidas de materia prima vinculadas a esta
-                orden de trabajo.
-              </Text>
-            </Box>
-          )}
-        </Card>
-      </Box>
-
-      {/* Tarea 6.2: Personal tecnico y operarios asignados a la orden */}
-      <Box mt={6}>
-        <Card
-          title={
-            <Flex
-              justify="space-between"
-              align="center"
-              w="full"
-              wrap="wrap"
-              gap={2}
-            >
-              <HStack gap={2}>
-                <LuUsers color="#2563EB" size={20} />
-                <Text fontWeight="bold" fontSize="md" color="gray.800">
-                  Personal asignado a la orden
-                </Text>
-                {workOrderUsers.length > 0 && (
-                  <Badge colorPalette="blue" variant="subtle">
-                    {workOrderUsers.length}{" "}
-                    {workOrderUsers.length === 1 ? "operario" : "operarios"}
-                  </Badge>
-                )}
-              </HStack>
-              <Can perform="workOrders:assign">
-                <Button
-                  size="xs"
-                  colorPalette="blue"
-                  variant="outline"
-                  onClick={handleOpenUserModal}
-                >
-                  <LuPlus style={{ marginRight: "4px" }} />
-                  Asignar personal
-                </Button>
-              </Can>
-            </Flex>
-          }
-          description="Operarios tecnicos, torneros, fresadores e inspectores que intervienen en la ejecucion del trabajo"
-        >
-          {workOrderUsers.length > 0 ? (
-            <Box overflowX="auto">
-              <Table.Root size="sm">
-                <Table.Header>
-                  <Table.Row bg="gray.50">
-                    <Table.ColumnHeader fontSize="xs">
-                      Operario / Tecnico
-                    </Table.ColumnHeader>
-                    <Table.ColumnHeader fontSize="xs">
-                      Rol en la orden
-                    </Table.ColumnHeader>
-                    <Table.ColumnHeader fontSize="xs">
-                      Turno de trabajo
-                    </Table.ColumnHeader>
-                    <Table.ColumnHeader fontSize="xs">
-                      Fecha asignacion
-                    </Table.ColumnHeader>
-                    <Table.ColumnHeader fontSize="xs">
-                      Indicaciones / Tareas
-                    </Table.ColumnHeader>
-                    <Table.ColumnHeader fontSize="xs" textAlign="right">
-                      Acciones
-                    </Table.ColumnHeader>
-                  </Table.Row>
-                </Table.Header>
-                <Table.Body>
-                  {workOrderUsers.map((item) => (
-                    <Table.Row key={item.id}>
-                      <Table.Cell fontSize="xs">
-                        <VStack align="start" gap={0}>
-                          <Text fontWeight="semibold" color="gray.800">
-                            {item.user
-                              ? `${item.user.firstName} ${item.user.lastName}`
-                              : `Usuario #${item.userId}`}
-                          </Text>
-                          <Text fontSize="2xs" color="gray.500">
-                            {item.user?.email || "—"}
-                          </Text>
-                        </VStack>
-                      </Table.Cell>
-                      <Table.Cell fontSize="xs">
-                        <Badge
-                          size="xs"
-                          variant="subtle"
-                          colorPalette={
-                            item.role?.toLowerCase().includes("inspector") ||
-                            item.role?.toLowerCase().includes("calidad")
-                              ? "green"
-                              : item.role?.toLowerCase().includes("cnc") ||
-                                item.role?.toLowerCase().includes("tornero") ||
-                                item.role?.toLowerCase().includes("fresador")
-                                ? "blue"
-                                : item.role?.toLowerCase().includes("supervisor")
-                                  ? "purple"
-                                  : "gray"
-                          }
-                        >
-                          {item.role || "Operario"}
-                        </Badge>
-                      </Table.Cell>
-                      <Table.Cell fontSize="xs" color="gray.700">
-                        {item.shift || "—"}
-                      </Table.Cell>
-                      <Table.Cell fontSize="xs" whiteSpace="nowrap" color="gray.600">
-                        {formatDate(item.assignedAt)}
-                      </Table.Cell>
-                      <Table.Cell fontSize="xs" color="gray.600">
-                        {item.notes || "—"}
-                      </Table.Cell>
-                      <Table.Cell fontSize="xs" textAlign="right">
-                        <Can perform="workOrders:assign">
-                          <Button
-                            size="2xs"
-                            variant="ghost"
-                            colorPalette="red"
-                            onClick={() => handleRemoveUser(item.id)}
-                            title="Remover asignacion"
-                          >
-                            <LuX style={{ marginRight: "2px" }} />
-                            Remover
-                          </Button>
-                        </Can>
-                      </Table.Cell>
-                    </Table.Row>
-                  ))}
-                </Table.Body>
-              </Table.Root>
-            </Box>
-          ) : (
-            <Box py={6} textAlign="center">
-              <Text fontSize="xs" color="gray.500" fontStyle="italic">
-                No se registro personal operativo asignado a esta orden de trabajo.
-              </Text>
-            </Box>
-          )}
-        </Card>
-      </Box>
-
-      {/* Tarea 3.4: Hoja de ruta y operaciones de manufactura */}
-      <Box mt={6}>
-        <Card
-          title={
-            <Flex justify="space-between" align="center" w="full" wrap="wrap" gap={2}>
-              <HStack gap={2}>
-                <Text fontWeight="bold" fontSize="md" color="gray.800">
-                  Hoja de ruta y operaciones
-                </Text>
-                {routeSheet && (
-                  <Badge colorPalette="purple" variant="subtle" fontFamily="mono">
-                    {routeSheet.routeNumber}
-                  </Badge>
-                )}
-              </HStack>
-              {!routeSheet && (
-                <Can perform="workOrders:edit">
-                  <Button
-                    size="xs"
-                    colorPalette="blue"
-                    variant="outline"
-                    onClick={() => showNotification("La creacion de hoja de ruta se integrara con el endpoint en Fase 9.")}
-                  >
-                    <LuPlus style={{ marginRight: "4px" }} />
-                    Crear hoja de ruta
-                  </Button>
-                </Can>
-              )}
-            </Flex>
-          }
-          description="Secuencia ordenada de procesos tecnicos, maquinas asignadas y tiempos de ejecucion"
-        >
-          {routeSheet ? (
-            <VStack align="stretch" gap={4}>
-              {routeSheet.instructions && (
-                <Box
-                  p={3}
-                  bg="purple.50"
-                  borderWidth="1px"
-                  borderColor="purple.200"
-                  borderRadius="md"
-                >
-                  <HStack gap={2} align="flex-start">
-                    <Box pt={0.5} color="purple.700">
-                      <LuLayers size={16} />
-                    </Box>
-                    <Box>
-                      <Text fontSize="xs" fontWeight="bold" color="purple.900" mb={0.5}>
-                        Instrucciones tecnicas de fabricacion:
-                      </Text>
-                      <Text fontSize="xs" color="purple.800">
-                        {routeSheet.instructions}
-                      </Text>
-                    </Box>
-                  </HStack>
-                </Box>
-              )}
-
-              {operations.length > 0 ? (
-                <Box overflowX="auto">
-                  <Table.Root size="sm">
-                    <Table.Header>
-                      <Table.Row bg="gray.50">
-                        <Table.ColumnHeader fontSize="xs">Paso / Codigo</Table.ColumnHeader>
-                        <Table.ColumnHeader fontSize="xs">Operacion y descripcion</Table.ColumnHeader>
-                        <Table.ColumnHeader fontSize="xs">Estacion / Maquina</Table.ColumnHeader>
-                        <Table.ColumnHeader fontSize="xs">Cronograma planificado</Table.ColumnHeader>
-                        <Table.ColumnHeader fontSize="xs">Cronograma real</Table.ColumnHeader>
-                        <Table.ColumnHeader fontSize="xs" textAlign="center">Estado</Table.ColumnHeader>
-                      </Table.Row>
-                    </Table.Header>
-                    <Table.Body>
-                      {operations.map((op) => {
-                        const status = getOperationBadge(op);
-                        return (
-                          <Table.Row key={op.id}>
-                            <Table.Cell fontSize="xs" fontFamily="mono" fontWeight="bold" color="purple.700">
-                              {op.operationNumber}
-                            </Table.Cell>
-                            <Table.Cell fontSize="xs">
-                              <Text fontWeight="semibold" color="gray.800">
-                                {op.name}
-                              </Text>
-                              {op.description && (
-                                <Text fontSize="2xs" color="gray.500">
-                                  {op.description}
-                                </Text>
-                              )}
-                              {op.notes && (
-                                <Text fontSize="2xs" color="blue.600" fontStyle="italic" mt={0.5}>
-                                  Nota: {op.notes}
-                                </Text>
-                              )}
-                            </Table.Cell>
-                            <Table.Cell fontSize="xs" color="gray.700">
-                              {op.machine || "Puesto manual"}
-                            </Table.Cell>
-                            <Table.Cell fontSize="xs" whiteSpace="nowrap" color="gray.600">
-                              {op.plannedStart ? formatDate(op.plannedStart) : "—"} al{" "}
-                              {op.plannedEnd ? formatDate(op.plannedEnd) : "—"}
-                            </Table.Cell>
-                            <Table.Cell fontSize="xs" whiteSpace="nowrap" color="gray.600">
-                              {op.actualStart ? formatDate(op.actualStart) : "Sin iniciar"}{" "}
-                              {op.actualEnd ? `— ${formatDate(op.actualEnd)}` : ""}
-                            </Table.Cell>
-                            <Table.Cell fontSize="xs" textAlign="center">
-                              <Badge size="xs" colorPalette={status.color} variant="subtle">
-                                {status.label}
-                              </Badge>
-                            </Table.Cell>
-                          </Table.Row>
-                        );
-                      })}
-                    </Table.Body>
-                  </Table.Root>
-                </Box>
-              ) : (
-                <Box py={4} textAlign="center">
-                  <Text fontSize="xs" color="gray.500" fontStyle="italic">
-                    No hay operaciones individuales cargadas para esta hoja de ruta.
-                  </Text>
-                </Box>
-              )}
-            </VStack>
-          ) : (
-            <Box py={6} textAlign="center">
-              <Text fontSize="xs" color="gray.500" fontStyle="italic">
-                No se emitio una hoja de ruta de produccion para esta orden de trabajo.
-              </Text>
-            </Box>
-          )}
-        </Card>
-      </Box>
+      <ProductionPanel key={workOrder.id} workOrder={workOrder} onOrderChanged={setWorkOrder} />
 
       {/* Tarea 2.2: Controles de calidad embebidos */}
       <Box mt={6}>
@@ -1777,264 +1198,6 @@ export default function WorkOrderDetailPage() {
         </VStack>
       </Modal>
 
-      {/* Modal para asignar materia prima a la OT (Tarea 5.3) */}
-      <Modal
-        open={isMaterialModalOpen}
-        onOpenChange={({ open }) => setIsMaterialModalOpen(open)}
-        title="Asignar materia prima a la orden"
-        footer={
-          <HStack justify="flex-end" gap={2}>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsMaterialModalOpen(false)}
-            >
-              Cancelar
-            </Button>
-            <Button size="sm" colorPalette="blue" onClick={handleSaveMaterial}>
-              Guardar partida
-            </Button>
-          </HStack>
-        }
-      >
-        <VStack gap={3} align="stretch" py={2}>
-          {actionError && <Alert status="error" title="No se pudo guardar" description={actionError} />}
-          <SimpleGrid columns={{ base: 1, sm: 2 }} gap={3}>
-            <FormField
-              label="Material / Aleacion"
-              required
-              helperText="Ej: Acero SAE 4140, Bronce SAE 65, Delrin"
-            >
-              <Input
-                placeholder="Nombre o tipo de material"
-                value={newMaterialForm.materialName}
-                onChange={(e) =>
-                  setNewMaterialForm({
-                    ...newMaterialForm,
-                    materialName: e.target.value,
-                  })
-                }
-              />
-            </FormField>
-
-            <FormField
-              label="Norma / Especificacion"
-              helperText="Ej: ASTM A29, DIN 42CrMo4, Plano"
-            >
-              <Input
-                placeholder="Norma tecnica aplicable"
-                value={newMaterialForm.specification}
-                onChange={(e) =>
-                  setNewMaterialForm({
-                    ...newMaterialForm,
-                    specification: e.target.value,
-                  })
-                }
-              />
-            </FormField>
-          </SimpleGrid>
-
-          <SimpleGrid columns={{ base: 1, sm: 2 }} gap={3}>
-            <FormField
-              label="Lote / Numero de colada"
-              helperText="Identificacion estampada o etiqueta"
-            >
-              <Input
-                placeholder="Ej: COL-4140-9821"
-                value={newMaterialForm.lotNumber}
-                onChange={(e) =>
-                  setNewMaterialForm({
-                    ...newMaterialForm,
-                    lotNumber: e.target.value,
-                  })
-                }
-              />
-            </FormField>
-
-            <FormField
-              label="Numero de certificado"
-              helperText="Certificado de analisis quimico/mecanico"
-            >
-              <Input
-                placeholder="Ej: CERT-MP-2026-0312"
-                value={newMaterialForm.certificateNumber}
-                onChange={(e) =>
-                  setNewMaterialForm({
-                    ...newMaterialForm,
-                    certificateNumber: e.target.value,
-                  })
-                }
-              />
-            </FormField>
-          </SimpleGrid>
-
-          <SimpleGrid columns={{ base: 1, sm: 3 }} gap={3}>
-            <FormField
-              label="Origen / Proveedor"
-              helperText="Fabricante o provisto por cliente"
-            >
-              <Input
-                placeholder="Ej: Tenaris o Provisto por cliente"
-                value={newMaterialForm.supplier}
-                onChange={(e) =>
-                  setNewMaterialForm({
-                    ...newMaterialForm,
-                    supplier: e.target.value,
-                  })
-                }
-              />
-            </FormField>
-
-            <FormField label="Cantidad">
-              <Input
-                placeholder="Ej: 25.5"
-                value={newMaterialForm.quantity}
-                onChange={(e) =>
-                  setNewMaterialForm({
-                    ...newMaterialForm,
-                    quantity: e.target.value,
-                  })
-                }
-              />
-            </FormField>
-
-            <FormField label="Unidad">
-              <Input
-                placeholder="Ej: kg, barras, metros"
-                value={newMaterialForm.unit}
-                onChange={(e) =>
-                  setNewMaterialForm({
-                    ...newMaterialForm,
-                    unit: e.target.value,
-                  })
-                }
-              />
-            </FormField>
-          </SimpleGrid>
-
-          <FormField
-            label="Observaciones de recepcion"
-            helperText="Detalles de dureza, tolerancias o remito"
-          >
-            <Textarea
-              placeholder="Detalles sobre estado superficial, dureza verificada, tolerancia de barra..."
-              value={newMaterialForm.notes}
-              onChange={(e) =>
-                setNewMaterialForm({
-                  ...newMaterialForm,
-                  notes: e.target.value,
-                })
-              }
-              rows={2}
-            />
-          </FormField>
-        </VStack>
-      </Modal>
-
-      {/* Modal para asignar personal a la orden (Tarea 6.2) */}
-      <Modal
-        open={isUserModalOpen}
-        onOpenChange={({ open }) => setIsUserModalOpen(open)}
-        title="Asignar personal a la orden de trabajo"
-        footer={
-          <HStack justify="flex-end" gap={2}>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsUserModalOpen(false)}
-            >
-              Cancelar
-            </Button>
-            <Button
-              size="sm"
-              colorPalette="blue"
-              disabled={availableOperators.length === 0}
-              onClick={handleAssignUser}
-            >
-              Asignar personal
-            </Button>
-          </HStack>
-        }
-      >
-        <VStack gap={4} align="stretch" py={2}>
-          {actionError && <Alert status="error" title="No se pudo guardar" description={actionError} />}
-          <Text fontSize="xs" color="gray.600">
-            Seleccione el personal tecnico u operario de planta que intervendra
-            en la ejecucion de la orden OT-{workOrder?.workOrderNumber}.
-          </Text>
-
-          <FormField
-            label="Operario / Tecnico de planta"
-            helperText="Seleccione el usuario registrado en el sistema"
-          >
-            <Select
-              value={newUserForm.userId}
-              onChange={(e) =>
-                setNewUserForm({ ...newUserForm, userId: e.target.value })
-              }
-            >
-              {availableOperators.length === 0 && <option value="">No hay usuarios disponibles para asignar</option>}
-              {availableOperators.map((op) => (
-                <option key={op.id} value={op.id}>
-                  {op.firstName} {op.lastName} ({op.role || op.email})
-                </option>
-              ))}
-            </Select>
-          </FormField>
-
-          <SimpleGrid columns={{ base: 1, sm: 2 }} gap={3}>
-            <FormField
-              label="Rol operativo en la orden"
-              helperText="Funcion o puesto para esta pieza"
-            >
-              <Input
-                placeholder="Ej: Operador CNC principal, Tornero..."
-                value={newUserForm.role}
-                onChange={(e) =>
-                  setNewUserForm({ ...newUserForm, role: e.target.value })
-                }
-              />
-            </FormField>
-
-            <FormField
-              label="Turno asignado"
-              helperText="Horario previsto de operacion"
-            >
-              <Select
-                value={newUserForm.shift}
-                onChange={(e) =>
-                  setNewUserForm({ ...newUserForm, shift: e.target.value })
-                }
-              >
-                <option value="Turno mañana (06:00 - 14:00)">
-                  Turno mañana (06:00 - 14:00)
-                </option>
-                <option value="Turno tarde (14:00 - 22:00)">
-                  Turno tarde (14:00 - 22:00)
-                </option>
-                <option value="Turno noche (22:00 - 06:00)">
-                  Turno noche (22:00 - 06:00)
-                </option>
-                <option value="Jornada completa">Jornada completa</option>
-              </Select>
-            </FormField>
-          </SimpleGrid>
-
-          <FormField
-            label="Indicaciones / Tareas asignadas"
-            helperText="Maquinas asignadas, precauciones o detalles del proceso"
-          >
-            <Textarea
-              placeholder="Indique las operaciones especificas a cargo, tolerancias criticas a vigilar..."
-              value={newUserForm.notes}
-              onChange={(e) =>
-                setNewUserForm({ ...newUserForm, notes: e.target.value })
-              }
-              rows={2}
-            />
-          </FormField>
-        </VStack>
-      </Modal>
     </Box>
   );
 }
