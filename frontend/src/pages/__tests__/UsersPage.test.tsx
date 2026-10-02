@@ -470,7 +470,7 @@ describe("Administración real de usuarios", () => {
     const updatedRow = screen.getByRole("cell", { name: other.email }).closest("tr");
     expect(updatedRow).not.toBeNull();
     expect(
-      within(updatedRow!).getByRole("cell", { name: "Calidad", exact: true }),
+      within(updatedRow!).getByRole("cell", { name: "Calidad" }),
     ).toBeInTheDocument();
   });
 
