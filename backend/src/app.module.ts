@@ -7,6 +7,7 @@ import databaseConfig from './config/database.config';
 import { validateEnv } from './config/env.validation';
 import { AuthModule } from './auth/auth.module';
 import { ClientsModule } from './clients/clients.module';
+import { UsersModule } from './users/users.module';
 
 @Module({
     imports: [
@@ -17,6 +18,7 @@ import { ClientsModule } from './clients/clients.module';
         MikroOrmModule.forRoot(databaseConfig),
         AuthModule,
         ClientsModule,
+        UsersModule,
     ],
     controllers: [AppController],
     providers: [AppService],

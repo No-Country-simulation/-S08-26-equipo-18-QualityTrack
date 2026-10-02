@@ -2,6 +2,14 @@
 
 Registro append-only, lo más nuevo arriba. Una entrada por ciclo de cambio cerrado.
 
+## 2026-10-02 · Administración de usuarios y roles
+Type:     add
+Change:   Administrador puede listar cuentas y roles existentes, crear usuarios y cambiar sus roles desde Usuarios. Los demás roles no acceden a estas acciones, por interfaz ni por API. Email normalizado y único; contraseñas con bcrypt, sin hashes en respuestas y con el límite de 72 bytes UTF-8 compartido con login y seed.
+Reason:   incorporar cuentas de los cinco roles para operar el flujo con identidades reales, además del administrador inicial.
+Impact:   cambios de rol efectivos en la siguiente petición de sesiones vigentes; protección contra autodegradación y pérdida de administradores, incluidos cambios simultáneos. Sin migraciones ni nuevas dependencias.
+
+El editor de permisos, borrado/deshabilitación de cuentas y recuperación/cambio de contraseña siguen fuera de alcance.
+
 ## 2026-09-22 · Autenticación — F-001
 Type:     add
 Change:   cada persona entra con su cuenta y la aplicación sabe quién es y qué rol tiene mientras la usa. Inicio de sesión con correo y contraseña, opción "Recordarme", renovación de la sesión sin volver a pedir la contraseña, cierre de sesión y recuperación de la sesión vigente al reabrir la aplicación.

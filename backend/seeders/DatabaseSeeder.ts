@@ -4,6 +4,7 @@ import { hash } from "bcryptjs";
 import { Role } from "../src/entities/Role";
 import { User } from "../src/entities/User";
 import { PASSWORD_HASH_ROUNDS } from "../src/auth/password";
+import { isSupportedPassword } from "../src/auth/password-length.validator";
 
 // Crea el administrador inicial. No hay registro público, así que sin este
 // usuario nadie puede entrar. Las credenciales salen del entorno y nunca del código.
@@ -18,6 +19,10 @@ export class DatabaseSeeder extends Seeder {
 
         if (await em.findOne(User, { email })) {
             return;
+        }
+
+        if (!isSupportedPassword(password)) {
+            throw new Error("ADMIN_PASSWORD no puede superar los 72 bytes UTF-8.");
         }
 
         // El rol lo crea la migración de roles; si falta, las migraciones no se aplicaron.

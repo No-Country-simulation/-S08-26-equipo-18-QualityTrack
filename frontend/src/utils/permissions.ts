@@ -56,7 +56,9 @@ export function hasPermission(
     // Administrador cuenta con todos los permisos del sistema
     if (normalizedUserRole === 'administrador') return true
 
-    const rolePermissions = ROLE_PERMISSIONS[normalizedUserRole] || []
+    const rolePermissions = Object.hasOwn(ROLE_PERMISSIONS, normalizedUserRole)
+        ? ROLE_PERMISSIONS[normalizedUserRole]
+        : []
     const requiredPermissions = Array.isArray(permission) ? permission : [permission]
 
     return requiredPermissions.every((perm) => rolePermissions.includes(perm))

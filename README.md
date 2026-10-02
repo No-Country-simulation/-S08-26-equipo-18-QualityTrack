@@ -192,6 +192,30 @@ los siguientes arranques solo necesitan `docker compose up --build -d`.
 Abrir `http://localhost:5173` e iniciar sesión con las credenciales de `.env`.
 La documentación de la API está en `http://localhost:3000/docs`.
 
+### Administración de usuarios
+
+Con una cuenta Administrador, abrir **Usuarios** en el menú para consultar las
+cuentas, crear usuarios y cambiar sus roles. Los roles se toman de la base de datos:
+Administrador, Supervisor, Producción, Calidad y Administración. No hay registro
+público ni editor de permisos.
+
+La API ofrece `GET /users`, `GET /roles`, `POST /users` y `PATCH /users/:id/role`.
+Todas estas acciones requieren Administrador; los otros roles reciben 403 y las
+peticiones sin sesión válida, 401. El alta recibe nombre, apellido, email, contraseña
+y `roleId`; el cambio de rol recibe únicamente `roleId`. El email se normaliza y
+un duplicado devuelve 409. Los datos inválidos y roles inexistentes devuelven 400;
+un usuario inexistente al cambiar rol devuelve 404.
+
+Las contraseñas se guardan con bcrypt y nunca aparecen en las respuestas. Alta,
+login y creación del administrador inicial admiten contraseñas no vacías de hasta
+72 bytes UTF-8, sin recortar espacios; los caracteres acentuados y símbolos pueden
+ocupar varios bytes. `ADMIN_PASSWORD` debe respetar el mismo límite.
+
+No se permite quitarse el propio rol Administrador ni dejar al sistema sin
+administradores, incluso con cambios simultáneos. Los cambios de rol se aplican
+en la siguiente petición de las sesiones vigentes, sin volver a iniciar sesión.
+No se ofrecen borrado de cuentas, deshabilitación ni cambio de contraseña.
+
 ### Comprobaciones antes de integrar cambios
 
 ```bash
