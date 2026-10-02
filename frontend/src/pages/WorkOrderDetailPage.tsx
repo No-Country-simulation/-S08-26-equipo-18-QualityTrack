@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   Box,
@@ -48,21 +48,6 @@ import {
 import { QualityFormModal } from "../modules/quality";
 import { DeliveryFormModal } from "../modules/deliveries";
 import { formatCurrency } from "../modules/quotations/quotationColumns";
-import { MOCK_CLIENTS } from "../test/mocks/mockClients";
-import { MOCK_DELIVERIES } from "../test/mocks/mockDeliveries";
-import { MOCK_QUALITY_CONTROLS } from "../test/mocks/mockQualityControls";
-import { MOCK_QUOTATIONS } from "../test/mocks/mockQuotations";
-import { MOCK_REQUESTS } from "../test/mocks/mockRequests";
-import { MOCK_WORK_ORDERS } from "../test/mocks/mockWorkOrders";
-import { MOCK_ROUTE_SHEETS } from "../test/mocks/mockRouteSheets";
-import { MOCK_OPERATIONS } from "../test/mocks/mockOperations";
-import { MOCK_DOCUMENTS } from "../test/mocks/mockDocuments";
-import { MOCK_APPROVALS } from "../test/mocks/mockApprovals";
-import { MOCK_WORK_ORDER_MATERIALS } from "../test/mocks/mockWorkOrderMaterials";
-import {
-  MOCK_AVAILABLE_OPERATORS,
-  MOCK_WORK_ORDER_USERS,
-} from "../test/mocks/mockWorkOrderUsers";
 import { clientService } from "../services/clientService";
 import type { Client } from "../services/clientService";
 import { deliveryService } from "../services/deliveryService";
@@ -91,11 +76,16 @@ import type { Approval } from "../services/approvalService";
 import { materialService } from "../services/materialService";
 import type { WorkOrderMaterial } from "../services/materialService";
 import { workOrderUserService } from "../services/workOrderUserService";
-import type { WorkOrderUser } from "../services/workOrderUserService";
+import type { WorkOrderAssignedUser, WorkOrderUser } from "../services/workOrderUserService";
 import { requestService } from "../services/requestService";
 import type { Request } from "../services/requestService";
 import { quotationService } from "../services/quotationService";
 import type { Quotation } from "../services/quotationService";
+
+import { errorMessage } from "../utils/errorMessage";
+
+// Pending the real user catalogue; never offer fixture identities.
+const availableOperators: WorkOrderAssignedUser[] = [];
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -117,22 +107,8 @@ export default function WorkOrderDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  const initialWo = MOCK_WORK_ORDERS.find(
-    (wo) => String(wo.id) === id || String(wo.workOrderNumber) === id,
-  );
-
-  const initialApproval = MOCK_APPROVALS.find(
-    (a) =>
-      String(a.workOrderId) === id ||
-      (initialWo && a.workOrderId === initialWo.id),
-  );
-
-  const [workOrder, setWorkOrder] = useState<WorkOrder | null>(
-    initialWo || null,
-  );
-  const [approval, setApproval] = useState<Approval | null>(
-    initialApproval || null,
-  );
+  const [workOrder, setWorkOrder] = useState<WorkOrder | null>(null);
+  const [approval, setApproval] = useState<Approval | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isQualityModalOpen, setIsQualityModalOpen] = useState(false);
   const [isDeliveryModalOpen, setIsDeliveryModalOpen] = useState(false);
@@ -142,55 +118,12 @@ export default function WorkOrderDetailPage() {
   >("APPROVED");
   const [decisionComments, setDecisionComments] = useState("");
 
-  // Controles de calidad filtrados para esta OT
-  const [qualityControls, setQualityControls] = useState<QualityControl[]>(() =>
-    MOCK_QUALITY_CONTROLS.filter(
-      (qc) => String(qc.workOrderId) === id || (initialWo && qc.workOrderId === initialWo.id),
-    ),
-  );
-
-  // Entregas filtradas para esta OT
-  const [deliveries, setDeliveries] = useState<Delivery[]>(() =>
-    MOCK_DELIVERIES.filter(
-      (del) => String(del.workOrderId) === id || (initialWo && del.workOrderId === initialWo.id),
-    ),
-  );
-
-  // Hoja de ruta vinculada a esta OT (Tarea 3.4)
-  const [routeSheet, setRouteSheet] = useState<RouteSheet | undefined>(() =>
-    MOCK_ROUTE_SHEETS.find(
-      (rs) => String(rs.workOrderId) === id || (initialWo && rs.workOrderId === initialWo.id),
-    ),
-  );
-
-  // Operaciones de mecanizado asociadas
-  const [operations, setOperations] = useState<Operation[]>(() =>
-    routeSheet
-      ? MOCK_OPERATIONS.filter((op) => op.routeSheetId === routeSheet.id)
-      : [],
-  );
-
-  // Documentacion tecnica y comercial asociada (Tarea 3.7)
-  const [documents, setDocuments] = useState<Document[]>(() =>
-    MOCK_DOCUMENTS.filter(
-      (doc) =>
-        String(doc.workOrderId) === id ||
-        (initialWo && doc.workOrderId === initialWo.id) ||
-        (initialWo?.requestId && doc.requestId === initialWo.requestId) ||
-        (initialWo?.quotationId && doc.quotationId === initialWo.quotationId),
-    ),
-  );
-
-  // Materia prima y materiales vinculados a esta OT (Tarea 5.3)
-  const [workOrderMaterials, setWorkOrderMaterials] = useState<
-    WorkOrderMaterial[]
-  >(() =>
-    MOCK_WORK_ORDER_MATERIALS.filter(
-      (mat) =>
-        String(mat.workOrderId) === id ||
-        (initialWo && mat.workOrderId === initialWo.id),
-    ),
-  );
+  const [qualityControls, setQualityControls] = useState<QualityControl[]>([]);
+  const [deliveries, setDeliveries] = useState<Delivery[]>([]);
+  const [routeSheet, setRouteSheet] = useState<RouteSheet | undefined>();
+  const [operations, setOperations] = useState<Operation[]>([]);
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [workOrderMaterials, setWorkOrderMaterials] = useState<WorkOrderMaterial[]>([]);
   const [isMaterialModalOpen, setIsMaterialModalOpen] = useState(false);
   const [newMaterialForm, setNewMaterialForm] = useState({
     materialName: "",
@@ -203,26 +136,23 @@ export default function WorkOrderDetailPage() {
     notes: "",
   });
 
-  // Personal operativo asignado a esta OT (Tarea 6.2)
-  const [workOrderUsers, setWorkOrderUsers] = useState<WorkOrderUser[]>(() =>
-    MOCK_WORK_ORDER_USERS.filter(
-      (u) =>
-        String(u.workOrderId) === id ||
-        (initialWo && u.workOrderId === initialWo.id),
-    ),
-  );
+  const [workOrderUsers, setWorkOrderUsers] = useState<WorkOrderUser[]>([]);
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [newUserForm, setNewUserForm] = useState({
-    userId: String(MOCK_AVAILABLE_OPERATORS[0].id),
+    userId: "",
     role: "Operador CNC principal",
     shift: "Turno mañana (06:00 - 14:00)",
     notes: "",
   });
 
-  const [availableClients, setAvailableClients] = useState<Client[]>(MOCK_CLIENTS);
-  const [availableRequests, setAvailableRequests] = useState<Request[]>(MOCK_REQUESTS);
-  const [availableQuotations, setAvailableQuotations] = useState<Quotation[]>(MOCK_QUOTATIONS);
-  const [loading, setLoading] = useState(false);
+  const [availableClients, setAvailableClients] = useState<Client[]>([]);
+  const [availableRequests, setAvailableRequests] = useState<Request[]>([]);
+  const [availableQuotations, setAvailableQuotations] = useState<Quotation[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [sectionErrors, setSectionErrors] = useState<string[]>([]);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const loadVersion = useRef(0);
 
   const [notification, setNotification] = useState<{
     status: "success" | "error";
@@ -230,115 +160,54 @@ export default function WorkOrderDetailPage() {
   } | null>(null);
 
   const loadWorkOrderData = useCallback(async () => {
+    const version = ++loadVersion.current;
     if (!id) return;
     setLoading(true);
-
-    let activeWo: WorkOrder | null = null;
+    setLoadError(null);
+    setSectionErrors([]);
+    setWorkOrder(null); setApproval(null);
+    setQualityControls([]); setDeliveries([]); setRouteSheet(undefined);
+    setOperations([]); setDocuments([]); setWorkOrderMaterials([]); setWorkOrderUsers([]);
+    setAvailableClients([]); setAvailableRequests([]); setAvailableQuotations([]);
     try {
-      activeWo = await workOrderService.getById(id);
-      if (activeWo) {
-        setWorkOrder(activeWo);
-      }
-    } catch {
-      const foundMock = MOCK_WORK_ORDERS.find(
-        (wo) => String(wo.id) === id || String(wo.workOrderNumber) === id,
-      );
-      if (foundMock) {
-        activeWo = foundMock;
-      }
-    }
-
-    const currentId = activeWo?.id || Number(id) || id;
-
-    try {
-      const qcs = await qualityService.getByWorkOrder(currentId);
-      if (qcs && qcs.length > 0) setQualityControls(qcs);
-    } catch {
-      // Mantiene fallback
-    }
-
-    try {
-      const dels = await deliveryService.getByWorkOrder(currentId);
-      if (dels && dels.length > 0) setDeliveries(dels);
-    } catch {
-      // Mantiene fallback
-    }
-
-    try {
-      const sheets = await routeSheetService.getByWorkOrder(currentId);
-      if (sheets && sheets.length > 0) {
-        setRouteSheet(sheets[0]);
-        const ops = await operationService.getByRouteSheet(sheets[0].id);
-        if (ops && ops.length > 0) setOperations(ops);
-      }
-    } catch {
-      // Mantiene fallback
-    }
-
-    try {
-      const docs = await documentService.getByWorkOrder(currentId);
-      if (docs && docs.length > 0) setDocuments(docs);
-    } catch {
-      // Mantiene fallback
-    }
-
-    try {
-      const mats = await materialService.getByWorkOrder(currentId);
-      if (mats && mats.length > 0) setWorkOrderMaterials(mats);
-    } catch {
-      // Mantiene fallback
-    }
-
-    try {
-      const users = await workOrderUserService.getByWorkOrder(currentId);
-      if (users && users.length > 0) setWorkOrderUsers(users);
-    } catch {
-      // Mantiene fallback
-    }
-
-    try {
-      const app = await approvalService.getByWorkOrder(currentId);
-      if (app) setApproval(app);
-    } catch {
-      // Mantiene fallback
-    }
-
-    try {
-      const clientRes = await clientService.list({ limit: 100, status: "all" });
-      if (clientRes.items && clientRes.items.length > 0) {
-        setAvailableClients(clientRes.items);
-      }
-    } catch {
-      // Mantiene fallback
-    }
-
-    try {
-      const reqRes = await requestService.getAll();
-      if (reqRes && reqRes.length > 0) setAvailableRequests(reqRes);
-    } catch {
-      // Mantiene fallback
-    }
-
-    try {
-      const quotRes = await quotationService.getAll();
-      if (quotRes && quotRes.length > 0) setAvailableQuotations(quotRes);
-    } catch {
-      // Mantiene fallback
-    }
-
-    setLoading(false);
+      const activeWo = await workOrderService.getById(id);
+      if (version !== loadVersion.current) return;
+      setWorkOrder(activeWo);
+      const failures: string[] = [];
+      await Promise.all([
+        qualityService.getByWorkOrder(activeWo.id).then(data => { if (version === loadVersion.current) setQualityControls(data); }).catch(error => { failures.push("calidad: " + errorMessage(error)); }),
+        deliveryService.getByWorkOrder(activeWo.id).then(data => { if (version === loadVersion.current) setDeliveries(data); }).catch(error => { failures.push("entregas: " + errorMessage(error)); }),
+        documentService.getByWorkOrder(activeWo.id).then(data => { if (version === loadVersion.current) setDocuments(data); }).catch(error => { failures.push("documentos: " + errorMessage(error)); }),
+        materialService.getByWorkOrder(activeWo.id).then(data => { if (version === loadVersion.current) setWorkOrderMaterials(data); }).catch(error => { failures.push("materiales: " + errorMessage(error)); }),
+        workOrderUserService.getByWorkOrder(activeWo.id).then(data => { if (version === loadVersion.current) setWorkOrderUsers(data); }).catch(error => { failures.push("personal: " + errorMessage(error)); }),
+        approvalService.getByWorkOrder(activeWo.id).then(data => { if (version === loadVersion.current) setApproval(data ?? null); }).catch(error => { failures.push("aprobación: " + errorMessage(error)); }),
+        clientService.list({ limit: 100, status: "all" }).then(data => { if (version === loadVersion.current) setAvailableClients(data.items); }).catch(error => { failures.push("clientes: " + errorMessage(error)); }),
+        requestService.getAll().then(data => { if (version === loadVersion.current) setAvailableRequests(data); }).catch(error => { failures.push("solicitudes: " + errorMessage(error)); }),
+        quotationService.getAll().then(data => { if (version === loadVersion.current) setAvailableQuotations(data); }).catch(error => { failures.push("cotizaciones: " + errorMessage(error)); }),
+        routeSheetService.getByWorkOrder(activeWo.id).then(async sheets => {
+          if (version !== loadVersion.current) return;
+          setRouteSheet(sheets[0]);
+          const ops = sheets[0] ? await operationService.getByRouteSheet(sheets[0].id) : [];
+          if (version === loadVersion.current) setOperations(ops);
+        }).catch(error => { failures.push("hoja de ruta/operaciones: " + errorMessage(error)); }),
+      ]);
+      if (version === loadVersion.current) setSectionErrors(failures);
+    } catch (error) {
+      if (version === loadVersion.current) setLoadError(errorMessage(error));
+    } finally { if (version === loadVersion.current) setLoading(false); }
   }, [id]);
 
   useEffect(() => {
     void loadWorkOrderData();
+    return () => { loadVersion.current++; };
   }, [loadWorkOrderData]);
 
   const handleDownloadDocument = (doc: Document) => {
-    showNotification(`Descargando documento: ${doc.fileName}`);
+    showNotification(`La descarga de ${doc.fileName} no está disponible.`, "error");
   };
 
   const handleAttachDocument = () => {
-    showNotification("Modulo de subida de archivos preparado. Conecta con el endpoint en Fase 9.");
+    showNotification("La carga de documentos no está disponible.", "error");
   };
 
   const showNotification = (
@@ -352,6 +221,7 @@ export default function WorkOrderDetailPage() {
   };
 
   const handleOpenApprovalModal = (decision: "APPROVED" | "REJECTED") => {
+    setActionError(null);
     setPendingDecision(decision);
     setDecisionComments("");
     setIsApprovalModalOpen(true);
@@ -383,28 +253,9 @@ export default function WorkOrderDetailPage() {
         });
         setApproval(created);
       }
-    } catch {
-      const updatedApproval: Approval = {
-        id: approval?.id || Date.now(),
-        workOrderId: workOrder.id,
-        status: pendingDecision,
-        decidedById: 2,
-        decidedBy: {
-          id: 2,
-          name: "Ing. Carlos Mendoza",
-          email: "cmendoza@qualitytrack.com",
-          role: "Jefe de Planta",
-        },
-        decisionAt: new Date().toISOString(),
-        comments:
-          decisionComments ||
-          (isApproved
-            ? "Aprobada formalmente para ejecucion en planta."
-            : "Rechazada en revision de ingenieria/administracion."),
-        createdAt: approval?.createdAt || new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      setApproval(updatedApproval);
+    } catch (error) {
+      setActionError(errorMessage(error));
+      return;
     }
     setIsApprovalModalOpen(false);
     showNotification(
@@ -416,6 +267,7 @@ export default function WorkOrderDetailPage() {
   };
 
   const handleOpenMaterialModal = () => {
+    setActionError(null);
     setNewMaterialForm({
       materialName: "",
       specification: "",
@@ -432,10 +284,11 @@ export default function WorkOrderDetailPage() {
   const handleSaveMaterial = async () => {
     if (!workOrder) return;
     if (!newMaterialForm.materialName.trim()) {
-      showNotification(
-        "El nombre o aleacion del material es obligatorio.",
-        "error",
-      );
+      setActionError("El nombre o aleacion del material es obligatorio.");
+      return;
+    }
+    if (!newMaterialForm.quantity.trim() || !Number.isFinite(Number(newMaterialForm.quantity)) || Number(newMaterialForm.quantity) <= 0) {
+      setActionError("La cantidad debe ser un número mayor a cero.");
       return;
     }
     try {
@@ -446,40 +299,23 @@ export default function WorkOrderDetailPage() {
         lotNumber: newMaterialForm.lotNumber.trim() || undefined,
         certificateNumber: newMaterialForm.certificateNumber.trim() || undefined,
         supplier: newMaterialForm.supplier.trim() || undefined,
-        quantity: newMaterialForm.quantity || "1",
+        quantity: newMaterialForm.quantity,
         unit: newMaterialForm.unit || "kg",
         notes: newMaterialForm.notes.trim() || undefined,
       });
       setWorkOrderMaterials((prev) => [...prev, created]);
-    } catch {
-      const newId =
-        workOrderMaterials.length > 0
-          ? Math.max(...workOrderMaterials.map((m) => m.id)) + 1
-          : 1;
-      const newEntry: WorkOrderMaterial = {
-        id: newId,
-        workOrderId: workOrder.id,
-        materialName: newMaterialForm.materialName.trim(),
-        specification: newMaterialForm.specification.trim() || undefined,
-        lotNumber: newMaterialForm.lotNumber.trim() || undefined,
-        certificateNumber: newMaterialForm.certificateNumber.trim() || undefined,
-        supplier: newMaterialForm.supplier.trim() || undefined,
-        quantity: newMaterialForm.quantity || "1",
-        unit: newMaterialForm.unit || "kg",
-        receivedAt: new Date().toISOString(),
-        notes: newMaterialForm.notes.trim() || undefined,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      setWorkOrderMaterials((prev) => [...prev, newEntry]);
+    } catch (error) {
+      setActionError(errorMessage(error));
+      return;
     }
     setIsMaterialModalOpen(false);
     showNotification("Partida de materia prima asignada con exito a la orden.");
   };
 
   const handleOpenUserModal = () => {
+    setActionError(null);
     setNewUserForm({
-      userId: String(MOCK_AVAILABLE_OPERATORS[0].id),
+      userId: "",
       role: "Operador CNC principal",
       shift: "Turno mañana (06:00 - 14:00)",
       notes: "",
@@ -489,7 +325,7 @@ export default function WorkOrderDetailPage() {
 
   const handleAssignUser = async () => {
     if (!workOrder) return;
-    const selectedUser = MOCK_AVAILABLE_OPERATORS.find(
+    const selectedUser = availableOperators.find(
       (u) => String(u.id) === newUserForm.userId,
     );
     if (!selectedUser) {
@@ -516,26 +352,9 @@ export default function WorkOrderDetailPage() {
         notes: newUserForm.notes.trim() || undefined,
       });
       setWorkOrderUsers((prev) => [...prev, { ...created, user: selectedUser }]);
-    } catch {
-      const newId =
-        workOrderUsers.length > 0
-          ? Math.max(...workOrderUsers.map((u) => u.id)) + 1
-          : 1;
-
-      const newAssignment: WorkOrderUser = {
-        id: newId,
-        workOrderId: workOrder.id,
-        userId: selectedUser.id,
-        user: selectedUser,
-        role: newUserForm.role.trim() || "Operador",
-        shift: newUserForm.shift.trim() || undefined,
-        notes: newUserForm.notes.trim() || undefined,
-        assignedAt: new Date().toISOString(),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-
-      setWorkOrderUsers((prev) => [...prev, newAssignment]);
+    } catch (error) {
+      setActionError(errorMessage(error));
+      return;
     }
     setIsUserModalOpen(false);
     showNotification(
@@ -546,8 +365,9 @@ export default function WorkOrderDetailPage() {
   const handleRemoveUser = async (assignmentId: number) => {
     try {
       await workOrderUserService.unassign(assignmentId);
-    } catch {
-      // fallback
+    } catch (error) {
+      showNotification(errorMessage(error), "error");
+      return;
     }
     setWorkOrderUsers((prev) => prev.filter((u) => u.id !== assignmentId));
     showNotification("Asignacion de personal removida de la orden.");
@@ -560,83 +380,44 @@ export default function WorkOrderDetailPage() {
   // Resolucion de entidades vinculadas para trazabilidad completa
   const client: Client | undefined =
     workOrder?.client ||
-    availableClients.find((c) => c.id === workOrder?.clientId) ||
-    MOCK_CLIENTS.find((c) => c.id === workOrder?.clientId);
+    availableClients.find((c) => c.id === workOrder?.clientId);
   const linkedRequest =
     workOrder?.request ||
-    availableRequests.find((r) => r.id === workOrder?.requestId) ||
-    MOCK_REQUESTS.find((r) => r.id === workOrder?.requestId);
+    availableRequests.find((r) => r.id === workOrder?.requestId);
   const linkedQuotation =
     workOrder?.quotation ||
-    availableQuotations.find((q) => q.id === workOrder?.quotationId) ||
-    MOCK_QUOTATIONS.find((q) => q.id === workOrder?.quotationId);
+    availableQuotations.find((q) => q.id === workOrder?.quotationId);
 
   const handleSave = async (formData: CreateWorkOrderDto) => {
     if (!workOrder) return;
-    try {
-      const updated = await workOrderService.update(workOrder.id, formData);
-      setWorkOrder((prev) => (prev ? { ...prev, ...updated } : prev));
-      showNotification("Orden de trabajo actualizada con exito.");
-    } catch {
-      const updated: WorkOrder = {
-        ...workOrder,
-        ...formData,
-        updatedAt: new Date().toISOString(),
-      };
-      setWorkOrder(updated);
-      showNotification("Orden de trabajo actualizada con exito.");
-    }
+    const updated = await workOrderService.update(workOrder.id, formData);
+    setWorkOrder(updated);
+    showNotification("Orden de trabajo actualizada con éxito.");
   };
 
   const handleSaveQualityControl = async (data: CreateQualityControlDto) => {
-    try {
-      const created = await qualityService.create(data);
-      setQualityControls((prev) => [created, ...prev]);
-      showNotification("Control de calidad registrado con exito.");
-    } catch {
-      const newId =
-        qualityControls.length > 0 ? Math.max(...qualityControls.map((q) => q.id)) + 1 : 1;
-      const newControl: QualityControl = {
-        id: newId,
-        ...data,
-        workOrder: workOrder || undefined,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      setQualityControls((prev) => [newControl, ...prev]);
-      showNotification("Control de calidad registrado con exito.");
-    }
+    const created = await qualityService.create(data);
+    setQualityControls(prev => [created, ...prev]);
+    showNotification("Control de calidad registrado con éxito.");
   };
 
   const handleSaveDelivery = async (data: CreateDeliveryDto) => {
-    try {
-      const created = await deliveryService.create(data);
-      setDeliveries((prev) => [created, ...prev]);
-      showNotification("Entrega registrada con exito.");
-    } catch {
-      const newId =
-        deliveries.length > 0 ? Math.max(...deliveries.map((d) => d.id)) + 1 : 1;
-      const newDelivery: Delivery = {
-        id: newId,
-        ...data,
-        workOrder: workOrder || undefined,
-        client: client || undefined,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      setDeliveries((prev) => [newDelivery, ...prev]);
-      showNotification("Entrega registrada con exito.");
-    }
+    const created = await deliveryService.create(data);
+    setDeliveries(prev => [created, ...prev]);
+    showNotification("Entrega registrada con éxito.");
   };
+
+  if (loading) return <Box aria-busy="true" p={6}><Text>Cargando orden de trabajo...</Text></Box>;
 
   if (!workOrder) {
     return (
       <Box p={6}>
         <Alert
           status="error"
-          title="Orden de trabajo no encontrada"
-          description={`No se encontro ningun registro para el identificador #${id}.`}
+          title={loadError ? "No se pudo cargar la orden de trabajo" : "Orden de trabajo no encontrada"}
+          description={loadError ?? `No se encontro ningun registro para el identificador #${id}.`}
         />
+        <Button mt={4} onClick={() => void loadWorkOrderData()}>Reintentar</Button>
         <Button mt={4} variant="outline" onClick={handleBack}>
           <LuArrowLeft style={{ marginRight: "6px" }} />
           Volver al listado
@@ -647,6 +428,7 @@ export default function WorkOrderDetailPage() {
 
   return (
     <Box aria-busy={loading}>
+      {sectionErrors.length > 0 && <Box mb={4}><Alert status="error" title="Hay secciones no disponibles" description={sectionErrors.join("; ")} /><Button mt={2} onClick={() => void loadWorkOrderData()}>Reintentar carga</Button></Box>}
       {/* Barra de navegacion superior (Tarea 2.4: botones contextuales unificados) */}
       <Flex justify="space-between" align="center" mb={4} wrap="wrap" gap={2}>
         <Button variant="ghost" size="sm" onClick={handleBack}>
@@ -1120,7 +902,7 @@ export default function WorkOrderDetailPage() {
                       color="gray.800"
                       mt={0.5}
                     >
-                      {approval.decidedBy?.name || "Ing. Carlos Mendoza"}
+                      {approval.decidedBy?.name || "Responsable no informado"}
                     </Text>
                     {approval.decidedBy?.role && (
                       <Text fontSize="xs" color="gray.500">
@@ -1967,6 +1749,7 @@ export default function WorkOrderDetailPage() {
         }
       >
         <VStack gap={4} align="stretch" py={2}>
+          {actionError && <Alert status="error" title="No se pudo guardar" description={actionError} />}
           <Text fontSize="sm" color="gray.600">
             {pendingDecision === "APPROVED"
               ? `¿Desea registrar la aprobacion formal para la orden OT-${workOrder.workOrderNumber}? Esto autorizara la prosecucion de las operaciones de mecanizado en planta.`
@@ -2011,6 +1794,7 @@ export default function WorkOrderDetailPage() {
         }
       >
         <VStack gap={3} align="stretch" py={2}>
+          {actionError && <Alert status="error" title="No se pudo guardar" description={actionError} />}
           <SimpleGrid columns={{ base: 1, sm: 2 }} gap={3}>
             <FormField
               label="Material / Aleacion"
@@ -2160,6 +1944,7 @@ export default function WorkOrderDetailPage() {
             <Button
               size="sm"
               colorPalette="blue"
+              disabled={availableOperators.length === 0}
               onClick={handleAssignUser}
             >
               Asignar personal
@@ -2168,6 +1953,7 @@ export default function WorkOrderDetailPage() {
         }
       >
         <VStack gap={4} align="stretch" py={2}>
+          {actionError && <Alert status="error" title="No se pudo guardar" description={actionError} />}
           <Text fontSize="xs" color="gray.600">
             Seleccione el personal tecnico u operario de planta que intervendra
             en la ejecucion de la orden OT-{workOrder?.workOrderNumber}.
@@ -2183,7 +1969,8 @@ export default function WorkOrderDetailPage() {
                 setNewUserForm({ ...newUserForm, userId: e.target.value })
               }
             >
-              {MOCK_AVAILABLE_OPERATORS.map((op) => (
+              {availableOperators.length === 0 && <option value="">No hay usuarios disponibles para asignar</option>}
+              {availableOperators.map((op) => (
                 <option key={op.id} value={op.id}>
                   {op.firstName} {op.lastName} ({op.role || op.email})
                 </option>

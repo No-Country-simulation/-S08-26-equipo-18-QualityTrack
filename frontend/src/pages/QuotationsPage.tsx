@@ -6,14 +6,8 @@ import { Button } from "../components/Button";
 import { Can } from "../components/Can";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { DataTable } from "../components/DataTable";
-import {
-  QUOTATION_COLUMNS,
-  QuotationFormModal,
-} from "../modules/quotations";
-import { MOCK_CLIENTS } from "../test/mocks/mockClients";
-import { MOCK_QUOTATIONS } from "../test/mocks/mockQuotations";
-import { MOCK_REQUESTS } from "../test/mocks/mockRequests";
-import { ApiError } from "../services/api";
+import { QUOTATION_COLUMNS, QuotationFormModal } from "../modules/quotations";
+import { errorMessage } from "../utils/errorMessage";
 import { clientService } from "../services/clientService";
 import type { Client } from "../services/clientService";
 import { quotationService } from "../services/quotationService";
@@ -25,12 +19,6 @@ import { requestService } from "../services/requestService";
 import type { Request } from "../services/requestService";
 
 type QuotationRecord = Quotation & Record<string, unknown>;
-
-function errorMessage(error: unknown): string {
-  return error instanceof ApiError
-    ? error.message
-    : "Ocurrio un error inesperado.";
-}
 
 export default function QuotationsPage() {
   const [quotations, setQuotations] = useState<QuotationRecord[]>([]);
@@ -45,6 +33,8 @@ export default function QuotationsPage() {
   const [deleteCandidate, setDeleteCandidate] = useState<Quotation | null>(
     null,
   );
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [notification, setNotification] = useState<{
     status: "success" | "error";
     message: string;
@@ -64,39 +54,19 @@ export default function QuotationsPage() {
     setLoading(true);
     setLoadError(null);
     try {
-      let quotData: Quotation[];
-      try {
-        quotData = await quotationService.getAll();
-      } catch (backendErr) {
-        console.warn(
-          "Backend no disponible para cotizaciones, utilizando datos locales.",
-          backendErr,
-        );
-        quotData = MOCK_QUOTATIONS;
-      }
-      setQuotations(quotData as QuotationRecord[]);
-
-      try {
-        const clientRes = await clientService.list({
-          limit: 100,
-          status: "all",
-        });
-        setClients(clientRes.items.length > 0 ? clientRes.items : MOCK_CLIENTS);
-      } catch {
-        setClients(MOCK_CLIENTS);
-      }
-
-      try {
-        const reqData = await requestService.getAll();
-        setRequests(reqData.length > 0 ? reqData : MOCK_REQUESTS);
-      } catch {
-        setRequests(MOCK_REQUESTS);
-      }
+      const [records, related0, related1] = await Promise.all([
+        quotationService.getAll(),
+        clientService.list({ limit: 100, status: "all" }),
+        requestService.getAll(),
+      ]);
+      setQuotations(records as QuotationRecord[]);
+      setClients(related0.items);
+      setRequests(related1);
     } catch (error) {
       setLoadError(errorMessage(error));
-      setQuotations(MOCK_QUOTATIONS as QuotationRecord[]);
-      setClients(MOCK_CLIENTS);
-      setRequests(MOCK_REQUESTS);
+      setQuotations([]);
+      setClients([]);
+      setRequests([]);
     } finally {
       setLoading(false);
     }
@@ -117,98 +87,45 @@ export default function QuotationsPage() {
   };
 
   const handleOpenDelete = (quotation: Quotation) => {
+    setDeleteError(null);
     setDeleteCandidate(quotation);
   };
 
   const handleSaveQuotation = async (formData: CreateQuotationDto) => {
-    const associatedClient = clients.find((c) => c.id === formData.clientId);
-    const associatedRequest = requests.find((r) => r.id === formData.requestId);
-
     if (selectedQuotation) {
-      // Edicion de cotizacion existente
-      try {
-        const updated = await quotationService.update(
-          selectedQuotation.id,
-          formData,
-        );
-        setQuotations((prev) =>
-          prev.map((item) =>
-            item.id === selectedQuotation.id
-              ? ({
-                  ...item,
-                  ...updated,
-                  client: associatedClient,
-                  request: associatedRequest,
-                  updatedAt: new Date().toISOString(),
-                } as QuotationRecord)
-              : item,
-          ),
-        );
-        showNotification("Cotizacion actualizada correctamente.");
-      } catch {
-        setQuotations((prev) =>
-          prev.map((item) =>
-            item.id === selectedQuotation.id
-              ? ({
-                  ...item,
-                  ...formData,
-                  client: associatedClient,
-                  request: associatedRequest,
-                  updatedAt: new Date().toISOString(),
-                } as QuotationRecord)
-              : item,
-          ),
-        );
-        showNotification("Cotizacion actualizada correctamente.");
-      }
+      const updated = await quotationService.update(
+        selectedQuotation.id,
+        formData,
+      );
+      setQuotations((prev) =>
+        prev.map((item) =>
+          item.id === selectedQuotation.id
+            ? (updated as QuotationRecord)
+            : item,
+        ),
+      );
+      showNotification("Cotización actualizada correctamente.");
     } else {
-      // Alta de nueva cotizacion
-      try {
-        const created = await quotationService.create(formData);
-        const newQuotation = {
-          ...created,
-          client: associatedClient,
-          request: associatedRequest,
-        } as QuotationRecord;
-        setQuotations((prev) => [newQuotation, ...prev]);
-        showNotification("Cotizacion creada con exito.");
-      } catch {
-        const newId =
-          quotations.length > 0
-            ? Math.max(...quotations.map((q) => q.id)) + 1
-            : 1;
-        const newQuotation: QuotationRecord = {
-          id: newId,
-          ...formData,
-          client: associatedClient,
-          request: associatedRequest,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        } as QuotationRecord;
-
-        setQuotations((prev) => [newQuotation, ...prev]);
-        showNotification("Cotizacion creada con exito.");
-      }
+      const created = await quotationService.create(formData);
+      setQuotations((prev) => [created as QuotationRecord, ...prev]);
+      showNotification("Cotización creada correctamente.");
     }
   };
 
   const handleConfirmDelete = async () => {
-    if (!deleteCandidate) return;
-    const target = deleteCandidate;
-    setDeleteCandidate(null);
-
+    if (!deleteCandidate || isDeleting) return;
+    setIsDeleting(true);
+    setDeleteError(null);
     try {
-      await quotationService.delete(target.id);
-    } catch {
-      // Fallback local
-    }
-
-    setQuotations((prev) =>
-      prev.filter((item) => item.id !== target.id),
-    );
-    showNotification(
-      `Cotizacion "${target.quotationNumber}" eliminada.`,
-    );
+      await quotationService.delete(deleteCandidate.id);
+      setQuotations((prev) =>
+        prev.filter((item) => item.id !== deleteCandidate.id),
+      );
+      setDeleteCandidate(null);
+      showNotification("Cotización eliminada correctamente.");
+    } catch (error) {
+      setDeleteError(errorMessage(error));
+    } finally { setIsDeleting(false); }
   };
 
   return (
@@ -255,7 +172,12 @@ export default function QuotationsPage() {
         emptyDescription="Cuando crees la primera cotizacion, aparecera aqui."
         toolbarActions={
           <Can perform="quotations:create">
-            <Button colorPalette="blue" size="sm" onClick={handleOpenCreate}>
+            <Button
+              colorPalette="blue"
+              size="sm"
+              disabled={loading || Boolean(loadError)}
+              onClick={handleOpenCreate}
+            >
               <LuPlus style={{ marginRight: "6px" }} />
               Nueva cotizacion
             </Button>
@@ -304,6 +226,8 @@ export default function QuotationsPage() {
 
       {/* Dialogo de confirmacion de eliminacion */}
       <ConfirmDialog
+        error={deleteError}
+        isLoading={isDeleting}
         open={Boolean(deleteCandidate)}
         onOpenChange={({ open }) => {
           if (!open) setDeleteCandidate(null);

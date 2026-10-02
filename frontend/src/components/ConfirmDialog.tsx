@@ -1,11 +1,13 @@
 import { Button } from "./Button";
 import { Modal } from "./Modal";
+import { Alert } from "./Alert";
 
 export interface ConfirmDialogProps {
     open: boolean
     onOpenChange: (details: { open: boolean }) => void
     title: string
     description?: string
+    error?: string | null
     confirmText?: string
     cancelText?: string
     confirmColorPalette?: string
@@ -19,6 +21,7 @@ export function ConfirmDialog({
     onOpenChange,
     title,
     description,
+    error,
     confirmText = 'Confirmar',
     cancelText = 'Cancelar',
     confirmColorPalette = 'red',
@@ -44,6 +47,7 @@ export function ConfirmDialog({
             }
         >
             {description && <p> {description} </p>}
+            {error && <Alert status="error" title="No se pudo completar la operación" description={error} />}
         </Modal>
     )
 }

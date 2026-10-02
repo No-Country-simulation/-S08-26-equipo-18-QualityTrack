@@ -7,7 +7,7 @@ const path = require('node:path');
 // Opt-in: never migrate a developer's regular database or any remote database.
 test('HTTP authorization and logout against an isolated PostgreSQL database', {
     skip: process.env.SECURITY_TEST_DB !== 'true', timeout: 60_000,
-}, async () => {
+}, async (t) => {
     assert.ok(['localhost', '127.0.0.1', 'postgres'].includes(process.env.DB_HOST));
     assert.equal(process.env.POSTGRES_DB, 'qualitytrack_security');
     assert.equal(process.env.DB_SSL, 'false');
@@ -70,6 +70,43 @@ test('HTTP authorization and logout against an isolated PostgreSQL database', {
         const created = await call('POST', '/clients', admin.accessToken, input());
         assert.equal(created.status, 201);
         const client = await created.json();
+        await t.test('client updates preserve omitted fields, clear null optionals and validate the database contract', async () => {
+            const endpoint = `/clients/${client.id}`;
+            const optionalFields = ['contactName', 'address', 'city', 'province', 'notes'];
+            const filled = Object.fromEntries(optionalFields.map(name => [name, name === 'notes' ? 'N'.repeat(5000) : 'A'.repeat(255)]));
+            assert.equal((await call('PUT', endpoint, admin.accessToken, { ...filled, businessName: 'B'.repeat(1000) })).status, 200);
+            assert.equal((await call('PUT', endpoint, admin.accessToken, { phone: '+54 (11) 1234-5678' })).status, 200);
+            const preserved = await (await call('GET', endpoint, admin.accessToken)).json();
+            for (const name of optionalFields) assert.equal(preserved[name], filled[name]);
+            const cleared = await call('PUT', endpoint, admin.accessToken, Object.fromEntries(optionalFields.map(name => [name, null])));
+            assert.equal(cleared.status, 200);
+            const reloaded = await (await call('GET', endpoint, admin.accessToken)).json();
+            for (const name of optionalFields) assert.equal(reloaded[name], null);
+            for (const name of ['businessName', 'taxId', 'email', 'phone']) {
+                for (const method of ['POST', 'PUT']) {
+                    const before = await em.getConnection().execute('select * from client order by id');
+                    const res = await call(method, method === 'POST' ? '/clients' : endpoint, admin.accessToken, { ...(method === 'POST' ? input() : {}), [name]: null });
+                    assert.equal(res.status, 400, `${method} ${name}: null`);
+                    assert.deepEqual(await em.getConnection().execute('select * from client order by id'), before);
+                }
+            }
+            for (const invalid of [
+                { businessName: '  ' }, { businessName: 'B'.repeat(1001) },
+                ...optionalFields.map(name => ({ [name]: 'A'.repeat(name === 'notes' ? 5001 : 256) })),
+                { taxId: 'abc30712345678' }, { phone: 'abc1234567' }, { phone: '123456' },
+                { phone: '1234567890123456' }, { email: 'invalid' },
+            ]) {
+                assert.equal((await call('PUT', endpoint, admin.accessToken, invalid)).status, 400, JSON.stringify(Object.keys(invalid)));
+            }
+            const normalized = await call('PUT', endpoint, admin.accessToken, { taxId: '30-71234567-8', email: ' CLIENT@EXAMPLE.TEST ' });
+            assert.equal(normalized.status, 200);
+            const data = await normalized.json();
+            assert.equal(data.taxId, '30712345678');
+            assert.equal(data.email, 'client@example.test');
+            assert.equal((await call('POST', '/clients', admin.accessToken, { ...input(), taxId: '30.71234567.8' })).status, 409);
+            const another = await (await call('POST', '/clients', admin.accessToken, input())).json();
+            assert.equal((await call('PUT', `/clients/${another.id}`, admin.accessToken, { taxId: '30712345678' })).status, 409);
+        });
         const actions = [
             ['GET', '/clients'], ['GET', `/clients/${client.id}`],
             ['POST', '/clients'], ['PUT', `/clients/${client.id}`],

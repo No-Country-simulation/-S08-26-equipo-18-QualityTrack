@@ -10,6 +10,11 @@ import { TraceabilityTimelineCard } from "../TraceabilityTimelineCard";
 import { MOCK_WORK_ORDERS } from "../../../test/mocks/mockWorkOrders";
 import { MOCK_DELIVERIES } from "../../../test/mocks/mockDeliveries";
 
+import { MOCK_QUALITY_CONTROLS } from "../../../test/mocks/mockQualityControls";
+import { MOCK_DOCUMENTS } from "../../../test/mocks/mockDocuments";
+import { MOCK_REQUESTS } from "../../../test/mocks/mockRequests";
+import { MOCK_QUOTATIONS } from "../../../test/mocks/mockQuotations";
+const fixture = { workOrders: MOCK_WORK_ORDERS, deliveries: MOCK_DELIVERIES, qualityControls: MOCK_QUALITY_CONTROLS, documents: MOCK_DOCUMENTS, requests: MOCK_REQUESTS, quotations: MOCK_QUOTATIONS };
 const renderWithRouter = (ui: ReactElement) => {
   return renderWithProviders(<MemoryRouter>{ui}</MemoryRouter>);
 };
@@ -47,7 +52,7 @@ describe("dashboard module", () => {
 
   describe("TraceabilityCompletenessCard", () => {
     it("debe renderizar el encabezado y las metricas de completitud", () => {
-      renderWithRouter(<TraceabilityCompletenessCard />);
+      renderWithRouter(<TraceabilityCompletenessCard {...fixture} />);
 
       expect(
         screen.getByText("Completitud de trazabilidad")
@@ -58,7 +63,7 @@ describe("dashboard module", () => {
     });
 
     it("debe permitir alternar entre mostrar 5 ordenes y ver todas", () => {
-      renderWithRouter(<TraceabilityCompletenessCard />);
+      renderWithRouter(<TraceabilityCompletenessCard {...fixture} />);
 
       const toggleBtn = screen.getByRole("button", { name: /Ver todas/i });
       expect(toggleBtn).toBeInTheDocument();
@@ -72,7 +77,7 @@ describe("dashboard module", () => {
     it("debe ejecutar callback de navegacion al hacer clic en una orden", () => {
       const onNavigate = vi.fn();
       renderWithRouter(
-        <TraceabilityCompletenessCard onNavigateToWorkOrder={onNavigate} />
+        <TraceabilityCompletenessCard {...fixture} onNavigateToWorkOrder={onNavigate} />
       );
 
       const firstWoItem = screen.getByText(/OT-1001/);
@@ -81,7 +86,7 @@ describe("dashboard module", () => {
     });
 
     it("debe filtrar ordenes con los botones de filtro", () => {
-      renderWithRouter(<TraceabilityCompletenessCard />);
+      renderWithRouter(<TraceabilityCompletenessCard {...fixture} />);
 
       const pendientesBtn = screen.getByRole("button", {
         name: /Pendientes/i,
@@ -99,7 +104,7 @@ describe("dashboard module", () => {
 
   describe("TraceabilityTimelineCard", () => {
     it("debe renderizar el encabezado del flujo y las pestañas de filtro", () => {
-      renderWithRouter(<TraceabilityTimelineCard />);
+      renderWithRouter(<TraceabilityTimelineCard {...fixture} />);
 
       expect(
         screen.getByText("Flujo reciente de manufactura y trazabilidad")
@@ -122,7 +127,7 @@ describe("dashboard module", () => {
     });
 
     it("debe filtrar eventos al seleccionar la categoria Calidad", () => {
-      renderWithRouter(<TraceabilityTimelineCard />);
+      renderWithRouter(<TraceabilityTimelineCard {...fixture} />);
 
       const qualityFilterBtn = screen.getByRole("button", {
         name: /^Calidad$/i,
@@ -135,7 +140,7 @@ describe("dashboard module", () => {
 
     it("debe llamar a onNavigate al hacer clic en un evento", () => {
       const onNavigate = vi.fn();
-      renderWithRouter(<TraceabilityTimelineCard onNavigate={onNavigate} />);
+      renderWithRouter(<TraceabilityTimelineCard {...fixture} onNavigate={onNavigate} />);
 
       const deliveryEvent = screen.getByText(/Remito de entrega/i);
       fireEvent.click(deliveryEvent);

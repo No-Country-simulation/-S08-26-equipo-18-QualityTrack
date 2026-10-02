@@ -219,6 +219,22 @@ local, `POSTGRES_DB=qualitytrack_security` y `DB_SSL=false`. Esa prueba aplica l
 migraciones y crea sus propios usuarios/clientes en una base exclusiva de pruebas.
 Para reproducirla, usar una base nueva y aislada con esos valores.
 
+### Formularios y estado de los módulos
+
+Clientes permite limpiar contacto, dirección, ciudad, provincia y notas al editar:
+`null` borra un opcional, mientras que un campo omitido conserva su valor. Los
+campos obligatorios rechazan `null` con 400. Los máximos son 1000 caracteres para
+razón social, 255 para contacto/dirección/ciudad/provincia/email/teléfono y 5000
+para notas; email y teléfono deben además respetar su formato. CUIT admite once
+dígitos y separadores (guiones, puntos o espacios), sin exigir checksum.
+
+Las pantallas muestran únicamente respuestas del servidor. Un fallo al guardar
+conserva el formulario y muestra el error; una lista vacía permanece vacía. Los
+módulos cuya API todavía no está implementada muestran indisponibilidad y permiten
+reintentar, sin datos de demostración ni éxitos locales. El dashboard informa que
+sus indicadores aún no están disponibles y el catálogo de personal no ofrece
+usuarios ficticios. Las APIs de dominio e indicadores se incorporan progresivamente.
+
 ### Permisos y conexión remota
 
 La API de clientes comprueba el rol vigente de BD en cada request. Administrador

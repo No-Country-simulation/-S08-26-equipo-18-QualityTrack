@@ -6,6 +6,7 @@ export function onlyDigits(value: string): string {
 
 // Validación de CUIT: exactamente 11 dígitos numéricos
 export function isValidCuit(value: string): boolean {
+    if (!/^[\d.\s-]+$/.test(value)) return false;
     const digits = onlyDigits(value);
     return digits.length === 11;
 }

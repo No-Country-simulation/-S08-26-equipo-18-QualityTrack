@@ -1,6 +1,7 @@
 import { type FormEvent, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
+    chakra,
     Box,
     Checkbox,
     Field,
@@ -185,8 +186,8 @@ export default function LoginPage() {
                                     <InputGroup
                                         startElement={<LockIcon boxSize={5} color="gray.400" />}
                                         endElement={
-                                            <Box
-                                                as="button"
+                                            <chakra.button
+                                                type="button"
                                                 aria-label="Mostrar u ocultar contraseña"
                                                 onClick={() => setShowPassword((v) => !v)}
                                                 color={showPassword ? 'brand.600' : 'gray.400'}
@@ -195,7 +196,7 @@ export default function LoginPage() {
                                                 alignItems="center"
                                             >
                                                 {showPassword ? <EyeOffIcon boxSize={5} /> : <EyeIcon boxSize={5} />}
-                                            </Box>
+                                            </chakra.button>
                                         }
                                     >
                                         <Input

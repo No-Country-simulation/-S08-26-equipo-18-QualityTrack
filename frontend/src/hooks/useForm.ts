@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError } from "../services/api";
 import { validateField, type ValidatorFn } from "../utils/validators";
 
@@ -49,6 +49,9 @@ export function useForm<T extends Record<string, any>>({
   onSuccess,
   resetOnSuccess = false,
 }: UseFormOptions<T>): UseFormReturn<T> {
+  // Mantener reset estable aunque el caller construya initialValues al renderizar.
+  const initialValuesRef = useRef(initialValues);
+  useEffect(() => { initialValuesRef.current = initialValues }, [initialValues]);
   const [values, setValues] = useState<T>(initialValues);
   const [errors, setErrors] = useState<Partial<Record<keyof T, string>>>({});
   const [touched, setTouched] = useState<Partial<Record<keyof T, boolean>>>({});
@@ -114,13 +117,13 @@ export function useForm<T extends Record<string, any>>({
 
   const reset = useCallback(
     (newValues?: T) => {
-      setValues(newValues || initialValues);
+      setValues(newValues ?? initialValuesRef.current);
       setErrors({});
       setTouched({});
       setIsSubmitting(false);
       setSubmitError(null);
     },
-    [initialValues],
+    [],
   );
 
   const handleSubmit = async (e?: React.SubmitEvent | React.SyntheticEvent) => {

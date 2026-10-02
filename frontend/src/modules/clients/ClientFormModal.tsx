@@ -65,8 +65,8 @@ export function ClientFormModal({
       businessName: [
         validators.required("La razon social es obligatoria"),
         validators.maxLength(
-          120,
-          "La razon social no puede superar los 120 caracteres",
+          1000,
+          "La razon social no puede superar los 1000 caracteres",
         ),
       ],
       taxId: [
@@ -75,58 +75,53 @@ export function ClientFormModal({
       ],
       contactName: [
         validators.maxLength(
-          100,
-          "El nombre de contacto no puede superar los 100 caracteres",
+          255,
+          "El nombre de contacto no puede superar los 255 caracteres",
         ),
-        validators.alphabetic("El contacto solo debe contener letras y espacios"),
       ],
       email: [
         validators.required("El email es obligatorio"),
         validators.email("Ingresa un correo electronico valido"),
         validators.maxLength(
-          100,
-          "El email no puede superar los 100 caracteres",
+          255,
+          "El email no puede superar los 255 caracteres",
         ),
       ],
       phone: [
         validators.required("El telefono es obligatorio"),
         validators.phone(),
         validators.maxLength(
-          20,
-          "El telefono no puede superar los 20 caracteres",
+          255,
+          "El telefono no puede superar los 255 caracteres",
         ),
       ],
       city: [
         validators.maxLength(
-          60,
-          "La ciudad no puede superar los 60 caracteres",
+          255,
+          "La ciudad no puede superar los 255 caracteres",
         ),
-        validators.alphabetic("La ciudad solo debe contener letras y espacios"),
       ],
       province: [
         validators.maxLength(
-          60,
-          "La provincia no puede superar los 60 caracteres",
-        ),
-        validators.alphabetic(
-          "La provincia solo debe contener letras y espacios",
+          255,
+          "La provincia no puede superar los 255 caracteres",
         ),
       ],
       address: [
         validators.maxLength(
-          150,
-          "La direccion no puede superar los 150 caracteres",
+          255,
+          "La direccion no puede superar los 255 caracteres",
         ),
       ],
       notes: [
         validators.maxLength(
-          500,
-          "Las notas no pueden superar los 500 caracteres",
+          5000,
+          "Las notas no pueden superar los 5000 caracteres",
         ),
       ],
     },
     onSubmit: async (formValues) => {
-      const optional = (value: string) => value.trim() || undefined;
+      const optional = (value: string) => value.trim() || (isEditing ? null : undefined);
       await onSave({
         businessName: formValues.businessName.trim(),
         taxId: formValues.taxId.replace(/\D/g, ""),
@@ -164,32 +159,6 @@ export function ClientFormModal({
 
   const handleClose = () => {
     onOpenChange({ open: false });
-  };
-
-  // Filtrado de caracteres en tiempo real
-  const handleCuitChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const cleaned = e.target.value.replace(/[^0-9-]/g, "");
-    handleChange("taxId", cleaned);
-  };
-
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const cleaned = e.target.value.replace(/[^0-9+\s\-()]/g, "");
-    handleChange("phone", cleaned);
-  };
-
-  const handleContactNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const cleaned = e.target.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s.'-]/g, "");
-    handleChange("contactName", cleaned);
-  };
-
-  const handleCityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const cleaned = e.target.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s.'-]/g, "");
-    handleChange("city", cleaned);
-  };
-
-  const handleProvinceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const cleaned = e.target.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s.'-]/g, "");
-    handleChange("province", cleaned);
   };
 
   return (
@@ -234,7 +203,7 @@ export function ClientFormModal({
             <Input
               placeholder="Ej: Metalurgica Andina S.A."
               value={values.businessName}
-              maxLength={120}
+              maxLength={1000}
               onChange={(e) => handleChange("businessName", e.target.value)}
               onBlur={() => handleBlur("businessName")}
             />
@@ -244,13 +213,12 @@ export function ClientFormModal({
             label="CUIT (11 digitos)"
             required
             error={touched.taxId ? errors.taxId : null}
-            helperText="Sin guiones ni espacios (11 digitos)"
+            helperText="11 dígitos; se admiten guiones, puntos y espacios"
           >
             <Input
               placeholder="Ej: 20432906505"
               value={values.taxId}
-              maxLength={13}
-              onChange={handleCuitChange}
+              onChange={(e) => handleChange("taxId", e.target.value)}
               onBlur={() => handleBlur("taxId")}
             />
           </FormField>
@@ -264,8 +232,8 @@ export function ClientFormModal({
             <Input
               placeholder="Ej: Carlos Mendez"
               value={values.contactName}
-              maxLength={100}
-              onChange={handleContactNameChange}
+              maxLength={255}
+              onChange={(e) => handleChange("contactName", e.target.value)}
               onBlur={() => handleBlur("contactName")}
             />
           </FormField>
@@ -279,7 +247,7 @@ export function ClientFormModal({
               type="email"
               placeholder="contacto@empresa.com.ar"
               value={values.email}
-              maxLength={100}
+              maxLength={255}
               onChange={(e) => handleChange("email", e.target.value)}
               onBlur={() => handleBlur("email")}
             />
@@ -295,8 +263,8 @@ export function ClientFormModal({
             <Input
               placeholder="+54 11 4522-8900"
               value={values.phone}
-              maxLength={20}
-              onChange={handlePhoneChange}
+              maxLength={255}
+              onChange={(e) => handleChange("phone", e.target.value)}
               onBlur={() => handleBlur("phone")}
             />
           </FormField>
@@ -308,8 +276,8 @@ export function ClientFormModal({
             <Input
               placeholder="Ej: Rosario"
               value={values.city}
-              maxLength={60}
-              onChange={handleCityChange}
+              maxLength={255}
+              onChange={(e) => handleChange("city", e.target.value)}
               onBlur={() => handleBlur("city")}
             />
           </FormField>
@@ -321,8 +289,8 @@ export function ClientFormModal({
             <Input
               placeholder="Ej: Santa Fe"
               value={values.province}
-              maxLength={60}
-              onChange={handleProvinceChange}
+              maxLength={255}
+              onChange={(e) => handleChange("province", e.target.value)}
               onBlur={() => handleBlur("province")}
             />
           </FormField>
@@ -335,7 +303,7 @@ export function ClientFormModal({
           <Input
             placeholder="Av. Industrial 4500"
             value={values.address}
-            maxLength={150}
+            maxLength={255}
             onChange={(e) => handleChange("address", e.target.value)}
             onBlur={() => handleBlur("address")}
           />
@@ -348,7 +316,7 @@ export function ClientFormModal({
           <Textarea
             placeholder="Informacion adicional sobre el cliente, requerimientos especiales de calidad, etc."
             value={values.notes}
-            maxLength={500}
+            maxLength={5000}
             onChange={(e) => handleChange("notes", e.target.value)}
             onBlur={() => handleBlur("notes")}
             rows={3}
