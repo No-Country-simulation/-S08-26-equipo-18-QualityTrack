@@ -2,6 +2,21 @@
 
 Registro append-only, lo más nuevo arriba. Una entrada por ciclo de cambio cerrado.
 
+## 2026-10-02 · Correcciones detectadas en el recorrido de usuarios
+Type: fix
+
+Los paneles de producción y documentos usan claves de React distintas por OT.
+Esto evita duplicar producción o conservar un formulario anterior al aprobar
+la orden o registrar ejecución. Prueba de regresión del detalle después de una
+aprobación. La cabecera y el acceso dejan de declarar un servidor operativo y
+un ping fijo que no estaban respaldados por una consulta de salud.
+
+Recorrido local aislado con los cinco roles desde alta de usuarios hasta cierre
+de OT, inspección y entrega, con verificación de persistencia después de reiniciar
+el backend. Carga/descarga de archivo comprobadas por HTTP y documento consultado
+en el expediente; selección y descarga nativas pendientes de comprobación manual
+por fallos del navegador de pruebas.
+
 ## 2026-10-02 · Indicadores respaldados por datos y recorrido integrado del expediente
 Type: feature
 

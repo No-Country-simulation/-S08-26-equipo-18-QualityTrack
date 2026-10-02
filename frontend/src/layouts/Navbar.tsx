@@ -36,30 +36,10 @@ export default function Navbar() {
       top={0}
       zIndex={10}
     >
-      {/* Indicador de estado del Servidor MES */}
+      {/* Identificación del producto; no simula un monitor del backend. */}
       <HStack gap={2.5}>
-        <Box position="relative">
-          <Box
-            position="absolute"
-            inset={0}
-            borderRadius="full"
-            bg="emerald.400"
-            opacity={0.6}
-            animation="pulse 2s infinite"
-          />
-          <Box
-            position="relative"
-            w={2}
-            h={2}
-            borderRadius="full"
-            bg="emerald.500"
-          />
-        </Box>
         <Text fontSize="xs" color="gray.500" fontWeight="medium">
-          Servidor MES{" "}
-          <Text as="span" color="emerald.700" fontWeight="semibold">
-            Operativo
-          </Text>
+          QualityTrack · gestión de planta
         </Text>
       </HStack>
 

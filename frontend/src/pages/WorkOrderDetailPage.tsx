@@ -859,7 +859,7 @@ export default function WorkOrderDetailPage() {
         </Card>
       </Box>
 
-      <ProductionPanel key={workOrder.id} workOrder={workOrder} onOrderChanged={setWorkOrder} />
+      <ProductionPanel key={`production-${workOrder.id}`} workOrder={workOrder} onOrderChanged={setWorkOrder} />
 
       {/* Tarea 2.2: Controles de calidad embebidos */}
       <Box mt={6}>
@@ -1007,7 +1007,7 @@ export default function WorkOrderDetailPage() {
         </Card>
       </Box></Can>
 
-      <DocumentsPanel key={workOrder.id} workOrder={workOrder}/>
+      <DocumentsPanel key={`documents-${workOrder.id}`} workOrder={workOrder}/>
 
       {/* Modal de edicion de OT */}
       <WorkOrderFormModal
