@@ -3,6 +3,7 @@ import LoginPage from "../pages/LoginPage";
 import DashboardPage from "../pages/DashboardPage";
 import NotFoundPage from "../pages/NotFoundPage";
 import ClientsPage from "../pages/ClientsPage";
+import UsersPage from "../pages/UsersPage";
 import RequestsPage from "../pages/RequestsPage";
 import QuotationsPage from "../pages/QuotationsPage";
 import WorkOrderDetailPage from "../pages/WorkOrderDetailPage";
@@ -34,6 +35,10 @@ const router = createBrowserRouter([
                 element: <DashboardLayout />,
                 children: [
                     { path: '/dashboard', element: <DashboardPage /> },
+                    {
+                        path: '/users',
+                        element: <ProtectedRoute requiredPermission="users:view"><UsersPage /></ProtectedRoute>,
+                    },
                     {
                         path: '/clients',
                         element: (

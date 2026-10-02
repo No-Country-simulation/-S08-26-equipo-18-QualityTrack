@@ -100,7 +100,6 @@ export const ROLE_PERMISSIONS: Record<string, Permission[]> = {
         'deliveries:view',
         'deliveries:create',
         'deliveries:edit',
-        'users:view',
     ],
     produccion: [
         'requests:view',

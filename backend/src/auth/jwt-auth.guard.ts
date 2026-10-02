@@ -46,7 +46,7 @@ export class JwtAuthGuard implements CanActivate {
             { id: payload.sid, revokedAt: null, expiresAt: { $gt: new Date() } },
             { populate: ["user.role"] },
         );
-        if (!session || String(session.user.id) !== payload.sub) {
+        if (!session || !session.user.isActive || String(session.user.id) !== payload.sub) {
             throw new UnauthorizedException();
         }
 

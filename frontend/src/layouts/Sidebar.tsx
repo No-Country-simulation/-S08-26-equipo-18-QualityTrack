@@ -11,6 +11,7 @@ import {
   LuShieldCheck,
   LuTruck,
   LuWrench,
+  LuUsers,
 } from "react-icons/lu";
 import { Can } from "../components/Can";
 import type { Permission } from "../types/permissions";
@@ -32,6 +33,7 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { label: "Dashboard", to: "/dashboard", icon: LuLayoutDashboard },
+  { label: "Usuarios", to: "/users", icon: LuUsers, permission: "users:view" },
   {
     label: "Clientes",
     to: "/clients",
