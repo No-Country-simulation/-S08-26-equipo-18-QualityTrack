@@ -46,6 +46,47 @@ const click = async (target: HTMLElement) =>
   act(async () => {
     fireEvent.click(target);
   });
+it("crea solicitudes sin pedir ni enviar número y conserva el número histórico al editar", async () => {
+  const save = vi.fn().mockResolvedValue(undefined);
+  const view = renderWithProviders(
+    <RequestFormModal
+      open
+      clients={[client]}
+      onSave={save}
+      onOpenChange={vi.fn()}
+    />,
+  );
+  expect(screen.getByLabelText("Nro. de solicitud")).toHaveAttribute(
+    "readonly",
+  );
+  expect(screen.getByLabelText("Nro. de solicitud")).toHaveValue(
+    "Se asignará al guardar",
+  );
+  fireEvent.change(screen.getByLabelText("Cliente solicitante"), {
+    target: { value: String(client.id) },
+  });
+  fireEvent.change(screen.getByLabelText("Titulo de la solicitud"), {
+    target: { value: "Trabajo real" },
+  });
+  fireEvent.change(screen.getByLabelText("Descripcion tecnica"), {
+    target: { value: "Requerimiento" },
+  });
+  await click(screen.getByRole("button", { name: "Crear solicitud" }));
+  expect(save).toHaveBeenCalledOnce();
+  expect(save.mock.calls[0][0]).not.toHaveProperty("requestNumber");
+  view.rerender(
+    <RequestFormModal
+      open
+      request={request}
+      clients={[client]}
+      onSave={save}
+      onOpenChange={vi.fn()}
+    />,
+  );
+  expect(screen.getByLabelText("Nro. de solicitud")).toHaveValue(
+    request.requestNumber,
+  );
+});
 beforeEach(() =>
   useAuthStore.setState({
     isAuthenticated: true,
@@ -176,9 +217,9 @@ describe("Origen comercial y aceptación persistida", () => {
       />,
     );
     const dialog = screen.getByRole("dialog");
-    fireEvent.change(within(dialog).getByPlaceholderText("COT-2026-006"), {
-      target: { value: "COT-REAL" },
-    });
+    expect(within(dialog).getByLabelText("Nro. de cotizacion")).toHaveAttribute(
+      "readonly",
+    );
     const selects = within(dialog).getAllByRole("combobox");
     fireEvent.change(selects[0], { target: { value: String(client.id) } });
     fireEvent.change(selects[1], { target: { value: String(request.id) } });
@@ -233,6 +274,7 @@ describe("Origen comercial y aceptación persistida", () => {
       },
     ]);
     for (const field of [
+      "quotationNumber",
       "subtotal",
       "taxAmount",
       "createdById",

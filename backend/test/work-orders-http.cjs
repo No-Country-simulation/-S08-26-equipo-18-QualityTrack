@@ -24,18 +24,15 @@ module.exports = async (
   const request = await (
     await call('POST', '/requests', token, {
       clientId: client.id,
-      requestNumber: 'SOL-WO',
       title: 'WO source',
       description: 'Requirements',
       receivedAt: '2026-10-01',
     })
   ).json();
-  let serial = 0;
   const quote = async (status) => {
     const response = await call('POST', '/quotations', token, {
       clientId: client.id,
       requestId: request.id,
-      quotationNumber: `COT-WO-${++serial}`,
       version: 1,
       description: 'Accepted conditions',
       currency: 'ARS',

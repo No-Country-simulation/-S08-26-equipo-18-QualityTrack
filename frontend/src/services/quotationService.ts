@@ -36,8 +36,19 @@ export interface Quotation {
   decidedBy?: { id: number; firstName: string; lastName: string } | null;
 }
 
-export type CreateQuotationDto = Pick<Quotation, "clientId" | "requestId" | "quotationNumber" | "version" | "description" | "currency" | "validUntil"> & {
-  items: Pick<QuotationItem, "description" | "quantity" | "unitPrice" | "notes">[];
+export type CreateQuotationDto = Pick<
+  Quotation,
+  | "clientId"
+  | "requestId"
+  | "version"
+  | "description"
+  | "currency"
+  | "validUntil"
+> & {
+  items: Pick<
+    QuotationItem,
+    "description" | "quantity" | "unitPrice" | "notes"
+  >[];
 };
 export type UpdateQuotationDto = Partial<CreateQuotationDto>;
 
@@ -54,7 +65,10 @@ export const quotationService = {
   update(id: number | string, data: UpdateQuotationDto): Promise<Quotation> {
     return api.put<Quotation>(`/quotations/${id}`, data);
   },
-  decide(id: number | string, status: "accepted" | "rejected"): Promise<Quotation> {
+  decide(
+    id: number | string,
+    status: "accepted" | "rejected",
+  ): Promise<Quotation> {
     return api.patch<Quotation>(`/quotations/${id}/decision`, { status });
   },
 };

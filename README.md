@@ -254,8 +254,11 @@ La API ofrece `GET/POST /requests`, `GET/PUT /requests/:id`,
 servidor. No existen acciones de borrado físico para estos registros.
 
 Las altas requieren un cliente activo. La solicitud seleccionada debe pertenecer
-al mismo cliente de la cotización. Los números se ingresan manualmente, son únicos
-y no pueden cambiarse al editar; tampoco puede cambiarse el cliente ni el origen.
+al mismo cliente de la cotización. El servidor genera los números visibles con
+secuencias independientes: `SOL-000001` y `COT-000001`. Los IDs internos también
+son automáticos. El navegador no calcula ni envía estos números; se asignan al
+guardar, son únicos y pueden tener saltos por transacciones fallidas. No pueden
+cambiarse al editar; tampoco puede cambiarse el cliente ni el origen.
 Una solicitud con cotizaciones conserva sus datos técnicos sin edición posterior.
 Fecha de entrega solicitada y vigencia de la oferta son opcionales: omitirlas en
 una actualización conserva el valor y enviar `null` lo limpia. La entrega
@@ -272,15 +275,21 @@ Las cotizaciones comienzan pendientes y pueden editarse mientras estén en ese
 estado. Aceptar requiere cliente activo, vigencia no vencida, ítems e importes
 coherentes. La decisión se confirma en pantalla y conserva quién la registró y
 cuándo; repetir la misma decisión no cambia esa evidencia. Aceptadas y rechazadas
-se consultan mediante **Ver detalle** y quedan sin edición. Una nueva oferta debe
-crearse con un número distinto. Esta decisión comercial no constituye la
+se consultan mediante **Ver detalle** y quedan sin edición. Una nueva oferta recibe
+otro número automáticamente. Esta decisión comercial no constituye la
 aprobación interna de una OT; el alta de OT desde una oferta aceptada corresponde
 a la gestión de órdenes de trabajo descrita a continuación.
 
 La migración `Migration20261002170000_quotation_decision` conserva las cotizaciones
 e ítems existentes y agrega estado pendiente, sin inventar aceptación, autor ni
 fecha. Los importes históricos se mantienen visibles: si son inconsistentes,
-deben corregirse explícitamente antes de aceptar. Para actualizar una base local:
+deben corregirse explícitamente antes de aceptar.
+
+La migración `Migration20261002190000_commercial_numbers` agrega las secuencias
+sin renumerar registros anteriores. Continúa por encima del mayor correlativo
+existente del formato `SOL-n` o `COT-n`. Los números manuales anteriores conservan
+su valor y sus relaciones. El alta por API no admite `requestNumber` ni
+`quotationNumber` enviados por el cliente. Para actualizar una base local:
 
 ```bash
 docker compose run --rm --no-deps backend pnpm migration:up

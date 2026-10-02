@@ -15,7 +15,10 @@ export interface Request {
   updatedAt: string | null;
 }
 
-export type CreateRequestDto = Pick<Request, "clientId" | "requestNumber" | "title" | "description" | "receivedAt" | "requestedDeliveryDate">;
+export type CreateRequestDto = Pick<
+  Request,
+  "clientId" | "title" | "description" | "receivedAt" | "requestedDeliveryDate"
+>;
 export type UpdateRequestDto = Partial<CreateRequestDto>;
 
 export const requestService = {
