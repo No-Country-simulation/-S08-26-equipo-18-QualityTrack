@@ -8,6 +8,7 @@ import { validateEnv } from './config/env.validation';
 import { AuthModule } from './auth/auth.module';
 import { ClientsModule } from './clients/clients.module';
 import { UsersModule } from './users/users.module';
+import { CommercialModule } from './commercial/commercial.module';
 
 @Module({
     imports: [
@@ -19,6 +20,7 @@ import { UsersModule } from './users/users.module';
         AuthModule,
         ClientsModule,
         UsersModule,
+        CommercialModule,
     ],
     controllers: [AppController],
     providers: [AppService],

@@ -2,6 +2,14 @@
 
 Registro append-only, lo más nuevo arriba. Una entrada por ciclo de cambio cerrado.
 
+## 2026-10-02 · Solicitudes, cotizaciones y decisión comercial
+Type:     add
+Change:   APIs autenticadas de solicitudes y cotizaciones con ítems, formularios conectados y consulta del detalle. Administrador, Supervisor y Administración pueden gestionar el origen comercial; Producción consulta solicitudes. Administrador y Supervisor registran aceptación o rechazo con confirmación.
+Reason:   persistir el origen comercial del trabajo y registrar la decisión del cliente antes de incorporar el alta de OT.
+Impact:   cliente activo en altas, solicitud del mismo cliente, números únicos e inmutables, cantidades y precios decimales validados. Importes calculados por el servidor con redondeo a centavos e impuesto actual del 21 %, cotización e ítems en una transacción, autor y fechas del servidor. Decisión persistida e idempotente; cotizaciones decididas y solicitudes ya cotizadas conservan su contenido. Sin borrado físico. Migración aditiva y snapshot actualizado; las ofertas anteriores quedan pendientes y conservan sus datos, sin aceptación inventada.
+
+La aceptación comercial no equivale a aprobación interna de OT. El alta de OT y sus restricciones corresponden a la siguiente etapa. Sin cambios de secretos ni nuevas dependencias.
+
 ## 2026-10-02 · Datos personales y baja lógica de usuarios
 Type:     add
 Change:   Administrador puede editar nombre, apellido, email y DNI, y desactivar o reactivar cuentas con confirmación. DNI obligatorio y único en las altas y el administrador inicial; cuentas existentes con DNI pendiente para completar al editar. Filtros Activos/Inactivos/Todos y datos conservados al dar de baja.

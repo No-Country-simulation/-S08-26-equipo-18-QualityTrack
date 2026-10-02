@@ -64,29 +64,39 @@ export function RequestFormModal({
     rules: {
       requestNumber: [
         validators.required("El numero de solicitud es obligatorio"),
+        validators.maxLength(100),
       ],
-      title: [validators.required("El titulo de la solicitud es obligatorio")],
+      title: [
+        validators.required("El titulo de la solicitud es obligatorio"),
+        validators.maxLength(500),
+      ],
       description: [
         validators.required("La descripcion tecnica es obligatoria"),
+        validators.maxLength(5000),
       ],
       clientId: [validators.required("Debes seleccionar un cliente")],
       receivedAt: [
         validators.required("La fecha de recepcion es obligatoria"),
-        validators.date("La fecha de recepcion debe estar completa (DD/MM/AAAA)"),
+        validators.date(
+          "La fecha de recepcion debe estar completa (DD/MM/AAAA)",
+        ),
       ],
       requestedDeliveryDate: [
-        validators.required("La fecha de entrega deseada es obligatoria"),
-        validators.date("La fecha de entrega deseada debe estar completa (DD/MM/AAAA)"),
+        validators.date(
+          "La fecha de entrega deseada debe estar completa (DD/MM/AAAA)",
+        ),
         validators.dateAfterOrEqual(
           (): string => values.receivedAt,
-          "La fecha de entrega no puede ser anterior a la fecha de recepcion"
+          "La fecha de entrega no puede ser anterior a la fecha de recepcion",
         ),
       ],
     },
     onSubmit: async (formValues) => {
       const numericClientId = Number(formValues.clientId);
-      const receivedAtIso = toDateIso(formValues.receivedAt) ?? new Date().toISOString();
-      const requestedDeliveryDateIso = toDateIso(formValues.requestedDeliveryDate);
+      const receivedAtIso = toDateIso(formValues.receivedAt)!;
+      const requestedDeliveryDateIso = toDateIso(
+        formValues.requestedDeliveryDate,
+      );
 
       await onSave({
         requestNumber: formValues.requestNumber.trim(),
@@ -94,7 +104,7 @@ export function RequestFormModal({
         description: formValues.description.trim(),
         clientId: numericClientId,
         receivedAt: receivedAtIso,
-        requestedDeliveryDate: requestedDeliveryDateIso,
+        requestedDeliveryDate: requestedDeliveryDateIso ?? null,
       });
       onOpenChange({ open: false });
     },
@@ -116,16 +126,23 @@ export function RequestFormModal({
             : "",
         });
       } else {
-        reset(DEFAULT_VALUES);
+        reset({ ...DEFAULT_VALUES, receivedAt: getTodayDateString() });
       }
     }
   }, [open, request, reset]);
 
   const handleClose = () => {
+    if (isSubmitting) return;
     onOpenChange({ open: false });
   };
 
-  const clientOptions = clients.map((c) => ({
+  const availableClients = clients.filter((c) => c.isActive);
+  if (
+    request?.client &&
+    !availableClients.some((c) => c.id === request.clientId)
+  )
+    availableClients.push(request.client);
+  const clientOptions = availableClients.map((c) => ({
     value: String(c.id),
     label: `${c.businessName}`,
   }));
@@ -133,7 +150,9 @@ export function RequestFormModal({
   return (
     <Modal
       open={open}
-      onOpenChange={onOpenChange}
+      onOpenChange={(details) => {
+        if (!isSubmitting) onOpenChange(details);
+      }}
       title={isEditing ? "Editar solicitud" : "Nueva solicitud"}
       footer={
         <HStack gap={2} justify="flex-end" w="full">
@@ -148,6 +167,8 @@ export function RequestFormModal({
             colorPalette="blue"
             onClick={() => handleSubmit()}
             loading={isSubmitting}
+            disabled={isSubmitting}
+            aria-label={isEditing ? "Guardar cambios" : "Crear solicitud"}
           >
             {isEditing ? "Guardar cambios" : "Crear solicitud"}
           </Button>
@@ -172,7 +193,10 @@ export function RequestFormModal({
           >
             <Input
               placeholder="SOL-2026-001"
+              readOnly={isEditing}
+              maxLength={100}
               value={values.requestNumber}
+              aria-label="Nro. de solicitud"
               onChange={(e) => handleChange("requestNumber", e.target.value)}
               onBlur={() => handleBlur("requestNumber")}
             />
@@ -185,6 +209,8 @@ export function RequestFormModal({
           >
             <Select
               value={values.clientId}
+              aria-label="Cliente solicitante"
+              disabled={isEditing}
               onChange={(e) => handleChange("clientId", e.target.value)}
               onBlur={() => handleBlur("clientId")}
             >
@@ -206,6 +232,7 @@ export function RequestFormModal({
           <Input
             placeholder="Ej: Fabricacion de ejes estriados para reductor"
             value={values.title}
+            aria-label="Titulo de la solicitud"
             onChange={(e) => handleChange("title", e.target.value)}
             onBlur={() => handleBlur("title")}
           />
@@ -219,6 +246,7 @@ export function RequestFormModal({
           <Textarea
             placeholder="Detalles de planos, cantidad de piezas, material requerido, tolerancias especiales..."
             value={values.description}
+            aria-label="Descripcion tecnica"
             onChange={(e) => handleChange("description", e.target.value)}
             onBlur={() => handleBlur("description")}
             rows={3}
@@ -234,6 +262,7 @@ export function RequestFormModal({
             <Input
               type="date"
               value={values.receivedAt}
+              aria-label="Fecha de recepcion"
               onChange={(e) => handleChange("receivedAt", e.target.value)}
               onBlur={() => handleBlur("receivedAt")}
             />
@@ -241,7 +270,6 @@ export function RequestFormModal({
 
           <FormField
             label="Fecha de entrega deseada"
-            required
             error={
               touched.requestedDeliveryDate
                 ? errors.requestedDeliveryDate
@@ -252,6 +280,7 @@ export function RequestFormModal({
             <Input
               type="date"
               value={values.requestedDeliveryDate}
+              aria-label="Fecha de entrega deseada"
               onChange={(e) =>
                 handleChange("requestedDeliveryDate", e.target.value)
               }

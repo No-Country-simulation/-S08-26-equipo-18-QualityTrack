@@ -100,15 +100,11 @@ describe('Fallos de escritura conservan datos y formulario', () => {
     expect(screen.getByText('Registro del servidor')).toBeInTheDocument()
   })
 
-  it('delete fallido conserva la fila y permite reintentar', async () => {
-    const del = vi.spyOn(api, 'delete').mockRejectedValueOnce(new ApiError('No se eliminó', 403)).mockResolvedValueOnce(undefined)
+  it('las solicitudes no ofrecen borrado de registros de origen', async () => {
+    const del = vi.spyOn(api, 'delete')
     realFixtures()
-    await click(await screen.findByRole('button', { name: 'Eliminar solicitud' }))
-    await click(await screen.findByRole('button', { name: 'Eliminar' }))
-    expect(await screen.findByText('No se eliminó')).toBeInTheDocument()
-    expect(screen.getByText(MOCK_REQUESTS[0].title)).toBeInTheDocument()
-    await click(screen.getByRole('button', { name: 'Eliminar' }))
-    await waitFor(() => expect(del).toHaveBeenCalledTimes(2))
-    expect(await screen.findByText('No hay solicitudes registradas')).toBeInTheDocument()
+    await screen.findByText(MOCK_REQUESTS[0].title)
+    expect(screen.queryByRole('button', { name: 'Eliminar solicitud' })).not.toBeInTheDocument()
+    expect(del).not.toHaveBeenCalled()
   })
 })

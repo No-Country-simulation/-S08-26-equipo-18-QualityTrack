@@ -1,12 +1,5 @@
 import { useEffect, useState } from "react";
-import {
-  Box,
-  Flex,
-  HStack,
-  SimpleGrid,
-  Text,
-  VStack,
-} from "@chakra-ui/react";
+import { Box, Flex, HStack, SimpleGrid, Text, VStack } from "@chakra-ui/react";
 import { LuPlus, LuTrash2 } from "react-icons/lu";
 import { Alert } from "../../components/Alert";
 import { Button } from "../../components/Button";
@@ -18,6 +11,7 @@ import { Table } from "../../components/Table";
 import { Textarea } from "../../components/Textarea";
 import { useForm } from "../../hooks/useForm";
 import { formatCurrency } from "./quotationColumns";
+import { calculateAmounts, cents } from "./quotationMath";
 import { toDateIso, validators } from "../../utils";
 import type { Client } from "../../services/clientService";
 import type {
@@ -32,6 +26,7 @@ export interface LineItem {
   quantity: number;
   unitPrice: number;
   subtotal: number;
+  notes?: string | null;
 }
 
 export interface QuotationFormModalProps {
@@ -40,6 +35,7 @@ export interface QuotationFormModalProps {
   quotation?: Quotation | null;
   clients: Client[];
   requests: Request[];
+  readOnly?: boolean;
   onSave: (quotationData: CreateQuotationDto) => Promise<void> | void;
 }
 
@@ -73,6 +69,7 @@ export function QuotationFormModal({
   quotation,
   clients,
   requests,
+  readOnly = false,
   onSave,
 }: QuotationFormModalProps) {
   const isEditing = Boolean(quotation);
@@ -100,28 +97,47 @@ export function QuotationFormModal({
     rules: {
       quotationNumber: [
         validators.required("El numero de cotizacion es obligatorio"),
+        validators.maxLength(100),
       ],
       clientId: [validators.required("Debes seleccionar un cliente")],
       requestId: [validators.required("Debes seleccionar una solicitud")],
       description: [
         validators.required("La descripcion de la cotizacion es obligatoria"),
+        validators.maxLength(5000),
       ],
-      subtotal: [validators.required("El subtotal es obligatorio")],
+      version: [
+        (value) =>
+          /^\d+$/.test(value) &&
+          Number(value) >= 1 &&
+          Number(value) <= 2147483647
+            ? null
+            : "La versión debe ser un entero positivo.",
+      ],
       validUntil: [
-        validators.required("La fecha de validez es obligatoria"),
         validators.date("La fecha de validez debe estar completa (DD/MM/AAAA)"),
       ],
     },
     onSubmit: async (formValues) => {
+      if (readOnly) return;
       if (items.length === 0) {
         setItemError("Debes agregar al menos un item a la cotizacion");
+        return;
+      }
+      if (
+        !requests.some(
+          (request) =>
+            request.id === Number(formValues.requestId) &&
+            request.clientId === Number(formValues.clientId),
+        )
+      ) {
+        setItemError("La solicitud debe pertenecer al cliente elegido.");
         return;
       }
       setItemError(null);
 
       const numericClientId = Number(formValues.clientId);
       const numericRequestId = Number(formValues.requestId);
-      const numericVersion = parseInt(formValues.version, 10) || 1;
+      const numericVersion = Number(formValues.version);
       const validUntilIso = toDateIso(formValues.validUntil);
 
       await onSave({
@@ -130,15 +146,13 @@ export function QuotationFormModal({
         clientId: numericClientId,
         requestId: numericRequestId,
         currency: formValues.currency,
-        validUntil: validUntilIso,
+        validUntil: validUntilIso ?? null,
         description: formValues.description.trim(),
-        subtotal: Number(formValues.subtotal || 0).toFixed(2),
-        taxAmount: Number(formValues.taxAmount || 0).toFixed(2),
         items: items.map((it) => ({
           description: it.description,
           quantity: it.quantity,
           unitPrice: it.unitPrice,
-          subtotal: it.subtotal,
+          notes: it.notes ?? null,
         })),
       });
       onOpenChange({ open: false });
@@ -175,6 +189,7 @@ export function QuotationFormModal({
               quantity: it.quantity,
               unitPrice: it.unitPrice,
               subtotal: it.subtotal,
+              notes: it.notes,
             })),
           );
         } else {
@@ -189,21 +204,28 @@ export function QuotationFormModal({
 
   // Recalculo automatico de subtotal e IVA al modificar los items de linea
   const recalculateFromItems = (currentItems: LineItem[]) => {
-    if (currentItems.length > 0) {
-      const totalSub = currentItems.reduce((acc, it) => acc + it.subtotal, 0);
-      const calculatedTax = totalSub * 0.21;
-      setValue("subtotal", totalSub.toFixed(2));
-      setValue("taxAmount", calculatedTax.toFixed(2));
-    }
+    const amounts = calculateAmounts(currentItems);
+    setValue("subtotal", amounts.subtotal);
+    setValue("taxAmount", amounts.taxAmount);
   };
 
   const handleAddItem = () => {
-    if (!newItemDesc.trim()) {
+    if (isSubmitting || readOnly) return;
+    if (!newItemDesc.trim() || newItemDesc.trim().length > 5000) {
       setItemError("Ingresa una descripcion para el item.");
       return;
     }
-    const qty = parseFloat(newItemQty);
-    const price = parseFloat(newItemPrice);
+    try {
+      cents(newItemQty);
+      cents(newItemPrice);
+    } catch {
+      setItemError(
+        "Cantidad y precio requieren valores sin exponentes y con hasta 2 decimales.",
+      );
+      return;
+    }
+    const qty = Number(newItemQty);
+    const price = Number(newItemPrice);
 
     if (isNaN(qty) || qty <= 0) {
       setItemError("La cantidad debe ser un numero mayor a 0.");
@@ -214,7 +236,14 @@ export function QuotationFormModal({
       return;
     }
 
-    const itemSubtotal = qty * price;
+    let itemSubtotal: number;
+    try {
+      itemSubtotal = calculateAmounts([{ quantity: qty, unitPrice: price }])
+        .lines[0];
+    } catch (error) {
+      setItemError((error as Error).message);
+      return;
+    }
     const newItem: LineItem = {
       id: `${Date.now()}-${Math.random()}`,
       description: newItemDesc.trim(),
@@ -224,8 +253,17 @@ export function QuotationFormModal({
     };
 
     const updatedItems = [...items, newItem];
+    if (updatedItems.length > 100) {
+      setItemError("Se admiten hasta 100 ítems.");
+      return;
+    }
+    try {
+      recalculateFromItems(updatedItems);
+    } catch (error) {
+      setItemError((error as Error).message);
+      return;
+    }
     setItems(updatedItems);
-    recalculateFromItems(updatedItems);
 
     setNewItemDesc("");
     setNewItemQty("1");
@@ -234,21 +272,33 @@ export function QuotationFormModal({
   };
 
   const handleRemoveItem = (id: string) => {
+    if (isSubmitting || readOnly) return;
     const updatedItems = items.filter((it) => it.id !== id);
     setItems(updatedItems);
-    recalculateFromItems(updatedItems);
+    try {
+      recalculateFromItems(updatedItems);
+      setItemError(null);
+    } catch (error) {
+      setItemError((error as Error).message);
+    }
   };
 
   const handleClose = () => {
+    if (isSubmitting) return;
     onOpenChange({ open: false });
   };
 
   // Filtrado de solicitudes segun cliente seleccionado
   const clientRequests = values.clientId
     ? requests.filter((r) => String(r.clientId) === values.clientId)
-    : requests;
-  const availableRequests =
-    clientRequests.length > 0 ? clientRequests : requests;
+    : [];
+  const availableRequests = clientRequests;
+  const availableClients = clients.filter((client) => client.isActive);
+  if (
+    quotation?.client &&
+    !availableClients.some((client) => client.id === quotation.clientId)
+  )
+    availableClients.push(quotation.client);
 
   const totalCalculated =
     Number(values.subtotal || 0) + Number(values.taxAmount || 0);
@@ -256,8 +306,16 @@ export function QuotationFormModal({
   return (
     <Modal
       open={open}
-      onOpenChange={onOpenChange}
-      title={isEditing ? "Editar cotizacion" : "Nueva cotizacion"}
+      onOpenChange={(details) => {
+        if (!isSubmitting) onOpenChange(details);
+      }}
+      title={
+        readOnly
+          ? "Detalle de cotizacion"
+          : isEditing
+            ? "Editar cotizacion"
+            : "Nueva cotizacion"
+      }
       size="xl"
       footer={
         <HStack gap={2} justify="flex-end" w="full">
@@ -266,15 +324,19 @@ export function QuotationFormModal({
             onClick={handleClose}
             disabled={isSubmitting}
           >
-            Cancelar
+            {readOnly ? "Cerrar" : "Cancelar"}
           </Button>
-          <Button
-            colorPalette="blue"
-            onClick={() => handleSubmit()}
-            loading={isSubmitting}
-          >
-            {isEditing ? "Guardar cambios" : "Crear cotizacion"}
-          </Button>
+          {!readOnly && (
+            <Button
+              colorPalette="blue"
+              onClick={() => handleSubmit()}
+              loading={isSubmitting}
+              disabled={isSubmitting}
+              aria-label={isEditing ? "Guardar cambios" : "Crear cotizacion"}
+            >
+              {isEditing ? "Guardar cambios" : "Crear cotizacion"}
+            </Button>
+          )}
         </HStack>
       }
     >
@@ -298,8 +360,12 @@ export function QuotationFormModal({
             >
               <Input
                 placeholder="COT-2026-006"
+                aria-label="Nro. de cotizacion"
+                readOnly={isEditing || readOnly}
                 value={values.quotationNumber}
-                onChange={(e) => handleChange("quotationNumber", e.target.value)}
+                onChange={(e) =>
+                  handleChange("quotationNumber", e.target.value)
+                }
                 onBlur={() => handleBlur("quotationNumber")}
               />
             </FormField>
@@ -307,6 +373,7 @@ export function QuotationFormModal({
 
           <FormField
             label="Version"
+            error={touched.version ? errors.version : null}
             required
             helperText="Revision de oferta"
           >
@@ -314,6 +381,8 @@ export function QuotationFormModal({
               type="number"
               min={1}
               value={values.version}
+              readOnly={readOnly}
+              aria-label="Version"
               onChange={(e) => handleChange("version", e.target.value)}
               onBlur={() => handleBlur("version")}
             />
@@ -329,11 +398,16 @@ export function QuotationFormModal({
           >
             <Select
               value={values.clientId}
-              onChange={(e) => handleChange("clientId", e.target.value)}
+              aria-label="Cliente solicitante"
+              disabled={isEditing || readOnly}
+              onChange={(e) => {
+                handleChange("clientId", e.target.value);
+                handleChange("requestId", "");
+              }}
               onBlur={() => handleBlur("clientId")}
             >
               <option value="">-- Seleccionar cliente --</option>
-              {clients.map((c) => (
+              {availableClients.map((c) => (
                 <option key={c.id} value={String(c.id)}>
                   {c.businessName}
                 </option>
@@ -348,6 +422,8 @@ export function QuotationFormModal({
           >
             <Select
               value={values.requestId}
+              aria-label="Solicitud vinculada"
+              disabled={isEditing || readOnly || !values.clientId}
               onChange={(e) => handleChange("requestId", e.target.value)}
               onBlur={() => handleBlur("requestId")}
             >
@@ -366,6 +442,8 @@ export function QuotationFormModal({
           <FormField label="Moneda comercial" required>
             <Select
               value={values.currency}
+              disabled={readOnly}
+              aria-label="Moneda comercial"
               onChange={(e) => handleChange("currency", e.target.value)}
               onBlur={() => handleBlur("currency")}
             >
@@ -376,13 +454,14 @@ export function QuotationFormModal({
 
           <FormField
             label="Fecha de validez"
-            required
             error={touched.validUntil ? errors.validUntil : null}
             helperText="Plazo limite de vigencia de la oferta"
           >
             <Input
               type="date"
               value={values.validUntil}
+              readOnly={readOnly}
+              aria-label="Fecha de validez"
               onChange={(e) => handleChange("validUntil", e.target.value)}
               onBlur={() => handleBlur("validUntil")}
             />
@@ -399,6 +478,8 @@ export function QuotationFormModal({
           <Textarea
             placeholder="Alcance del trabajo, normas de fabricacion aplicadas, condiciones de entrega..."
             value={values.description}
+            readOnly={readOnly}
+            aria-label="Descripcion de la cotizacion"
             onChange={(e) => handleChange("description", e.target.value)}
             onBlur={() => handleBlur("description")}
             rows={2}
@@ -429,51 +510,59 @@ export function QuotationFormModal({
           )}
 
           {/* Formulario rapido para agregar item */}
-          <SimpleGrid columns={{ base: 1, md: 12 }} gap={2} mb={3}>
-            <Box gridColumn={{ base: "span 1", md: "span 6" }}>
-              <Input
-                placeholder="Descripcion del item (ej: Eje estriado SAE 4140)"
-                size="sm"
-                bg="white"
-                value={newItemDesc}
-                onChange={(e) => setNewItemDesc(e.target.value)}
-              />
-            </Box>
-            <Box gridColumn={{ base: "span 1", md: "span 2" }}>
-              <Input
-                type="number"
-                placeholder="Cant."
-                size="sm"
-                bg="white"
-                min={1}
-                value={newItemQty}
-                onChange={(e) => setNewItemQty(e.target.value)}
-              />
-            </Box>
-            <Box gridColumn={{ base: "span 1", md: "span 2" }}>
-              <Input
-                type="number"
-                placeholder="Precio u."
-                size="sm"
-                bg="white"
-                min={0}
-                value={newItemPrice}
-                onChange={(e) => setNewItemPrice(e.target.value)}
-              />
-            </Box>
-            <Box gridColumn={{ base: "span 1", md: "span 2" }}>
-              <Button
-                size="sm"
-                colorPalette="blue"
-                variant="outline"
-                w="full"
-                onClick={handleAddItem}
-              >
-                <LuPlus style={{ marginRight: "4px" }} />
-                Agregar
-              </Button>
-            </Box>
-          </SimpleGrid>
+          {!readOnly && (
+            <SimpleGrid columns={{ base: 1, md: 12 }} gap={2} mb={3}>
+              <Box gridColumn={{ base: "span 1", md: "span 6" }}>
+                <Input
+                  placeholder="Descripcion del item (ej: Eje estriado SAE 4140)"
+                  size="sm"
+                  bg="white"
+                  value={newItemDesc}
+                  aria-label="Descripcion del item"
+                  onChange={(e) => setNewItemDesc(e.target.value)}
+                />
+              </Box>
+              <Box gridColumn={{ base: "span 1", md: "span 2" }}>
+                <Input
+                  type="number"
+                  placeholder="Cant."
+                  size="sm"
+                  bg="white"
+                  min={0.01}
+                  step="0.01"
+                  value={newItemQty}
+                  aria-label="Cantidad del item"
+                  onChange={(e) => setNewItemQty(e.target.value)}
+                />
+              </Box>
+              <Box gridColumn={{ base: "span 1", md: "span 2" }}>
+                <Input
+                  type="number"
+                  placeholder="Precio u."
+                  size="sm"
+                  bg="white"
+                  min={0}
+                  step="0.01"
+                  value={newItemPrice}
+                  aria-label="Precio unitario del item"
+                  onChange={(e) => setNewItemPrice(e.target.value)}
+                />
+              </Box>
+              <Box gridColumn={{ base: "span 1", md: "span 2" }}>
+                <Button
+                  size="sm"
+                  colorPalette="blue"
+                  variant="outline"
+                  w="full"
+                  onClick={handleAddItem}
+                  disabled={isSubmitting}
+                >
+                  <LuPlus style={{ marginRight: "4px" }} />
+                  Agregar
+                </Button>
+              </Box>
+            </SimpleGrid>
+          )}
 
           {/* Tabla de items agregados */}
           {items.length > 0 ? (
@@ -507,7 +596,14 @@ export function QuotationFormModal({
                 <Table.Body>
                   {items.map((it) => (
                     <Table.Row key={it.id}>
-                      <Table.Cell fontSize="xs">{it.description}</Table.Cell>
+                      <Table.Cell fontSize="xs">
+                        {it.description}
+                        {it.notes && (
+                          <Text color="gray.500" fontSize="xs">
+                            {it.notes}
+                          </Text>
+                        )}
+                      </Table.Cell>
                       <Table.Cell fontSize="xs" textAlign="right">
                         {it.quantity}
                       </Table.Cell>
@@ -531,16 +627,19 @@ export function QuotationFormModal({
                         })}
                       </Table.Cell>
                       <Table.Cell textAlign="center">
-                        <Button
-                          size="xs"
-                          variant="ghost"
-                          colorPalette="red"
-                          onClick={() => handleRemoveItem(it.id)}
-                          title="Eliminar item"
-                          aria-label="Eliminar item"
-                        >
-                          <LuTrash2 size={12} />
-                        </Button>
+                        {!readOnly && (
+                          <Button
+                            size="xs"
+                            variant="ghost"
+                            colorPalette="red"
+                            onClick={() => handleRemoveItem(it.id)}
+                            disabled={isSubmitting}
+                            title="Eliminar item"
+                            aria-label="Eliminar item"
+                          >
+                            <LuTrash2 size={12} />
+                          </Button>
+                        )}
                       </Table.Cell>
                     </Table.Row>
                   ))}
@@ -549,8 +648,7 @@ export function QuotationFormModal({
             </Box>
           ) : (
             <Text fontSize="xs" color="gray.500" fontStyle="italic">
-              No hay items agregados. Puedes ingresar los importes directamente
-              abajo si lo deseas.
+              Agregá al menos un ítem para calcular los importes.
             </Text>
           )}
         </Box>
@@ -566,8 +664,8 @@ export function QuotationFormModal({
               type="number"
               step="0.01"
               value={values.subtotal}
-              onChange={(e) => handleChange("subtotal", e.target.value)}
-              onBlur={() => handleBlur("subtotal")}
+              aria-label="Subtotal neto"
+              readOnly
             />
           </FormField>
 
@@ -576,8 +674,8 @@ export function QuotationFormModal({
               type="number"
               step="0.01"
               value={values.taxAmount}
-              onChange={(e) => handleChange("taxAmount", e.target.value)}
-              onBlur={() => handleBlur("taxAmount")}
+              aria-label="Impuesto estimado"
+              readOnly
             />
           </FormField>
 
@@ -610,4 +708,3 @@ export function QuotationFormModal({
 }
 
 export default QuotationFormModal;
-

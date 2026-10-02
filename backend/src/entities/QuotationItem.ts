@@ -22,5 +22,5 @@ export class QuotationItem {
     subtotal: string;
 
     @Property({ type: "varchar", length: 5000, nullable: true })
-    notes?: string;
+    notes?: string | null;
 }

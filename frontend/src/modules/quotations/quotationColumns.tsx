@@ -4,7 +4,7 @@ import { Badge } from "../../components/Badge";
 import type { ColumnDef } from "../../components/DataTable";
 import type { Quotation } from "../../services/quotationService";
 
-export function formatDate(isoString?: string): string {
+export function formatDate(isoString?: string | null): string {
   if (!isoString) return "—";
   try {
     const d = new Date(isoString);
@@ -34,6 +34,36 @@ export function formatCurrency(
 }
 
 export const QUOTATION_COLUMNS: ColumnDef<Quotation>[] = [
+  {
+    header: "Decisión del cliente",
+    cell: (item) => (
+      <Box>
+        <Badge
+          colorPalette={
+            item.decisionStatus === "accepted"
+              ? "green"
+              : item.decisionStatus === "rejected"
+                ? "red"
+                : "gray"
+          }
+        >
+          {item.decisionStatus === "accepted"
+            ? "Aceptada"
+            : item.decisionStatus === "rejected"
+              ? "Rechazada"
+              : "Pendiente"}
+        </Badge>
+        {item.decidedAt && (
+          <Text fontSize="xs">
+            {formatDate(item.decidedAt)} ·{" "}
+            {item.decidedBy
+              ? `${item.decidedBy.firstName} ${item.decidedBy.lastName}`
+              : `Usuario #${item.decidedById}`}
+          </Text>
+        )}
+      </Box>
+    ),
+  },
   {
     header: "Nro. cotizacion",
     accessorKey: "quotationNumber",
@@ -168,4 +198,3 @@ export const QUOTATION_COLUMNS: ColumnDef<Quotation>[] = [
     ),
   },
 ];
-
