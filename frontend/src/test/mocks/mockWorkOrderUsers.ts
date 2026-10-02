@@ -8,42 +8,42 @@ export const MOCK_AVAILABLE_OPERATORS: WorkOrderAssignedUser[] = [
     id: 101,
     firstName: "Juan",
     lastName: "Perez",
-    email: "jperez@qualitytrack.com",
+    isActive: true,
     role: "Operador CNC Senior",
   },
   {
     id: 102,
     firstName: "Roberto",
     lastName: "Gomez",
-    email: "rgomez@qualitytrack.com",
+    isActive: true,
     role: "Tornero Matricero",
   },
   {
     id: 103,
     firstName: "Marcos",
     lastName: "Benitez",
-    email: "mbenitez@qualitytrack.com",
+    isActive: true,
     role: "Fresador CNC",
   },
   {
     id: 104,
     firstName: "Laura",
     lastName: "Gutierrez",
-    email: "lgutierrez@qualitytrack.com",
+    isActive: true,
     role: "Inspectora de Calidad",
   },
   {
     id: 105,
     firstName: "Esteban",
     lastName: "Rossi",
-    email: "erossi@qualitytrack.com",
+    isActive: true,
     role: "Ajustador Mecanico",
   },
   {
     id: 106,
     firstName: "Carlos",
     lastName: "Mendoza",
-    email: "cmendoza@qualitytrack.com",
+    isActive: true,
     role: "Supervisor de Planta",
   },
 ];
@@ -54,73 +54,53 @@ export const MOCK_WORK_ORDER_USERS: WorkOrderUser[] = [
     workOrderId: 1,
     userId: 101,
     user: MOCK_AVAILABLE_OPERATORS[0],
-    role: "Operador CNC principal",
-    shift: "Turno mañana (06:00 - 14:00)",
+
     assignedAt: "2026-03-01T08:00:00Z",
-    notes:
-      "A cargo del mecanizado en Torno CNC Haas ST-20 segun hoja de ruta HR-2026-001.",
-    createdAt: "2026-03-01T08:00:00Z",
-    updatedAt: "2026-03-01T08:00:00Z",
+
   },
   {
     id: 2,
     workOrderId: 1,
     userId: 102,
     user: MOCK_AVAILABLE_OPERATORS[1],
-    role: "Tornero de apoyo / Ajuste",
-    shift: "Turno mañana (06:00 - 14:00)",
+
     assignedAt: "2026-03-01T08:30:00Z",
-    notes: "Verificacion de concentricidad y desbaste secundario.",
-    createdAt: "2026-03-01T08:30:00Z",
-    updatedAt: "2026-03-01T08:30:00Z",
+
   },
   {
     id: 3,
     workOrderId: 1,
     userId: 104,
     user: MOCK_AVAILABLE_OPERATORS[3],
-    role: "Inspectora de Control Dimensional",
-    shift: "Turno tarde (14:00 - 22:00)",
+
     assignedAt: "2026-03-01T14:30:00Z",
-    notes:
-      "Medicion con micrometro y rugosimetro segun protocolo de calidad.",
-    createdAt: "2026-03-01T14:30:00Z",
-    updatedAt: "2026-03-01T14:30:00Z",
+
   },
   {
     id: 4,
     workOrderId: 2,
     userId: 103,
     user: MOCK_AVAILABLE_OPERATORS[2],
-    role: "Fresador CNC principal",
-    shift: "Turno mañana (06:00 - 14:00)",
+
     assignedAt: "2026-02-15T07:30:00Z",
-    notes: "Fresado de canales y orificios en Centro DMG MORI.",
-    createdAt: "2026-02-15T07:30:00Z",
-    updatedAt: "2026-02-15T07:30:00Z",
+
   },
   {
     id: 5,
     workOrderId: 2,
     userId: 105,
     user: MOCK_AVAILABLE_OPERATORS[4],
-    role: "Ajustador de banco",
-    shift: "Turno tarde (14:00 - 22:00)",
+
     assignedAt: "2026-02-15T15:00:00Z",
-    notes: "Desbarbado y limpieza final de roscas.",
-    createdAt: "2026-02-15T15:00:00Z",
-    updatedAt: "2026-02-15T15:00:00Z",
+
   },
   {
     id: 6,
     workOrderId: 3,
     userId: 101,
     user: MOCK_AVAILABLE_OPERATORS[0],
-    role: "Operador CNC desbaste",
-    shift: "Turno noche (22:00 - 06:00)",
+
     assignedAt: "2026-02-21T22:30:00Z",
-    notes: "Preparacion y montaje de mordazas especiales.",
-    createdAt: "2026-02-21T22:30:00Z",
-    updatedAt: "2026-02-21T22:30:00Z",
+
   },
 ];

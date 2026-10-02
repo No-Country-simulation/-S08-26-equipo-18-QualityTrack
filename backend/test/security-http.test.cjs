@@ -22,7 +22,7 @@ test('HTTP authorization and logout against an isolated PostgreSQL database', {
     const databaseConfig = require('../dist/src/config/database.config').default;
     const legacyOrm = await PostgreSqlORM.init(databaseConfig);
     const legacyPasswordHash = await require('bcryptjs').hash(randomBytes(24).toString('hex'), 10);
-    let legacyId, legacyQuoteId, legacyQuoteBefore, legacyWorkOrderId, legacyWorkOrderBefore;
+    let legacyId, legacyQuoteId, legacyQuoteBefore, legacyWorkOrderId, legacyWorkOrderBefore, legacyProductionBefore;
     try {
         const rows = await legacyOrm.em.getConnection().execute(
             'insert into "user" (first_name, last_name, email, password, role_id, created_at, updated_at) values (?, ?, ?, ?, (select id from role where name = ?), now(), now()) returning id',
@@ -42,6 +42,22 @@ test('HTTP authorization and logout against an isolated PostgreSQL database', {
         assert.throws(() => execFileSync(process.execPath, [cli, 'migration:up', '--config', './mikro-orm.config.ts'], { stdio: 'pipe' }));
         assert.equal((await connection.execute('select work_order_number from work_order where id = ?', [duplicate.id]))[0].work_order_number, 1100);
         await connection.execute('delete from work_order where id = ?', [duplicate.id]);
+        execFileSync(process.execPath, [cli, 'migration:up', '--to', 'Migration20261002190000_commercial_numbers', '--config', './mikro-orm.config.ts'], { stdio: 'inherit' });
+        const [sheet] = await connection.execute('insert into route_sheet (work_order_id,route_number,instructions,created_by_id,created_at,updated_at) values (?, ?, ?, ?, now(), now()) returning id', [legacyWorkOrderId, 'HR-000123', 'Historical instructions', legacyId]);
+        await connection.execute('insert into operation (route_sheet_id,operation_number,name,notes) values (?, ?, ?, ?)', [sheet.id, 'OP-007', 'Historical operation', 'Historical notes']);
+        const [material] = await connection.execute('insert into material (material_code,name,specification,manufacturer) values (?, ?, ?, ?) returning id', ['LEGACY-MAT', 'Historical material', 'Historical specification', 'Historical manufacturer']);
+        await connection.execute('insert into work_order_material (work_order_id,material_id,quantity,unit,lot_number) values (?, ?, ?, ?, ?)', [legacyWorkOrderId, material.id, '1.25', 'kg', 'Historical lot']);
+        await connection.execute('insert into work_order_user (work_order_id,user_id,assigned_at) values (?, ?, now())', [legacyWorkOrderId, legacyId]);
+        const [duplicateOp] = await connection.execute('insert into operation (route_sheet_id,operation_number,name) values (?, ?, ?) returning id', [sheet.id, 'OP-007', 'Duplicate fixture']);
+        const failedOp = require('node:child_process').spawnSync(process.execPath, [cli, 'migration:up', '--config', './mikro-orm.config.ts'], { encoding: 'utf8' });
+        assert.notEqual(failedOp.status, 0); assert.match(failedOp.stdout + failedOp.stderr, /Duplicate operation numbers/);
+        await connection.execute('delete from operation where id=?', [duplicateOp.id]);
+        const [duplicatePerson] = await connection.execute('insert into work_order_user (work_order_id,user_id,assigned_at) values (?, ?, now()) returning id', [legacyWorkOrderId, legacyId]);
+        const failedPerson = require('node:child_process').spawnSync(process.execPath, [cli, 'migration:up', '--config', './mikro-orm.config.ts'], { encoding: 'utf8' });
+        assert.notEqual(failedPerson.status, 0); assert.match(failedPerson.stdout + failedPerson.stderr, /Duplicate personnel assignments/);
+        await connection.execute('delete from work_order_user where id=?', [duplicatePerson.id]);
+        legacyProductionBefore={};
+        for(const table of ['route_sheet','operation','material','work_order_material','work_order_user']) legacyProductionBefore[table]=await connection.execute(`select * from ${table} order by id`);
         legacyQuoteBefore = (await connection.execute('select * from quotation where id = ?', [quote.id]))[0];
     } finally { await legacyOrm.close(); }
     execFileSync(process.execPath, [cli, 'migration:up', '--config', './mikro-orm.config.ts'], { stdio: 'inherit' });
@@ -76,6 +92,14 @@ test('HTTP authorization and logout against an isolated PostgreSQL database', {
         assert.equal(legacyUser.isActive, true);
         assert.equal(legacyUser.password, legacyPasswordHash);
         assert.equal(legacyUser.email, 'migration-legacy@example.test');
+        await t.test('production migration preserves historical records and rejects duplicates without assigning invented actors', async () => {
+            for(const [table, rows] of Object.entries(legacyProductionBefore)) {
+                const after=await em.getConnection().execute(`select * from ${table} order by id`);
+                assert.equal(after.length,rows.length);
+                for(let i=0;i<rows.length;i++)for(const key of Object.keys(rows[i]))assert.deepEqual(after[i][key],rows[i][key],`${table}.${key}`);
+                for(const row of after)for(const key of ['assigned_by_id','executed_by_id','unassigned_at','unassigned_by_id'])if(key in row)assert.equal(row[key],null);
+            }
+        });
         const legacyQuote = (await em.getConnection().execute('select * from quotation where id = ?', [legacyQuoteId]))[0];
         for (const key of Object.keys(legacyQuoteBefore)) assert.deepEqual(legacyQuote[key], legacyQuoteBefore[key]);
         assert.equal(legacyQuote.decision_status, 'pending');
@@ -386,6 +410,7 @@ test('HTTP authorization and logout against an isolated PostgreSQL database', {
         });
         await require('./commercial-http.cjs')(t, { call, em, users, sessions, roleNames, admin, legacyQuoteId });
         await require('./work-orders-http.cjs')(t, { call, em, users, sessions, roleNames, admin, legacyWorkOrderId, legacyWorkOrderBefore });
+        await require('./production-http.cjs')(t, { call, em, users, sessions, roleNames, admin, legacyWorkOrderId });
         const created = await call('POST', '/clients', admin.accessToken, input());
         assert.equal(created.status, 201);
         const client = await created.json();

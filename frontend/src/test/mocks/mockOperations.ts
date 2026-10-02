@@ -13,8 +13,7 @@ export const MOCK_OPERATIONS: Operation[] = [
     actualStart: "2026-03-02T08:30:00Z",
     actualEnd: "2026-03-02T11:45:00Z",
     notes: "Lote de 20 barras cortadas a 450 mm con sobremedida de 3 mm.",
-    createdAt: "2026-03-01T10:00:00Z",
-    updatedAt: "2026-03-02T11:45:00Z",
+
   },
   {
     id: 2,
@@ -28,8 +27,7 @@ export const MOCK_OPERATIONS: Operation[] = [
     actualStart: "2026-03-03T08:15:00Z",
     actualEnd: "2026-03-04T16:30:00Z",
     notes: "Tolerancias de desbaste cumplidas segun programa CNC-EJE-V3.",
-    createdAt: "2026-03-01T10:00:00Z",
-    updatedAt: "2026-03-04T16:30:00Z",
+
   },
   {
     id: 3,
@@ -43,8 +41,7 @@ export const MOCK_OPERATIONS: Operation[] = [
     actualStart: "2026-03-05T09:00:00Z",
     actualEnd: "2026-03-06T15:00:00Z",
     notes: "Control de paso angular y perfil de estrias conforme.",
-    createdAt: "2026-03-01T10:00:00Z",
-    updatedAt: "2026-03-06T15:00:00Z",
+
   },
   {
     id: 4,
@@ -57,8 +54,7 @@ export const MOCK_OPERATIONS: Operation[] = [
     plannedEnd: "2026-03-08T17:00:00Z",
     actualStart: "2026-03-07T08:30:00Z",
     notes: "Objetivo de dureza superficial 58 a 62 HRC.",
-    createdAt: "2026-03-01T10:00:00Z",
-    updatedAt: "2026-03-07T08:30:00Z",
+
   },
   {
     id: 5,
@@ -70,8 +66,7 @@ export const MOCK_OPERATIONS: Operation[] = [
     plannedStart: "2026-03-10T08:00:00Z",
     plannedEnd: "2026-03-12T17:00:00Z",
     notes: "Pendiente de inicio tras finalizar enfriamiento y control de alabeo.",
-    createdAt: "2026-03-01T10:00:00Z",
-    updatedAt: "2026-03-01T10:00:00Z",
+
   },
   {
     id: 6,
@@ -85,8 +80,7 @@ export const MOCK_OPERATIONS: Operation[] = [
     actualStart: "2026-02-15T08:00:00Z",
     actualEnd: "2026-02-18T16:00:00Z",
     notes: "Lote de 50 piezas completado sin desvios.",
-    createdAt: "2026-02-14T09:00:00Z",
-    updatedAt: "2026-02-18T16:00:00Z",
+
   },
   {
     id: 7,
@@ -100,7 +94,6 @@ export const MOCK_OPERATIONS: Operation[] = [
     actualStart: "2026-02-19T08:30:00Z",
     actualEnd: "2026-02-22T15:30:00Z",
     notes: "Roscado M12 completado satisfactoriamente.",
-    createdAt: "2026-02-14T09:00:00Z",
-    updatedAt: "2026-02-22T15:30:00Z",
+
   },
 ];

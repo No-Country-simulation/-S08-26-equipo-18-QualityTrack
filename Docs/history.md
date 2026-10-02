@@ -2,6 +2,18 @@
 
 Registro append-only, lo más nuevo arriba. Una entrada por ciclo de cambio cerrado.
 
+## 2026-10-02 · Producción con hojas de ruta, operaciones, materiales y personal reales
+Type: feature
+
+Persistencia y permisos de planificación/asignación/ejecución desde el detalle de
+OT. Hojas y operaciones con números automáticos, catálogo de materiales con código
+único y partidas por FK con lote, cantidad y certificado. Usuarios activos reales,
+una asignación activa por persona/OT y baja conservando historial. La ejecución
+requiere aprobación interna, registra fechas y actor reales e inicia la OT de
+forma atómica. Migración aditiva con comprobación de duplicados y conservación de
+históricos, sin autores inventados. Formularios conservan datos ante errores y
+consultas incluyen todas las hojas de cada OT.
+
 ## 2026-10-02 · Numeración automática de solicitudes y cotizaciones
 Type:     fix
 Change:   solicitudes y cotizaciones reciben números SOL/COT generados por el servidor mediante secuencias independientes. Los formularios indican que el número se asignará al guardar y muestran el número existente sin permitir edición.

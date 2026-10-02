@@ -35,6 +35,7 @@ export type Permission =
     | 'workOrders:edit'
     | 'workOrders:delete'
     | 'workOrders:assign'
+    | 'workOrders:plan'
     | 'workOrders:execute'
     // Control de Calidad
     | 'quality:view'
@@ -69,6 +70,7 @@ export const ROLE_PERMISSIONS: Record<string, Permission[]> = {
         'workOrders:edit',
         'workOrders:approve',
         'workOrders:assign',
+        'workOrders:plan',
         'workOrders:execute',
         'quality:view',
         'quality:inspect',
@@ -95,6 +97,7 @@ export const ROLE_PERMISSIONS: Record<string, Permission[]> = {
         'workOrders:edit',
         'workOrders:approve',
         'workOrders:assign',
+        'workOrders:plan',
         'workOrders:execute',
         'quality:view',
         'deliveries:view',

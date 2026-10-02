@@ -7,22 +7,30 @@ export interface Operation {
   routeSheet?: RouteSheet;
   operationNumber: string;
   name: string;
-  description?: string;
-  machine?: string;
-  plannedStart?: string;
-  plannedEnd?: string;
-  actualStart?: string;
-  actualEnd?: string;
-  notes?: string;
-  createdAt: string;
-  updatedAt: string;
+  description?: string | null;
+  machine?: string | null;
+  plannedStart?: string | null;
+  plannedEnd?: string | null;
+  actualStart?: string | null;
+  actualEnd?: string | null;
+  notes?: string | null;
+  createdBy?: import("./workOrderUserService").WorkOrderAssignedUser | null;
+  executedBy?: import("./workOrderUserService").WorkOrderAssignedUser | null;
 }
 
-export type CreateOperationDto = Omit<
+export type CreateOperationDto = Pick<
   Operation,
-  "id" | "routeSheet" | "createdAt" | "updatedAt"
+  | "routeSheetId"
+  | "name"
+  | "description"
+  | "machine"
+  | "plannedStart"
+  | "plannedEnd"
+  | "notes"
 >;
-export type UpdateOperationDto = Partial<CreateOperationDto>;
+export type UpdateOperationDto = Partial<
+  Omit<CreateOperationDto, "routeSheetId">
+>;
 
 export const operationService = {
   getAll(): Promise<Operation[]> {
@@ -40,8 +48,11 @@ export const operationService = {
   update(id: number | string, data: UpdateOperationDto): Promise<Operation> {
     return api.put<Operation>(`/operations/${id}`, data);
   },
-  delete(id: number | string): Promise<void> {
-    return api.delete<void>(`/operations/${id}`);
+  execute(
+    id: number | string,
+    data: { actualStart?: string; actualEnd?: string },
+  ): Promise<Operation> {
+    return api.patch<Operation>(`/operations/${id}/execution`, data);
   },
 };
 
