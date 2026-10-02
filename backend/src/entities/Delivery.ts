@@ -2,6 +2,7 @@ import { Entity, ManyToOne, PrimaryKey, Property } from "@mikro-orm/decorators/l
 import { BaseEntity } from "./BaseEntity";
 import { Client } from "./Client";
 import { WorkOrder } from "./WorkOrder";
+import { User } from "./User";
 
 @Entity()
 export class Delivery extends BaseEntity {
@@ -12,7 +13,7 @@ export class Delivery extends BaseEntity {
     // porque cada entrega pertenece a un único cliente,
     // mientras un cliente puede tener múltiples entregas.
     @ManyToOne(() => Client, { nullable: true, index: true })
-    client?: Client;
+    client?: Client | null;
 
     // Se reemplazó workOrderId por una relación ManyToOne,
     // porque cada entrega corresponde a una WorkOrder,
@@ -31,8 +32,14 @@ export class Delivery extends BaseEntity {
         status: Date;
     */
 
-    @Property({type: "varchar", length: 5000})
-    notes: string;
+    @Property({type: "varchar", length: 5000, nullable:true})
+    notes?: string | null;
+
+    @ManyToOne(() => User, {nullable:true,index:true,deleteRule:'no action'})
+    createdBy?: User | null;
+
+    @ManyToOne(() => User, {nullable:true,index:true,deleteRule:'no action'})
+    updatedBy?: User | null;
 
 
 }

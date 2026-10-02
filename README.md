@@ -389,6 +389,45 @@ se detiene para su revisión sin eliminar ni fusionar evidencia. Aplicar con
 `docker compose run --rm --no-deps backend pnpm migration:up`; no volver a ejecutar
 el seed sobre la base habitual para probar este flujo.
 
+### Calidad y entregas
+
+Las inspecciones usan `GET/POST /quality`, `GET/PUT /quality/:id` y
+`GET /quality/work-order/:id`. Administrador y Calidad registran y editan;
+Supervisor y Producción consultan. La especificación es obligatoria y conserva
+criterios o tolerancias textuales. Los valores esperado y medido son opcionales,
+aceptan hasta diez enteros y cuatro decimales (numeric(14,4)) y se devuelven como
+strings exactos. Una inspección visual puede omitir ambos valores y la unidad.
+La operación es opcional y debe pertenecer a una hoja de la misma OT.
+
+El inspector se toma de la sesión; editar conserva el autor original y registra
+el editor y fecha. Si se omite la fecha en un alta, se usa la hora del servidor;
+se puede indicar una fecha histórica o limpiar un opcional con null. No se
+infiere aprobación/rechazo a partir de medidas ni se admite borrar evidencia.
+
+Entregas usa `GET/POST /deliveries`, `GET/PUT /deliveries/:id` y
+`GET /deliveries/work-order/:id`. Administrador, Supervisor y Administración
+registran y editan; Calidad consulta. `GET /deliveries/work-orders` proporciona
+las OT de origen para este flujo sin conceder a Administración acceso general
+al módulo de OT. El destinatario se deriva de la cotización de la OT y no se
+recibe del navegador. Las cantidades son enteros positivos hasta 2147483647;
+las notas son opcionales. La fecha de entrega no puede preceder a la fecha de
+creación de la OT, comparando días en America/Buenos_Aires. Se acepta YYYY-MM-DD
+o timestamp ISO con zona horaria. Al editar una fecha sin cambios, el formulario
+conserva el timestamp original.
+
+Ambos registros conservan su OT; no se permite trasladarlos a otra. Las OT con
+origen comercial documentado admiten estos registros incluso al completarse;
+las canceladas conservan su historial sin nuevas escrituras. Los históricos sin
+origen o destinatario coherente se consultan sin completar relaciones ficticias.
+No se impone un máximo acumulado de entregas: el modelo todavía no registra
+una cantidad producida contra la que validarlo.
+
+`Migration20261002210000_quality_deliveries` agrega autores de entrega y editor
+de inspección nullable para históricos y permite notas de entrega vacías. No
+reescribe registros anteriores ni cambia secretos. Aplicar con
+`docker compose run --rm --no-deps backend pnpm migration:up`; no ejecutar el
+seed para comprobar este flujo.
+
 ### Comprobaciones antes de integrar cambios
 
 ```bash

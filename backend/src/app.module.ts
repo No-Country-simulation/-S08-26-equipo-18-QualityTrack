@@ -11,6 +11,7 @@ import { UsersModule } from './users/users.module';
 import { CommercialModule } from './commercial/commercial.module';
 import { WorkOrdersModule } from './work-orders/work-orders.module';
 import { ProductionModule } from './production/production.module';
+import { QualityDeliveriesModule } from './quality-deliveries/quality-deliveries.module';
 
 @Module({
     imports: [
@@ -25,6 +26,7 @@ import { ProductionModule } from './production/production.module';
         CommercialModule,
         WorkOrdersModule,
         ProductionModule,
+        QualityDeliveriesModule,
     ],
     controllers: [AppController],
     providers: [AppService],

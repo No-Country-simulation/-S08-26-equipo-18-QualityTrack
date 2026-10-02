@@ -56,8 +56,10 @@ test('HTTP authorization and logout against an isolated PostgreSQL database', {
         const failedPerson = require('node:child_process').spawnSync(process.execPath, [cli, 'migration:up', '--config', './mikro-orm.config.ts'], { encoding: 'utf8' });
         assert.notEqual(failedPerson.status, 0); assert.match(failedPerson.stdout + failedPerson.stderr, /Duplicate personnel assignments/);
         await connection.execute('delete from work_order_user where id=?', [duplicatePerson.id]);
+        await connection.execute('insert into quality_control (work_order_id,performed_by_id,specification,expected_value,measured_value) values (?, ?, ?, ?, ?)',[legacyWorkOrderId,legacyId,'Historical visual',null,null]);
+        await connection.execute('insert into delivery (work_order_id,client_id,delivery_date,quantity,notes,created_at,updated_at) values (?, ?, now(), ?, ?, now(), now())',[legacyWorkOrderId,client.id,1,'Historical delivery']);
         legacyProductionBefore={};
-        for(const table of ['route_sheet','operation','material','work_order_material','work_order_user']) legacyProductionBefore[table]=await connection.execute(`select * from ${table} order by id`);
+        for(const table of ['route_sheet','operation','material','work_order_material','work_order_user','quality_control','delivery']) legacyProductionBefore[table]=await connection.execute(`select * from ${table} order by id`);
         legacyQuoteBefore = (await connection.execute('select * from quotation where id = ?', [quote.id]))[0];
     } finally { await legacyOrm.close(); }
     execFileSync(process.execPath, [cli, 'migration:up', '--config', './mikro-orm.config.ts'], { stdio: 'inherit' });
@@ -97,7 +99,8 @@ test('HTTP authorization and logout against an isolated PostgreSQL database', {
                 const after=await em.getConnection().execute(`select * from ${table} order by id`);
                 assert.equal(after.length,rows.length);
                 for(let i=0;i<rows.length;i++)for(const key of Object.keys(rows[i]))assert.deepEqual(after[i][key],rows[i][key],`${table}.${key}`);
-                for(const row of after)for(const key of ['assigned_by_id','executed_by_id','unassigned_at','unassigned_by_id'])if(key in row)assert.equal(row[key],null);
+                if(table==='delivery')for(const row of after)assert.equal(row.created_by_id,null);
+                for(const row of after)for(const key of ['assigned_by_id','executed_by_id','unassigned_at','unassigned_by_id','updated_by_id'])if(key in row)assert.equal(row[key],null);
             }
         });
         const legacyQuote = (await em.getConnection().execute('select * from quotation where id = ?', [legacyQuoteId]))[0];
@@ -411,6 +414,7 @@ test('HTTP authorization and logout against an isolated PostgreSQL database', {
         await require('./commercial-http.cjs')(t, { call, em, users, sessions, roleNames, admin, legacyQuoteId });
         await require('./work-orders-http.cjs')(t, { call, em, users, sessions, roleNames, admin, legacyWorkOrderId, legacyWorkOrderBefore });
         await require('./production-http.cjs')(t, { call, em, users, sessions, roleNames, admin, legacyWorkOrderId });
+        await require('./quality-deliveries-http.cjs')(t, { call, em, users, sessions, admin, legacyWorkOrderId });
         const created = await call('POST', '/clients', admin.accessToken, input());
         assert.equal(created.status, 201);
         const client = await created.json();

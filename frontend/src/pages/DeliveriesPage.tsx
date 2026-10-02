@@ -7,11 +7,8 @@ import { Can } from "../components/Can";
 import { DataTable } from "../components/DataTable";
 import { DELIVERY_COLUMNS, DeliveryFormModal } from "../modules/deliveries";
 import { errorMessage } from "../utils/errorMessage";
-import { clientService } from "../services/clientService";
-import type { Client } from "../services/clientService";
 import { deliveryService } from "../services/deliveryService";
 import type { CreateDeliveryDto, Delivery } from "../services/deliveryService";
-import { workOrderService } from "../services/workOrderService";
 import type { WorkOrder } from "../services/workOrderService";
 
 type DeliveryRecord = Delivery & {
@@ -22,7 +19,6 @@ type DeliveryRecord = Delivery & {
 export default function DeliveriesPage() {
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
-  const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -49,19 +45,16 @@ export default function DeliveriesPage() {
     setLoading(true);
     setLoadError(null);
     try {
-      const [records, related0, related1] = await Promise.all([
+      const [records, related0] = await Promise.all([
         deliveryService.getAll(),
-        workOrderService.getAll(),
-        clientService.list({ limit: 100, status: "all" }),
+        deliveryService.getWorkOrders(),
       ]);
       setDeliveries(records as Delivery[]);
       setWorkOrders(related0);
-      setClients(related1.items);
     } catch (error) {
       setLoadError(errorMessage(error));
       setDeliveries([]);
       setWorkOrders([]);
-      setClients([]);
     } finally {
       setLoading(false);
     }
@@ -107,7 +100,7 @@ export default function DeliveriesPage() {
       clientName: d.client?.businessName || "",
       workOrderNumber: d.workOrder?.workOrderNumber
         ? `OT-${d.workOrder.workOrderNumber}`
-        : `OT-${d.workOrderId}`,
+        : "Origen no documentado",
     }));
   }, [deliveries]);
 
@@ -190,7 +183,6 @@ export default function DeliveriesPage() {
         onOpenChange={({ open }) => setIsFormOpen(open)}
         delivery={selectedDelivery}
         workOrders={workOrders}
-        clients={clients}
         onSave={handleSaveDelivery}
       />
     </Box>

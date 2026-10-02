@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, renderWithProviders, screen, waitFor } from '../../test/test-utils'
 import { QualityFormModal } from '../quality/QualityFormModal'
 import { DeliveryFormModal } from '../deliveries/DeliveryFormModal'
@@ -7,8 +7,9 @@ import { MOCK_WORK_ORDERS } from '../../test/mocks/mockWorkOrders'
 import { MOCK_CLIENTS } from '../../test/mocks/mockClients'
 import { MOCK_QUALITY_CONTROLS } from '../../test/mocks/mockQualityControls'
 import { MOCK_DELIVERIES } from '../../test/mocks/mockDeliveries'
-import { ApiError } from '../../services/api'
+import { api, ApiError } from '../../services/api'
 
+beforeEach(() => vi.spyOn(api, "get").mockResolvedValue([]))
 afterEach(() => vi.restoreAllMocks())
 
 describe('Inicialización estable de modales reales', () => {
@@ -35,7 +36,7 @@ describe('Inicialización estable de modales reales', () => {
     const view = renderWithProviders(<DeliveryFormModal {...props} />)
     const field = screen.getByPlaceholderText('Ej: 50')
     fireEvent.change(field, { target: { value: '12' } })
-    view.rerender(<DeliveryFormModal {...props} clients={[MOCK_CLIENTS[0]]} workOrders={[MOCK_WORK_ORDERS[0]]} />)
+    view.rerender(<DeliveryFormModal {...props} workOrders={[MOCK_WORK_ORDERS[0]]} />)
     await act(async () => {})
     expect(field).toHaveValue(12)
     view.rerender(<DeliveryFormModal {...props} delivery={MOCK_DELIVERIES[0]} />)

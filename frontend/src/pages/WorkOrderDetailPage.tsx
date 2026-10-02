@@ -28,6 +28,7 @@ import {
 import { Alert } from "../components/Alert";
 import { Badge } from "../components/Badge";
 import { Button } from "../components/Button";
+import { usePermissions } from "../hooks/usePermissions";
 import { Can } from "../components/Can";
 import { Card } from "../components/Card";
 import { FormField } from "../components/FormField";
@@ -81,6 +82,8 @@ function formatFileSize(bytes: number): string {
 export default function WorkOrderDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { can } = usePermissions();
+  const canViewDeliveries = can("deliveries:view");
 
   const [workOrder, setWorkOrder] = useState<WorkOrder | null>(null);
   const [approval, setApproval] = useState<Approval | null>(null);
@@ -130,7 +133,7 @@ export default function WorkOrderDetailPage() {
       const failures: string[] = [];
       await Promise.all([
         qualityService.getByWorkOrder(activeWo.id).then(data => { if (version === loadVersion.current) setQualityControls(data); }).catch(error => { failures.push("calidad: " + errorMessage(error)); }),
-        deliveryService.getByWorkOrder(activeWo.id).then(data => { if (version === loadVersion.current) setDeliveries(data); }).catch(error => { failures.push("entregas: " + errorMessage(error)); }),
+        canViewDeliveries && deliveryService.getByWorkOrder(activeWo.id).then(data => { if (version === loadVersion.current) setDeliveries(data); }).catch(error => { failures.push("entregas: " + errorMessage(error)); }),
         documentService.getByWorkOrder(activeWo.id).then(data => { if (version === loadVersion.current) setDocuments(data); }).catch(error => { failures.push("documentos: " + errorMessage(error)); }),
         approvalService.getByWorkOrder(activeWo.id).then(data => { if (version === loadVersion.current) setApproval(data ?? null); }).catch(error => { failures.push("aprobación: " + errorMessage(error)); }),
       ]);
@@ -138,7 +141,7 @@ export default function WorkOrderDetailPage() {
     } catch (error) {
       if (version === loadVersion.current) setLoadError(errorMessage(error));
     } finally { if (version === loadVersion.current) setLoading(false); }
-  }, [id]);
+  }, [id, canViewDeliveries]);
 
   useEffect(() => {
     void loadWorkOrderData();
@@ -875,6 +878,7 @@ export default function WorkOrderDetailPage() {
                   size="xs"
                   colorPalette="blue"
                   variant="outline"
+                  disabled={!workOrder.quotationId || workOrder.status === "CANCELLED"}
                   onClick={() => setIsQualityModalOpen(true)}
                 >
                   <LuPlus style={{ marginRight: "4px" }} />
@@ -902,20 +906,20 @@ export default function WorkOrderDetailPage() {
                   {qualityControls.map((qc) => (
                     <Table.Row key={qc.id}>
                       <Table.Cell fontSize="xs" whiteSpace="nowrap">
-                        {formatDate(qc.performedAt)}
+                        {formatDate(qc.performedAt ?? undefined)}
                       </Table.Cell>
                       <Table.Cell fontSize="xs" fontWeight="medium" color="gray.800">
                         {qc.specification}
                       </Table.Cell>
                       <Table.Cell fontSize="xs" fontFamily="mono" color="gray.600">
-                        {qc.expectedValue}
+                        {qc.expectedValue ?? "—"}
                       </Table.Cell>
                       <Table.Cell fontSize="xs" fontFamily="mono" fontWeight="bold" color="green.700">
-                        {qc.measuredValue}
+                        {qc.measuredValue ?? "—"}
                       </Table.Cell>
                       <Table.Cell fontSize="xs">
                         <Badge size="xs" variant="surface" colorPalette="gray">
-                          {qc.unit}
+                          {qc.unit || "—"}
                         </Badge>
                       </Table.Cell>
                       <Table.Cell fontSize="xs" color="gray.500">
@@ -937,7 +941,7 @@ export default function WorkOrderDetailPage() {
       </Box>
 
       {/* Tarea 2.3: Entregas y remitos despachados */}
-      <Box mt={6}>
+      <Can perform="deliveries:view"><Box mt={6}>
         <Card
           title={
             <Flex justify="space-between" align="center" w="full" wrap="wrap" gap={2}>
@@ -949,6 +953,7 @@ export default function WorkOrderDetailPage() {
                   size="xs"
                   colorPalette="blue"
                   variant="outline"
+                  disabled={!workOrder.quotationId || workOrder.status === "CANCELLED"}
                   onClick={() => setIsDeliveryModalOpen(true)}
                 >
                   <LuPlus style={{ marginRight: "4px" }} />
@@ -986,7 +991,7 @@ export default function WorkOrderDetailPage() {
                         {del.quantity} u.
                       </Table.Cell>
                       <Table.Cell fontSize="xs" color="gray.800">
-                        {del.client?.businessName || client?.businessName || "—"}
+                        {del.client?.businessName || "Destinatario no documentado"}
                       </Table.Cell>
                       <Table.Cell fontSize="xs" color="gray.500">
                         {del.notes || "—"}
@@ -1004,7 +1009,7 @@ export default function WorkOrderDetailPage() {
             </Box>
           )}
         </Card>
-      </Box>
+      </Box></Can>
 
       {/* Tarea 3.7: Documentacion tecnica y comercial asociada */}
       <Box mt={6}>
@@ -1135,9 +1140,7 @@ export default function WorkOrderDetailPage() {
         open={isDeliveryModalOpen}
         onOpenChange={({ open }) => setIsDeliveryModalOpen(open)}
         workOrders={workOrder ? [workOrder] : []}
-        clients={availableClients}
         defaultWorkOrderId={workOrder?.id}
-        defaultClientId={workOrder?.clientId ?? undefined}
         onSave={handleSaveDelivery}
       />
 

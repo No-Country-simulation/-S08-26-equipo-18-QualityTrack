@@ -9,5 +9,6 @@ import {
   imports: [CommercialModule],
   controllers: [WorkOrdersController, ApprovalsController],
   providers: [WorkOrdersService],
+  exports: [WorkOrdersService],
 })
 export class WorkOrdersModule {}
