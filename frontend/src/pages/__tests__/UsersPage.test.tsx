@@ -467,7 +467,11 @@ describe("Administración real de usuarios", () => {
         "Rol actualizado. Se aplica a las sesiones vigentes.",
       ),
     ).toBeInTheDocument();
-    expect(screen.getByText("Calidad")).toBeInTheDocument();
+    const updatedRow = screen.getByRole("cell", { name: other.email }).closest("tr");
+    expect(updatedRow).not.toBeNull();
+    expect(
+      within(updatedRow!).getByRole("cell", { name: "Calidad", exact: true }),
+    ).toBeInTheDocument();
   });
 
   it("un cambio de rol rechazado conserva la fila y permite reintentar", async () => {
