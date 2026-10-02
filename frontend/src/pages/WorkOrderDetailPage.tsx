@@ -48,7 +48,7 @@ import {
 import { QualityFormModal } from "../modules/quality";
 import { DeliveryFormModal } from "../modules/deliveries";
 import { formatCurrency } from "../modules/quotations/quotationColumns";
-import { clientService } from "../services/clientService";
+
 import type { Client } from "../services/clientService";
 import { deliveryService } from "../services/deliveryService";
 import type {
@@ -62,7 +62,7 @@ import type {
 } from "../services/qualityService";
 import { workOrderService } from "../services/workOrderService";
 import type {
-  CreateWorkOrderDto,
+  CreateWorkOrderDto, UpdateWorkOrderDto,
   WorkOrder,
 } from "../services/workOrderService";
 import { routeSheetService } from "../services/routeSheetService";
@@ -77,9 +77,9 @@ import { materialService } from "../services/materialService";
 import type { WorkOrderMaterial } from "../services/materialService";
 import { workOrderUserService } from "../services/workOrderUserService";
 import type { WorkOrderAssignedUser, WorkOrderUser } from "../services/workOrderUserService";
-import { requestService } from "../services/requestService";
+
 import type { Request } from "../services/requestService";
-import { quotationService } from "../services/quotationService";
+
 import type { Quotation } from "../services/quotationService";
 
 import { errorMessage } from "../utils/errorMessage";
@@ -173,6 +173,9 @@ export default function WorkOrderDetailPage() {
       const activeWo = await workOrderService.getById(id);
       if (version !== loadVersion.current) return;
       setWorkOrder(activeWo);
+      setAvailableClients(activeWo.client ? [activeWo.client] : []);
+      setAvailableRequests(activeWo.request ? [activeWo.request] : []);
+      setAvailableQuotations(activeWo.quotation ? [activeWo.quotation] : []);
       const failures: string[] = [];
       await Promise.all([
         qualityService.getByWorkOrder(activeWo.id).then(data => { if (version === loadVersion.current) setQualityControls(data); }).catch(error => { failures.push("calidad: " + errorMessage(error)); }),
@@ -181,9 +184,6 @@ export default function WorkOrderDetailPage() {
         materialService.getByWorkOrder(activeWo.id).then(data => { if (version === loadVersion.current) setWorkOrderMaterials(data); }).catch(error => { failures.push("materiales: " + errorMessage(error)); }),
         workOrderUserService.getByWorkOrder(activeWo.id).then(data => { if (version === loadVersion.current) setWorkOrderUsers(data); }).catch(error => { failures.push("personal: " + errorMessage(error)); }),
         approvalService.getByWorkOrder(activeWo.id).then(data => { if (version === loadVersion.current) setApproval(data ?? null); }).catch(error => { failures.push("aprobación: " + errorMessage(error)); }),
-        clientService.list({ limit: 100, status: "all" }).then(data => { if (version === loadVersion.current) setAvailableClients(data.items); }).catch(error => { failures.push("clientes: " + errorMessage(error)); }),
-        requestService.getAll().then(data => { if (version === loadVersion.current) setAvailableRequests(data); }).catch(error => { failures.push("solicitudes: " + errorMessage(error)); }),
-        quotationService.getAll().then(data => { if (version === loadVersion.current) setAvailableQuotations(data); }).catch(error => { failures.push("cotizaciones: " + errorMessage(error)); }),
         routeSheetService.getByWorkOrder(activeWo.id).then(async sheets => {
           if (version !== loadVersion.current) return;
           setRouteSheet(sheets[0]);
@@ -227,18 +227,18 @@ export default function WorkOrderDetailPage() {
     setIsApprovalModalOpen(true);
   };
 
+  const decisionBusy = useRef(false);
+  const [decisionPending, setDecisionPending] = useState(false);
   const handleConfirmDecision = async () => {
-    if (!workOrder) return;
+    if (!workOrder || decisionBusy.current) return;
+    decisionBusy.current = true; setDecisionPending(true);
     const isApproved = pendingDecision === "APPROVED";
     try {
       if (approval?.id) {
         const decided = await approvalService.decide(approval.id, {
           status: pendingDecision,
           comments:
-            decisionComments ||
-            (isApproved
-              ? "Aprobada formalmente para ejecucion en planta."
-              : "Rechazada en revision de ingenieria/administracion."),
+            decisionComments.trim() || undefined,
         });
         setApproval(decided);
       } else {
@@ -246,17 +246,15 @@ export default function WorkOrderDetailPage() {
           workOrderId: workOrder.id,
           status: pendingDecision,
           comments:
-            decisionComments ||
-            (isApproved
-              ? "Aprobada formalmente para ejecucion en planta."
-              : "Rechazada en revision de ingenieria/administracion."),
+            decisionComments.trim() || undefined,
         });
         setApproval(created);
       }
     } catch (error) {
       setActionError(errorMessage(error));
       return;
-    }
+    } finally { decisionBusy.current = false; setDecisionPending(false); }
+    setWorkOrder(prev => prev ? { ...prev, status: isApproved ? "APPROVED" : "CANCELLED" } : prev);
     setIsApprovalModalOpen(false);
     showNotification(
       isApproved
@@ -388,7 +386,7 @@ export default function WorkOrderDetailPage() {
     workOrder?.quotation ||
     availableQuotations.find((q) => q.id === workOrder?.quotationId);
 
-  const handleSave = async (formData: CreateWorkOrderDto) => {
+  const handleSave = async (formData: CreateWorkOrderDto | UpdateWorkOrderDto) => {
     if (!workOrder) return;
     const updated = await workOrderService.update(workOrder.id, formData);
     setWorkOrder(updated);
@@ -428,6 +426,7 @@ export default function WorkOrderDetailPage() {
 
   return (
     <Box aria-busy={loading}>
+      {!workOrder.quotationId && <Box mb={4}><Alert status="info" title="Origen histórico no documentado" description="Esta OT conserva sus datos anteriores. Su cliente, solicitud y cotización no se completan con referencias inventadas." /></Box>}
       {sectionErrors.length > 0 && <Box mb={4}><Alert status="error" title="Hay secciones no disponibles" description={sectionErrors.join("; ")} /><Button mt={2} onClick={() => void loadWorkOrderData()}>Reintentar carga</Button></Box>}
       {/* Barra de navegacion superior (Tarea 2.4: botones contextuales unificados) */}
       <Flex justify="space-between" align="center" mb={4} wrap="wrap" gap={2}>
@@ -441,6 +440,7 @@ export default function WorkOrderDetailPage() {
             <Button
               size="sm"
               colorPalette="blue"
+              disabled={["COMPLETED", "CANCELLED"].includes(workOrder.status)}
               onClick={() => setIsFormOpen(true)}
             >
               <LuPencil style={{ marginRight: "6px" }} />
@@ -570,7 +570,7 @@ export default function WorkOrderDetailPage() {
         <Flex gap={4} fontSize="xs" color="gray.500" wrap="wrap">
           <Text>Creada el: {formatDate(workOrder.createdAt)}</Text>
           <Text>—</Text>
-          <Text>Ultima actualizacion: {formatDate(workOrder.updatedAt)}</Text>
+          <Text>Ultima actualizacion: {formatDate(workOrder.updatedAt ?? undefined)}</Text>
         </Flex>
       </Box>
 
@@ -991,7 +991,7 @@ export default function WorkOrderDetailPage() {
             )}
 
             {/* Acciones de dictamen protegidas con permisos */}
-            <Can perform="workOrders:edit">
+            <Can perform="workOrders:approve">
               <HStack
                 justify="flex-end"
                 gap={2}
@@ -1003,6 +1003,7 @@ export default function WorkOrderDetailPage() {
                   size="sm"
                   colorPalette="red"
                   variant="outline"
+                  disabled={!workOrder.quotationId || Boolean(approval && approval.status !== "PENDING") || workOrder.status !== "PENDING"}
                   onClick={() => handleOpenApprovalModal("REJECTED")}
                 >
                   <LuX style={{ marginRight: "6px" }} />
@@ -1011,6 +1012,7 @@ export default function WorkOrderDetailPage() {
                 <Button
                   size="sm"
                   colorPalette="green"
+                  disabled={!workOrder.quotationId || Boolean(approval && approval.status !== "PENDING") || workOrder.status !== "PENDING"}
                   onClick={() => handleOpenApprovalModal("APPROVED")}
                 >
                   <LuCheck style={{ marginRight: "6px" }} />
@@ -1714,14 +1716,14 @@ export default function WorkOrderDetailPage() {
         workOrders={workOrder ? [workOrder] : []}
         clients={availableClients}
         defaultWorkOrderId={workOrder?.id}
-        defaultClientId={workOrder?.clientId}
+        defaultClientId={workOrder?.clientId ?? undefined}
         onSave={handleSaveDelivery}
       />
 
       {/* Modal para registrar decision de aprobacion / rechazo (Tarea 4.2) */}
       <Modal
         open={isApprovalModalOpen}
-        onOpenChange={({ open }) => setIsApprovalModalOpen(open)}
+        onOpenChange={({ open }) => { if (!decisionPending) setIsApprovalModalOpen(open); }}
         title={
           pendingDecision === "APPROVED"
             ? "Aprobar orden de trabajo"
@@ -1732,6 +1734,7 @@ export default function WorkOrderDetailPage() {
             <Button
               variant="outline"
               size="sm"
+              disabled={decisionPending}
               onClick={() => setIsApprovalModalOpen(false)}
             >
               Cancelar
@@ -1739,6 +1742,7 @@ export default function WorkOrderDetailPage() {
             <Button
               size="sm"
               colorPalette={pendingDecision === "APPROVED" ? "green" : "red"}
+              disabled={decisionPending} loading={decisionPending}
               onClick={handleConfirmDecision}
             >
               {pendingDecision === "APPROVED"

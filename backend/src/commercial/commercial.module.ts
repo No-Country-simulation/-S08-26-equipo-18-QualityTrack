@@ -8,5 +8,6 @@ import {
 @Module({
   controllers: [RequestsController, QuotationsController],
   providers: [CommercialService],
+  exports: [CommercialService],
 })
 export class CommercialModule {}

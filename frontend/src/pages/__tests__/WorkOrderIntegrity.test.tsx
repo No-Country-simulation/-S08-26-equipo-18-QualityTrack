@@ -23,7 +23,7 @@ it('una OT inexistente no se reemplaza por una ficha de demostración', async ()
 
 it('aprobación rechazada por API no inventa dictamen ni actor; permite reintentar', async () => {
   vi.spyOn(api, 'get').mockImplementation(async function fixtures<T>(endpoint: string): Promise<T> {
-    return (endpoint === '/work-orders/1' ? MOCK_WORK_ORDERS[0] : endpoint === '/clients' ? { items: [], total: 0, page: 1, limit: 100 } : endpoint.startsWith('/approvals/') ? null : []) as T
+    return (endpoint === '/work-orders/1' ? { ...MOCK_WORK_ORDERS[0], status: 'PENDING', actualStartDate: null } : endpoint === '/clients' ? { items: [], total: 0, page: 1, limit: 100 } : endpoint.startsWith('/approvals/') ? null : []) as T
   })
   const post = vi.spyOn(api, 'post').mockRejectedValueOnce(new ApiError('No se aprobó', 403)).mockResolvedValueOnce({ id: 8, workOrderId: 1, status: 'APPROVED' })
   detail()

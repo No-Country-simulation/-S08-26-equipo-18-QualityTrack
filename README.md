@@ -275,7 +275,7 @@ cuándo; repetir la misma decisión no cambia esa evidencia. Aceptadas y rechaza
 se consultan mediante **Ver detalle** y quedan sin edición. Una nueva oferta debe
 crearse con un número distinto. Esta decisión comercial no constituye la
 aprobación interna de una OT; el alta de OT desde una oferta aceptada corresponde
-a la siguiente etapa.
+a la gestión de órdenes de trabajo descrita a continuación.
 
 La migración `Migration20261002170000_quotation_decision` conserva las cotizaciones
 e ítems existentes y agrega estado pendiente, sin inventar aceptación, autor ni
@@ -285,6 +285,48 @@ deben corregirse explícitamente antes de aceptar. Para actualizar una base loca
 ```bash
 docker compose run --rm --no-deps backend pnpm migration:up
 ```
+
+### Órdenes de trabajo y aprobación interna
+
+Administrador y Supervisor crean y editan OT; Producción y Calidad pueden
+consultarlas. Administración no tiene acceso al módulo de OT. El alta desde
+**Nueva orden de trabajo** consulta cotizaciones reales y ofrece únicamente las
+aceptadas de clientes activos, mostrando su cliente y solicitud. Sin una fuente
+elegible se explica el requisito y no se permite guardar.
+
+`POST /work-orders` recibe `quotationId`, título, descripción, prioridad e inicio
+y fin planificados. El servidor deriva cliente y solicitud, exige aceptación
+comercial registrada y genera un número único con una secuencia PostgreSQL.
+No acepta número, autor, estado ni relaciones alternativas desde el navegador.
+Una misma oferta puede originar varias OT; no se impone una cardinalidad comercial
+que el equipo no haya definido. La lectura es `GET /work-orders` y
+`GET /work-orders/:id`; la edición permitida es `PUT /work-orders/:id`.
+
+La OT nueva comienza pendiente, con una aprobación interna pendiente sin actor ni
+fecha de decisión. Desde su detalle, Administrador y Supervisor pueden aprobar
+o rechazar: `PUT /approvals/:id/decide` recibe `status` (`APPROVED` o `REJECTED`)
+y comentarios opcionales. La API también ofrece consultas `/approvals`,
+`/approvals/:id` y `/approvals/work-order/:id`, y `POST /approvals` para registrar
+la primera decisión por `workOrderId`. Usuario y fecha los fija el servidor;
+decisión y estado de OT cambian en la misma transacción. Aprobar deja la OT
+`APPROVED`; rechazar la cancela conservando evidencia. Repetir la decisión conserva
+el primer dictamen y una decisión opuesta devuelve 409. La aceptación de la oferta
+por el cliente y esta autorización interna de ejecución son registros distintos.
+
+Editar conserva número y origen. El estado `APPROVED` no puede asignarse desde
+el formulario de edición. Pasar a `IN_PROGRESS` o `COMPLETED` requiere aprobación
+interna y fechas reales coherentes; completar exige inicio y fin reales.
+No se permite editar una OT completada o cancelada ni borrar físicamente OT.
+Las operaciones, materiales y personal se incorporan en la siguiente etapa.
+
+La migración `Migration20261002180000_work_order_origin` agrega el vínculo a la
+oferta y las restricciones de número y aprobación única. Conserva OT anteriores
+con origen no documentado, sin inventar cliente, solicitud ni cotización; sus
+datos se pueden consultar y editar según su estado. No se permite inventar su
+aprobación o comenzar ejecución sin un origen documentado. Si existen números
+duplicados o varias aprobaciones por OT, la migración se detiene para su revisión
+con datos verificables: no renumera ni elimina evidencia silenciosamente.
+Actualizar la base local con `docker compose run --rm --no-deps backend pnpm migration:up`.
 
 ### Comprobaciones antes de integrar cambios
 

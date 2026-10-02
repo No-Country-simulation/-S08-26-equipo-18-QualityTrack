@@ -9,6 +9,7 @@ import { AuthModule } from './auth/auth.module';
 import { ClientsModule } from './clients/clients.module';
 import { UsersModule } from './users/users.module';
 import { CommercialModule } from './commercial/commercial.module';
+import { WorkOrdersModule } from './work-orders/work-orders.module';
 
 @Module({
     imports: [
@@ -21,6 +22,7 @@ import { CommercialModule } from './commercial/commercial.module';
         ClientsModule,
         UsersModule,
         CommercialModule,
+        WorkOrdersModule,
     ],
     controllers: [AppController],
     providers: [AppService],
