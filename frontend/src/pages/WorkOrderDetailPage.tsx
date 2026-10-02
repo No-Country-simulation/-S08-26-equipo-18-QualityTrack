@@ -646,7 +646,7 @@ export default function WorkOrderDetailPage() {
   }
 
   return (
-    <Box>
+    <Box aria-busy={loading}>
       {/* Barra de navegacion superior (Tarea 2.4: botones contextuales unificados) */}
       <Flex justify="space-between" align="center" mb={4} wrap="wrap" gap={2}>
         <Button variant="ghost" size="sm" onClick={handleBack}>
@@ -1665,7 +1665,7 @@ export default function WorkOrderDetailPage() {
               <Text fontWeight="bold" fontSize="md" color="gray.800">
                 Controles de calidad realizados
               </Text>
-              <Can perform="quality:create">
+              <Can perform="quality:inspect">
                 <Button
                   size="xs"
                   colorPalette="blue"

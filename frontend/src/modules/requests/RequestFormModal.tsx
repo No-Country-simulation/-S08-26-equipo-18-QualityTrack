@@ -78,7 +78,7 @@ export function RequestFormModal({
         validators.required("La fecha de entrega deseada es obligatoria"),
         validators.date("La fecha de entrega deseada debe estar completa (DD/MM/AAAA)"),
         validators.dateAfterOrEqual(
-          () => values.receivedAt,
+          (): string => values.receivedAt,
           "La fecha de entrega no puede ser anterior a la fecha de recepcion"
         ),
       ],

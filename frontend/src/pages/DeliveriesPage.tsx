@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Box, Flex, Heading, HStack, Text } from "@chakra-ui/react";
-import { LuPencil, LuPlus, LuTrash2, LuTruck } from "react-icons/lu";
+import { LuPencil, LuPlus, LuTruck } from "react-icons/lu";
 import { Alert } from "../components/Alert";
 import { Button } from "../components/Button";
 import { Can } from "../components/Can";
-import { ConfirmDialog } from "../components/ConfirmDialog";
 import { DataTable } from "../components/DataTable";
 import { DELIVERY_COLUMNS, DeliveryFormModal } from "../modules/deliveries";
 import { MOCK_CLIENTS } from "../test/mocks/mockClients";
@@ -40,7 +39,6 @@ export default function DeliveriesPage() {
   const [selectedDelivery, setSelectedDelivery] = useState<Delivery | null>(
     null,
   );
-  const [deleteCandidate, setDeleteCandidate] = useState<Delivery | null>(null);
   const [notification, setNotification] = useState<{
     status: "success" | "error";
     message: string;
@@ -110,10 +108,6 @@ export default function DeliveriesPage() {
   const handleOpenEdit = (delivery: Delivery) => {
     setSelectedDelivery(delivery);
     setIsFormOpen(true);
-  };
-
-  const handleOpenDelete = (delivery: Delivery) => {
-    setDeleteCandidate(delivery);
   };
 
   const handleSaveDelivery = async (formData: CreateDeliveryDto) => {
@@ -187,23 +181,6 @@ export default function DeliveriesPage() {
         showNotification("Entrega registrada con exito.");
       }
     }
-  };
-
-  const handleConfirmDelete = async () => {
-    if (!deleteCandidate) return;
-    const target = deleteCandidate;
-    setDeleteCandidate(null);
-
-    try {
-      await deliveryService.delete(target.id);
-    } catch {
-      // Fallback local
-    }
-
-    setDeliveries((prev) =>
-      prev.filter((item) => item.id !== target.id),
-    );
-    showNotification(`Remito "#REM-${target.id}" eliminado.`);
   };
 
   // Mapeamos para permitir busqueda multicanal enriquecida
@@ -282,18 +259,6 @@ export default function DeliveriesPage() {
               </Button>
             </Can>
 
-            <Can perform="deliveries:delete">
-              <Button
-                size="xs"
-                variant="ghost"
-                colorPalette="red"
-                onClick={() => handleOpenDelete(delivery)}
-                title="Eliminar entrega"
-                aria-label="Eliminar entrega"
-              >
-                <LuTrash2 size={14} />
-              </Button>
-            </Can>
           </HStack>
         )}
       />
@@ -308,20 +273,6 @@ export default function DeliveriesPage() {
         onSave={handleSaveDelivery}
       />
 
-      {/* Dialogo de confirmacion de eliminacion */}
-      <ConfirmDialog
-        open={Boolean(deleteCandidate)}
-        onOpenChange={({ open }) => {
-          if (!open) setDeleteCandidate(null);
-        }}
-        title="Eliminar entrega"
-        description={`Estas seguro de que deseas eliminar el remito "#REM-${deleteCandidate?.id}"? Esta accion no se puede deshacer.`}
-        confirmText="Eliminar"
-        cancelText="Cancelar"
-        confirmColorPalette="red"
-        onConfirm={handleConfirmDelete}
-        onCancel={() => setDeleteCandidate(null)}
-      />
     </Box>
   );
 }

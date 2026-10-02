@@ -13,6 +13,7 @@ services:
 
     environment:
       CHOKIDAR_USEPOLLING: "true"
+      VITE_API_URL: http://localhost:3000
 
     command: npm run dev -- --host 0.0.0.0
 
@@ -20,6 +21,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      target: development
 
     ports:
       - "3000:3000"
@@ -31,6 +33,18 @@ services:
     environment:
       NODE_ENV: development
       PORT: 3000
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_SSL: "false"
+      POSTGRES_DB: ${POSTGRES_DB:?Definir POSTGRES_DB en .env}
+      POSTGRES_USER: ${POSTGRES_USER:?Definir POSTGRES_USER en .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Definir POSTGRES_PASSWORD en .env}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?Generar JWT_ACCESS_SECRET en .env}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:?Definir ADMIN_EMAIL para el seed local}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Definir ADMIN_PASSWORD para el seed local}
+      ADMIN_FIRST_NAME: ${ADMIN_FIRST_NAME:-Administrador}
+      ADMIN_LAST_NAME: ${ADMIN_LAST_NAME:-QualityTrack}
 
     depends_on:
       postgres:
