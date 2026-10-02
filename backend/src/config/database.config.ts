@@ -2,6 +2,7 @@ import { ReflectMetadataProvider } from "@mikro-orm/decorators/legacy";
 import { defineConfig } from "@mikro-orm/postgresql";
 import { Migrator } from "@mikro-orm/migrations";
 import { SeedManager } from "@mikro-orm/seeder";
+import { databaseTlsOptions } from "./database-tls.config";
 
 // Única configuración de la base: la usan la app (AppModule) y el CLI
 // de MikroORM (mikro-orm.config.ts). Vive en src/ para que el build la incluya.
@@ -11,8 +12,6 @@ import { SeedManager } from "@mikro-orm/seeder";
 try {
     process.loadEnvFile();
 } catch { }
-
-const useSsl = process.env.DB_SSL !== "false";
 
 export default defineConfig({
     metadataProvider: ReflectMetadataProvider,
@@ -27,9 +26,7 @@ export default defineConfig({
     user: process.env.POSTGRES_USER ?? "qualitytrack",
     password: process.env.POSTGRES_PASSWORD ?? "qualitytrack_dev",
 
-    driverOptions: useSsl
-        ? { ssl: { rejectUnauthorized: false } }
-        : { ssl: false },
+    driverOptions: databaseTlsOptions(),
 
 
     migrations: {

@@ -210,7 +210,39 @@ Para comprobar la compilación del backend con sus dependencias de desarrollo:
 
 ```bash
 docker compose run --rm backend pnpm run build
+docker compose run --rm backend pnpm run test:security
 ```
+
+Las pruebas de permisos y TLS no usan la BD habitual. CI Backend agrega una
+integración HTTP con PostgreSQL efímero: requiere `SECURITY_TEST_DB=true`, host
+local, `POSTGRES_DB=qualitytrack_security` y `DB_SSL=false`. Esa prueba aplica las
+migraciones y crea sus propios usuarios/clientes en una base exclusiva de pruebas.
+Para reproducirla, usar una base nueva y aislada con esos valores.
+
+### Permisos y conexión remota
+
+La API de clientes comprueba el rol vigente de BD en cada request. Administrador
+puede consultar, crear, editar y cambiar el estado; Supervisor y Administración
+pueden consultar, crear y editar. Producción, Calidad y roles desconocidos reciben
+403 para esas acciones. Sin sesión válida la respuesta es 401. Cambiar el estado
+conserva el permiso existente `clients:delete` de la UI y no borra registros.
+
+Logout con access token vencido renueva y reintenta la revocación una vez. Siempre
+se limpian las credenciales locales; si el servidor no confirma el cierre, la
+pantalla de login informa que no se pudo confirmar la revocación remota.
+
+Para una BD remota, `DB_SSL=true` verifica el certificado y el nombre del servidor.
+Si el proveedor usa una CA que no está en el almacén de confianza del runtime,
+configurar `DB_SSL_CA` con el certificado CA PEM oficial (saltos reales o `\n`).
+En Supabase se obtiene desde la configuración de conexión del proyecto:
+[documentación de conexiones SSL](https://supabase.com/docs/guides/database/connecting-to-postgres#ssl-connections).
+Configurar el mismo valor en el entorno del backend y, si corresponde, en el secret
+`DB_SSL_CA` del environment `production` de GitHub, usado por migraciones y seed.
+El certificado CA es público; no cargar una clave privada. Sin CA personalizada
+se usa el almacén de confianza predeterminado. `DB_SSL=false` queda reservado al
+entorno local de Compose. Las pruebas de seguridad generan certificados temporales
+con OpenSSL y verifican aceptación con CA válida, rechazo sin confianza y hostname
+incorrecto; CI y el stage de desarrollo disponen de esa herramienta.
 
 ---
 

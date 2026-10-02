@@ -1,4 +1,4 @@
-import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from "@nestjs/common";
+import { CanActivate, ExecutionContext, ForbiddenException, Injectable, UnauthorizedException } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import { JwtService } from "@nestjs/jwt";
 import { EntityManager } from "@mikro-orm/postgresql";
@@ -6,6 +6,8 @@ import { Session } from "../entities/Session";
 import { IS_PUBLIC_KEY } from "./public.decorator";
 import { AccessTokenPayload } from "./tokens";
 import { AuthenticatedRequest } from "./current-auth.decorator";
+import { hasPermission, type Permission } from "./permissions";
+import { REQUIRED_PERMISSION } from "./require-permission.decorator";
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
@@ -49,6 +51,13 @@ export class JwtAuthGuard implements CanActivate {
         }
 
         request.auth = { user: session.user, session };
+        const permission = this.reflector.getAllAndOverride<Permission>(REQUIRED_PERMISSION, [
+            context.getHandler(),
+            context.getClass(),
+        ]);
+        if (permission && !hasPermission(session.user.role.name, permission)) {
+            throw new ForbiddenException('No tienes permiso para realizar esta acción.');
+        }
         return true;
     }
 }

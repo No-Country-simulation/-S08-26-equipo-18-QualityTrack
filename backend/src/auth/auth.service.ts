@@ -92,6 +92,11 @@ export class AuthService {
 
         const session = storedToken.session;
 
+        // Una sesión cerrada no puede renovar tokens ni afectar otras sesiones.
+        if (session.revokedAt) {
+            throw new UnauthorizedException();
+        }
+
         // Un token ya reemplazado que reaparece fuera del margen solo puede venir
         // de una copia: se cierran todas las sesiones de la persona.
         if (storedToken.replacedAt && now.getTime() - storedToken.replacedAt.getTime() > REFRESH_REUSE_GRACE_MS) {

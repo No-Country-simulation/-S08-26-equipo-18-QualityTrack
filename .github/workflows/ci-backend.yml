@@ -15,6 +15,28 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: qualitytrack_security
+          POSTGRES_USER: qualitytrack_test
+          POSTGRES_PASSWORD: ci_test_only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U qualitytrack_test -d qualitytrack_security"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      SECURITY_TEST_DB: "true"
+      DB_HOST: localhost
+      DB_PORT: "5432"
+      DB_SSL: "false"
+      POSTGRES_DB: qualitytrack_security
+      POSTGRES_USER: qualitytrack_test
+      POSTGRES_PASSWORD: ci_test_only
 
     defaults:
       run:
@@ -41,3 +63,6 @@ jobs:
 
       - name: Build
         run: pnpm run build
+
+      - name: Security tests
+        run: pnpm run test:security

@@ -8,6 +8,7 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
 # Desarrollo
 FROM base AS development
+RUN apk add --no-cache openssl
 RUN pnpm install --frozen-lockfile
 COPY . .
 EXPOSE 3000

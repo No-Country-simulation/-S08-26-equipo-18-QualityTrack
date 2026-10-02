@@ -54,7 +54,7 @@ apiClient.interceptors.request.use((request) => {
 
 // Estos endpoints no disparan un refresco ante un 401: el login con credenciales
 // inválidas o un refresco rechazado no se arreglan renovando.
-const ENDPOINTS_WITHOUT_REFRESH = ['/auth/login', '/auth/refresh', '/auth/logout']
+const ENDPOINTS_WITHOUT_REFRESH = ['/auth/login', '/auth/refresh']
 
 interface RetriableRequestConfig extends InternalAxiosRequestConfig {
     _retried?: boolean
