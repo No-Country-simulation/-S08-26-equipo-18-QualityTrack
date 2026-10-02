@@ -108,7 +108,7 @@ export function WorkOrderFormModal({
         validators.required("La fecha de fin planificada es obligatoria"),
         validators.date("La fecha de fin debe estar completa (DD/MM/AAAA)"),
         validators.dateAfterOrEqual(
-          () => values.plannedStartDate,
+          (): string => values.plannedStartDate,
           "La fecha de fin no puede ser anterior a la fecha de inicio"
         ),
       ],
@@ -118,7 +118,7 @@ export function WorkOrderFormModal({
       actualEndDate: [
         validators.date("La fecha de fin real debe estar completa (DD/MM/AAAA)"),
         validators.dateAfterOrEqual(
-          () => values.actualStartDate,
+          (): string => values.actualStartDate,
           "La fecha de fin real no puede ser anterior a la fecha de inicio real"
         ),
       ],

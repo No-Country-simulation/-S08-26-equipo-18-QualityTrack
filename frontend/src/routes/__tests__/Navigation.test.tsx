@@ -59,7 +59,6 @@ describe('Navegación y Rutas (Prueba de infraestructura de routing y control de
             firstName: 'Carlos',
             lastName: 'Operario',
             role: { id: 2, name: 'Producción' },
-            isActive: true,
         }
 
         useAuthStore.setState({
@@ -94,7 +93,6 @@ describe('Navegación y Rutas (Prueba de infraestructura de routing y control de
             firstName: 'Elena',
             lastName: 'Supervisora',
             role: { id: 3, name: 'Supervisor' },
-            isActive: true,
         }
 
         useAuthStore.setState({
@@ -128,7 +126,6 @@ describe('Navegación y Rutas (Prueba de infraestructura de routing y control de
             firstName: 'Super',
             lastName: 'Admin',
             role: { id: 1, name: 'Administrador' },
-            isActive: true,
         }
 
         useAuthStore.setState({

@@ -128,6 +128,37 @@ Copy-Item .env.example .env
 
 El archivo `.env` es local y **no debe subirse al repositorio**.
 
+Desde la raíz, con Node.js 22, completar la configuración local:
+
+```bash
+node scripts/setup-local-env.mjs
+```
+
+Este comando genera las claves faltantes con valores aleatorios y conserva los
+valores existentes. No muestra secretos. Revisar en `.env` las credenciales
+`ADMIN_EMAIL` y `ADMIN_PASSWORD`, que se usarán para iniciar sesión después del seed.
+
+Variables necesarias:
+
+| Variable | Uso |
+| --- | --- |
+| `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` | Base de datos local |
+| `JWT_ACCESS_SECRET` | Firma de tokens en el backend; al menos 32 caracteres |
+| `CORS_ORIGINS` | Orígenes del navegador permitidos; local: `http://localhost:5173` |
+| `ADMIN_EMAIL`, `ADMIN_PASSWORD` | Administrador inicial creado por el seed manual |
+| `ADMIN_FIRST_NAME`, `ADMIN_LAST_NAME` | Nombres opcionales del administrador |
+
+La plantilla deja las contraseñas y la clave JWT vacías. Los valores reales quedan
+en `.env`, ignorado por Git. La clave JWT pertenece al backend; no se coloca en
+`frontend/.env`, en variables `VITE_*` ni en documentación. Producción configura
+sus propios secretos y no reutiliza los del desarrollo local.
+
+Compose selecciona el stage `development`, conecta el backend a `postgres:5432`
+con `DB_SSL=false` y le pasa estas variables explícitamente. El navegador usa
+`http://localhost:3000` como API. Para ejecutar el backend fuera de Docker, copiar
+la configuración local a `backend/.env`: allí `DB_HOST=localhost` y `DB_PORT=5432`
+apuntan al puerto publicado por PostgreSQL.
+
 ---
 
 # Ejecutar el proyecto con Docker
@@ -137,10 +168,13 @@ Antes de iniciar el proyecto, verificar que **Docker Desktop esté ejecutándose
 Desde la raíz de QualityTrack:
 
 ```bash
-docker compose up --build
+docker compose up -d postgres
+docker compose run --build --rm backend pnpm migration:up
+docker compose run --rm backend pnpm seed
+docker compose up --build -d
 ```
 
-Este comando construye las imágenes necesarias y levanta los servicios:
+Estos comandos inicializan la base local, crean el administrador y levantan los servicios:
 
 ```text
 Frontend
@@ -149,6 +183,34 @@ PostgreSQL
 ```
 
 La primera ejecución puede tardar más debido a la descarga de imágenes y la instalación de dependencias.
+
+Las migraciones y el seed se ejecutan explícitamente; no se crean usuarios
+automáticamente al desplegar. Ejecutar este recorrido con la configuración local
+de Compose, nunca con credenciales de producción. Después de inicializar la base,
+los siguientes arranques solo necesitan `docker compose up --build -d`.
+
+Abrir `http://localhost:5173` e iniciar sesión con las credenciales de `.env`.
+La documentación de la API está en `http://localhost:3000/docs`.
+
+### Comprobaciones antes de integrar cambios
+
+```bash
+cd frontend
+npm ci
+npm run build
+npm test
+cd ..
+```
+
+`npm run build` ejecuta TypeScript antes de generar el bundle. El chequeo aislado
+es `npm run typecheck`. Las cachés `*.tsbuildinfo` son archivos generados y no se
+versionan. CI Frontend ejecuta build y pruebas en PRs y en cambios de `develop`.
+
+Para comprobar la compilación del backend con sus dependencias de desarrollo:
+
+```bash
+docker compose run --rm backend pnpm run build
+```
 
 ---
 
