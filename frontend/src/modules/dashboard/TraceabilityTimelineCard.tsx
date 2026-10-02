@@ -91,7 +91,7 @@ export function TraceabilityTimelineCard({
       events.push({
         id: `del-${del.id}`,
         category: "DELIVERY",
-        title: `Remito de entrega #REM-${del.id}`,
+        title: `Entrega #${del.id}`,
         description: `Despacho de ${del.quantity} u. para OT-${woNum} (${clientName})`,
         date: del.deliveryDate || del.createdAt || "",
         path: `/deliveries`,
@@ -109,8 +109,8 @@ export function TraceabilityTimelineCard({
       events.push({
         id: `qc-${qc.id}`,
         category: "QUALITY",
-        title: `Control #QC-${qc.id}`,
-        description: `Inspeccion conforme "${qc.specification}" para OT-${woNum}`,
+        title: `Inspección #${qc.id}`,
+        description: `Inspección registrada "${qc.specification}" para OT-${woNum}`,
         date: qc.performedAt || qc.createdAt || "",
         path: `/work-orders/${qc.workOrderId}`,
         badgeLabel: "Calidad",
@@ -123,7 +123,7 @@ export function TraceabilityTimelineCard({
 
     // Ordenes de trabajo
     for (const wo of workOrders) {
-      const clientName = wo.client?.businessName || `Cliente #${wo.clientId}`;
+      const clientName = wo.client?.businessName || (wo.clientId ? `Cliente #${wo.clientId}` : "Cliente no documentado");
       events.push({
         id: `wo-${wo.id}`,
         category: "WORK_ORDER",
@@ -189,39 +189,7 @@ export function TraceabilityTimelineCard({
         .slice(0, limit);
     }
 
-    // Para la vista general "ALL": mostrar un ciclo de vida balanceado
-    // (1 Entrega, 1 Calidad, 1 Taller, 1 Cotizacion, 1 Solicitud)
-    const representative: TimelineEvent[] = [];
-
-    // 1 de Entrega
-    const latestDel = allEvents.find((e) => e.id.startsWith("del-"));
-    if (latestDel) representative.push(latestDel);
-
-    // 1 de Calidad
-    const latestQc = allEvents.find((e) => e.id.startsWith("qc-"));
-    if (latestQc) representative.push(latestQc);
-
-    // 1 de Orden de trabajo
-    const latestWo = allEvents.find((e) => e.id.startsWith("wo-"));
-    if (latestWo) representative.push(latestWo);
-
-    // 1 de Cotizacion
-    const latestQuot = allEvents.find((e) => e.id.startsWith("quot-"));
-    if (latestQuot) representative.push(latestQuot);
-
-    // 1 de Solicitud
-    const latestReq = allEvents.find((e) => e.id.startsWith("req-"));
-    if (latestReq) representative.push(latestReq);
-
-    // Rellenar hasta el limite con los mas recientes restantes si faltan
-    for (const e of allEvents) {
-      if (representative.length >= limit) break;
-      if (!representative.some((r) => r.id === e.id)) {
-        representative.push(e);
-      }
-    }
-
-    return representative.slice(0, limit);
+    return allEvents.slice(0, limit);
   }, [allEvents, selectedFilter, limit]);
 
   return (
@@ -241,7 +209,7 @@ export function TraceabilityTimelineCard({
             </Heading>
           </HStack>
           <Text fontSize="2xs" color="gray.500" whiteSpace="nowrap">
-            Historial cronologico del pipeline comercial, de planta y calidad
+            Registros ordenados por fecha de los módulos consultados correctamente.
           </Text>
         </Box>
 
@@ -314,6 +282,7 @@ export function TraceabilityTimelineCard({
 
       {/* Listado de eventos en sub-contenedores (alineados a la misma altura que las OTs) */}
       <VStack gap={3} align="stretch">
+        {filteredEvents.length === 0 && <Text>Sin actividad disponible para este filtro.</Text>}
         {filteredEvents.map((event) => {
           const EventIcon = event.icon;
 

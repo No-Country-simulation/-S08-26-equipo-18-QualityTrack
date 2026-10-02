@@ -55,11 +55,11 @@ describe("dashboard module", () => {
       renderWithRouter(<TraceabilityCompletenessCard {...fixture} />);
 
       expect(
-        screen.getByText("Completitud de trazabilidad")
+        screen.getByText("Cobertura parcial del expediente")
       ).toBeInTheDocument();
-      expect(screen.getByText(/al 100%/i)).toBeInTheDocument();
+      expect(screen.getByText(/con 5 de 5/i)).toBeInTheDocument();
       expect(screen.getByText(/con faltantes/i)).toBeInTheDocument();
-      expect(screen.getByText(/promedio global/i)).toBeInTheDocument();
+      expect(screen.getByText(/cobertura promedio/i)).toBeInTheDocument();
     });
 
     it("debe permitir alternar entre mostrar 5 ordenes y ver todas", () => {
@@ -95,7 +95,7 @@ describe("dashboard module", () => {
       expect(pendientesBtn).toBeInTheDocument();
 
       const completasBtn = screen.getByRole("button", {
-        name: /Completas/i,
+        name: /Con los 5 elementos/i,
       });
       fireEvent.click(completasBtn);
       expect(completasBtn).toBeInTheDocument();
@@ -134,7 +134,7 @@ describe("dashboard module", () => {
       });
       fireEvent.click(qualityFilterBtn);
 
-      const qualityEvents = screen.getAllByText(/Control #QC-/i);
+      const qualityEvents = screen.getAllByText(/Inspecci\u00f3n #/i);
       expect(qualityEvents.length).toBeGreaterThan(0);
     });
 
@@ -142,7 +142,7 @@ describe("dashboard module", () => {
       const onNavigate = vi.fn();
       renderWithRouter(<TraceabilityTimelineCard {...fixture} onNavigate={onNavigate} />);
 
-      const deliveryEvent = screen.getByText(/Remito de entrega/i);
+      const deliveryEvent = screen.getAllByText(/Entrega #/i)[0];
       fireEvent.click(deliveryEvent);
 
       expect(onNavigate).toHaveBeenCalledWith("/deliveries");

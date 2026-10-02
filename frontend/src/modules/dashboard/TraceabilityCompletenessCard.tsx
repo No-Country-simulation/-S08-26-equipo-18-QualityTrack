@@ -25,6 +25,7 @@ import type { WorkOrder } from "../../services/workOrderService";
 import type { QualityControl } from "../../services/qualityService";
 import type { Delivery } from "../../services/deliveryService";
 import type { Document } from "../../services/documentService";
+import { documentsForOrder } from "./indicators";
 
 export interface WorkOrderTraceabilitySummary {
   workOrder: WorkOrder;
@@ -89,7 +90,7 @@ export function TraceabilityCompletenessCard({
         (del) => del.workOrderId === wo.id,
       );
       const hasDeliveries = relatedDeliveries.length > 0;
-      const relatedDocs = documents.filter((doc) => doc.workOrderId === wo.id);
+      const relatedDocs = documentsForOrder(wo, documents);
       const hasDocuments = relatedDocs.length > 0;
 
       const missing: string[] = [];
@@ -169,11 +170,13 @@ export function TraceabilityCompletenessCard({
             <LuShieldCheck size={22} color="#059669" />
             <Box>
               <Heading size="md" color="gray.800">
-                Completitud de trazabilidad
+                Cobertura parcial del expediente
               </Heading>
               <Text fontSize="xs" color="gray.500" fontWeight="normal">
-                Seguimiento de integridad documental y operativa del expediente
-                por orden de trabajo
+                Cinco elementos: solicitud, cotización, inspección registrada,
+                entrega registrada y documento registrado (OT u origen).
+                No evalúa aprobación interna, materiales, hojas, operaciones ni
+                personal; tampoco certifica conformidad o disponibilidad del archivo.
               </Text>
             </Box>
           </HStack>
@@ -202,7 +205,7 @@ export function TraceabilityCompletenessCard({
                 colorPalette={filter === "COMPLETE" ? "green" : "gray"}
                 onClick={() => setFilter("COMPLETE")}
               >
-                Completas ({completeCount})
+                Con los 5 elementos ({completeCount})
               </Button>
             </HStack>
 
@@ -246,14 +249,14 @@ export function TraceabilityCompletenessCard({
                 color="gray.700"
                 textTransform="uppercase"
               >
-                Indice general de trazabilidad
+                Presencia de los cinco elementos
               </Text>
               <HStack gap={2}>
                 <Text fontSize="sm" fontWeight="bold" color="green.700">
-                  {completePercentage}% expedientes completos
+                  {completePercentage}% de OT con los 5 elementos
                 </Text>
                 <Text fontSize="xs" color="gray.500">
-                  ({averagePercentage}% promedio global)
+                  ({averagePercentage}% de cobertura promedio)
                 </Text>
               </HStack>
             </Flex>
@@ -292,7 +295,7 @@ export function TraceabilityCompletenessCard({
               borderRadius="md"
             >
               <LuCheck size={14} />
-              <Text fontWeight="semibold">{completeCount} al 100%</Text>
+              <Text fontWeight="semibold">{completeCount} con 5 de 5</Text>
             </HStack>
             <HStack
               gap={1.5}
@@ -317,6 +320,7 @@ export function TraceabilityCompletenessCard({
         overflowY={showAll ? "auto" : undefined}
         pr={showAll ? 1 : 0}
       >
+        {totalCount === 0 && <Text>No hay OT registradas.</Text>}
         {displayedSummaries.map((item) => {
           const { workOrder: wo } = item;
           const isComplete = item.score === 5;
@@ -370,7 +374,7 @@ export function TraceabilityCompletenessCard({
                   </HStack>
                   <HStack gap={2} fontSize="xs" color="gray.500" wrap="wrap">
                     <Text lineClamp={1}>
-                      {wo.client?.businessName || `Cliente #${wo.clientId}`}
+                      {wo.client?.businessName || (wo.clientId ? `Cliente #${wo.clientId}` : "Cliente no documentado")}
                     </Text>
                     {!isComplete && (
                       <>
@@ -421,8 +425,8 @@ export function TraceabilityCompletenessCard({
                     colorPalette={item.hasQuotation ? "green" : "gray"}
                     title={
                       item.hasQuotation
-                        ? "Cotizacion aprobada"
-                        : "Falta cotizacion aprobada"
+                        ? "Cotización vinculada"
+                        : "Sin cotización vinculada"
                     }
                   >
                     <LuFileSpreadsheet
@@ -458,8 +462,8 @@ export function TraceabilityCompletenessCard({
                     colorPalette={item.hasDeliveries ? "green" : "gray"}
                     title={
                       item.hasDeliveries
-                        ? `${item.deliveryCount} remitos emitidos`
-                        : "Sin remitos de entrega"
+                        ? `${item.deliveryCount} entregas registradas`
+                        : "Sin entregas registradas"
                     }
                   >
                     <LuTruck size={11} style={{ marginRight: "3px" }} />

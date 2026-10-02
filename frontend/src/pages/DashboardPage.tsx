@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { Badge, Box, Flex, Heading, HStack, Text } from "@chakra-ui/react";
 import { LuPlus, LuShieldCheck, LuTruck } from "react-icons/lu";
-import { Alert } from "../components/Alert";
+import { DashboardIndicators } from "../modules/dashboard/DashboardIndicators";
 import { Button } from "../components/Button";
 import { Can } from "../components/Can";
 import { useAuthStore } from "../store/authStore";
@@ -71,11 +71,7 @@ export default function DashboardPage() {
         </HStack>
       </Flex>
 
-      <Alert
-        status="info"
-        title="Indicadores no disponibles"
-        description="No hay datos verificados para mostrar los indicadores de manufactura y trazabilidad. Consultá el estado de cada módulo desde el menú."
-      />
+      <DashboardIndicators key={`${user?.id}:${user?.role?.name}`} roleName={user?.role?.name} />
     </Box>
   );
 }

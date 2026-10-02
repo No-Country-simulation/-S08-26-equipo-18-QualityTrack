@@ -48,9 +48,11 @@ describe('Lecturas reales, sin fallbacks de demostración', () => {
     expect(await screen.findByText(empty)).toBeInTheDocument()
   })
 
-  it('dashboard informa indisponibilidad sin mostrar métricas ficticias', () => {
+  it('dashboard informa consultas fallidas sin mostrar métricas ficticias', async () => {
+    vi.spyOn(api, 'get').mockRejectedValue(new ApiError('Consulta rechazada', 500))
     renderWithProviders(<MemoryRouter><DashboardPage /></MemoryRouter>)
-    expect(screen.getByText('Indicadores no disponibles')).toBeInTheDocument()
+    expect(await screen.findByText('Algunos indicadores no están disponibles')).toBeInTheDocument()
+    expect(screen.getByText('Cobertura parcial no disponible')).toBeInTheDocument()
     expect(screen.queryByText(/Expedientes completos/i)).not.toBeInTheDocument()
   })
 })

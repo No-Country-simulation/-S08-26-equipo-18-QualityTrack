@@ -13,6 +13,24 @@ function detail() {
   return renderWithProviders(<MemoryRouter initialEntries={['/work-orders/1']}><Routes><Route path="/work-orders/:id" element={<WorkOrderDetailPage />} /></Routes></MemoryRouter>)
 }
 
+it('aprobar una OT mantiene una sola sección de producción y documentos en cada actualización', async () => {
+  const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+  vi.spyOn(api, 'get').mockImplementation(async function fixtures<T>(endpoint: string): Promise<T> {
+    return (endpoint === '/work-orders/1' ? { ...MOCK_WORK_ORDERS[0], id: 1, quotationId: 1, status: 'PENDING', actualStartDate: null } : endpoint === '/clients' ? { items: [], total: 0, page: 1, limit: 100 } : endpoint.startsWith('/approvals/') ? null : []) as T
+  })
+  vi.spyOn(api, 'post').mockResolvedValue({ id: 8, workOrderId: 1, status: 'APPROVED' })
+  detail()
+  const productionHeading = 'Materia prima y trazabilidad de materiales'
+  expect(await screen.findAllByRole('heading', { name: productionHeading })).toHaveLength(1)
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Aprobar orden' })) })
+  await act(async () => { fireEvent.click(await screen.findByRole('button', { name: 'Confirmar aprobacion' })) })
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+  expect(screen.getAllByRole('heading', { name: productionHeading })).toHaveLength(1)
+  expect(screen.getAllByRole('button', { name: 'Asignar material' })).toHaveLength(1)
+  expect(screen.getAllByRole('button', { name: 'Adjuntar documento' })).toHaveLength(1)
+  expect(consoleError.mock.calls.some(args => args.some(value => String(value).includes('same key')))).toBe(false)
+})
+
 it('una OT inexistente no se reemplaza por una ficha de demostración', async () => {
   vi.spyOn(api, 'get').mockRejectedValue(new ApiError('Not Found', 404))
   detail()

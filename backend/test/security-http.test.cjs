@@ -428,6 +428,7 @@ test('HTTP authorization and logout against an isolated PostgreSQL database', {
         await require('./production-http.cjs')(t, { call, em, users, sessions, roleNames, admin, legacyWorkOrderId });
         await require('./quality-deliveries-http.cjs')(t, { call, em, users, sessions, admin, legacyWorkOrderId });
         await require('./documents-http.cjs')(t, { call, em, users, sessions, admin, password, legacyWorkOrderId });
+        await require('./workflow-http.cjs')(t, { call, users, sessions, password });
         const created = await call('POST', '/clients', admin.accessToken, input());
         assert.equal(created.status, 201);
         const client = await created.json();
