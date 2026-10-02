@@ -549,6 +549,12 @@ frontend/
 
 Los cambios realizados en el código se reflejan dentro de los contenedores sin necesidad de reconstruir las imágenes en cada modificación.
 
+Backend y frontend utilizan polling para detectar cambios en los volúmenes de
+Docker Desktop sobre Windows. Si la API conserva una validación anterior,
+reiniciar el backend con `docker compose restart backend`. Después de modificar
+variables de Docker Compose, aplicar la configuración con
+`docker compose up -d backend`.
+
 ---
 
 # Reconstruir las imágenes
