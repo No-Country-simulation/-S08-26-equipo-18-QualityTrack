@@ -147,6 +147,11 @@ Variables necesarias:
 | `CORS_ORIGINS` | Orígenes del navegador permitidos; local: `http://localhost:5173` |
 | `ADMIN_EMAIL`, `ADMIN_PASSWORD` | Administrador inicial creado por el seed manual |
 | `ADMIN_FIRST_NAME`, `ADMIN_LAST_NAME` | Nombres opcionales del administrador |
+| `ADMIN_DNI` | DNI real de 7 u 8 dígitos, obligatorio al crear el administrador inicial |
+
+Antes del primer seed, completar `ADMIN_DNI` manualmente en `.env`:
+`setup-local-env.mjs` genera secretos, pero no inventa datos personales. Si el
+administrador ya existe, repetir el seed conserva su cuenta y su estado.
 
 La plantilla deja las contraseñas y la clave JWT vacías. Los valores reales quedan
 en `.env`, ignorado por Git. La clave JWT pertenece al backend; no se coloca en
@@ -195,26 +200,45 @@ La documentación de la API está en `http://localhost:3000/docs`.
 ### Administración de usuarios
 
 Con una cuenta Administrador, abrir **Usuarios** en el menú para consultar las
-cuentas, crear usuarios y cambiar sus roles. Los roles se toman de la base de datos:
+cuentas, crear usuarios, editar sus datos y cambiar sus roles. Los roles se toman de la base de datos:
 Administrador, Supervisor, Producción, Calidad y Administración. No hay registro
 público ni editor de permisos.
 
-La API ofrece `GET /users`, `GET /roles`, `POST /users` y `PATCH /users/:id/role`.
+La API ofrece `GET /users`, `GET /roles`, `POST /users`, `PATCH /users/:id`,
+`PATCH /users/:id/role` y `PATCH /users/:id/status`.
 Todas estas acciones requieren Administrador; los otros roles reciben 403 y las
 peticiones sin sesión válida, 401. El alta recibe nombre, apellido, email, contraseña
-y `roleId`; el cambio de rol recibe únicamente `roleId`. El email se normaliza y
-un duplicado devuelve 409. Los datos inválidos y roles inexistentes devuelven 400;
-un usuario inexistente al cambiar rol devuelve 404.
+y `roleId`, además de DNI obligatorio y único. El DNI admite 7 u 8 dígitos,
+puntos y espacios; se guarda como texto normalizado, conservando ceros iniciales.
+Editar datos permite nombre, apellido, email y DNI; no modifica contraseña ni rol.
+El cambio de rol recibe únicamente `roleId`. Email o DNI duplicado devuelve 409,
+incluso si la otra cuenta está inactiva. Datos inválidos y roles inexistentes
+devuelven 400; un usuario inexistente al editar, cambiar rol o estado devuelve 404.
 
 Las contraseñas se guardan con bcrypt y nunca aparecen en las respuestas. Alta,
 login y creación del administrador inicial admiten contraseñas no vacías de hasta
 72 bytes UTF-8, sin recortar espacios; los caracteres acentuados y símbolos pueden
 ocupar varios bytes. `ADMIN_PASSWORD` debe respetar el mismo límite.
 
-No se permite quitarse el propio rol Administrador ni dejar al sistema sin
-administradores, incluso con cambios simultáneos. Los cambios de rol se aplican
+**Desactivar** requiere confirmación, conserva la cuenta y su historial y revoca
+todas sus sesiones. Una cuenta inactiva no puede iniciar sesión, acceder con
+tokens anteriores ni renovarlos. Se puede **Reactivar** desde el filtro
+**Inactivos**; deberá iniciar sesión nuevamente. También existen filtros
+**Activos** y **Todos**. No hay borrado físico de cuentas.
+
+No se permite desactivar la propia cuenta, quitarse el rol Administrador ni dejar
+al sistema sin administradores activos, incluso con cambios simultáneos. Los cambios de rol se aplican
 en la siguiente petición de las sesiones vigentes, sin volver a iniciar sesión.
-No se ofrecen borrado de cuentas, deshabilitación ni cambio de contraseña.
+El cambio de contraseña queda fuera de estas acciones.
+
+La migración `Migration20261002143000_user_profile_status` agrega DNI anulable y
+estado activo por defecto. Conserva las cuentas existentes y deja sus DNI
+pendientes para completarlos al editar, sin inventar identificaciones.
+Tras actualizar un entorno local existente, ejecutar:
+
+```bash
+docker compose run --rm --no-deps backend pnpm migration:up
+```
 
 ### Comprobaciones antes de integrar cambios
 

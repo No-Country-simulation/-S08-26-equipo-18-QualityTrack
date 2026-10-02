@@ -45,6 +45,7 @@ services:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Definir ADMIN_PASSWORD para el seed local}
       ADMIN_FIRST_NAME: ${ADMIN_FIRST_NAME:-Administrador}
       ADMIN_LAST_NAME: ${ADMIN_LAST_NAME:-QualityTrack}
+      ADMIN_DNI: ${ADMIN_DNI:-}
 
     depends_on:
       postgres:

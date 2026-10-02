@@ -12,7 +12,7 @@ const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 
 function fixture(role = 'Administrador', action = 'list') {
-    const user = { id: 1, role: { name: role } };
+    const user = { id: 1, isActive: true, role: { name: role } };
     const request = { headers: { authorization: 'Bearer fixture' } };
     const session = { user };
     const jwt = { verifyAsync: async () => ({ sub: '1', sid: 'fixture', role: 'Administrador' }) };
@@ -58,6 +58,12 @@ test('database role changes apply to an existing JWT; claimed role does not gran
     assert.equal(await f.guard.canActivate(f.context), true);
     f.user.role.name = 'Producción';
     await assert.rejects(f.guard.canActivate(f.context), error => error.getStatus() === 403);
+});
+
+test('a disabled account cannot use an existing JWT, even with an unrevoked session', async () => {
+    const f = fixture();
+    f.user.isActive = false;
+    await assert.rejects(f.guard.canActivate(f.context), error => error.getStatus() === 401);
 });
 
 test('local database can explicitly disable SSL', () => {

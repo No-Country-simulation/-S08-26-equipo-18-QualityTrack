@@ -21,7 +21,12 @@ import {
 import { CurrentAuth } from '../auth/current-auth.decorator';
 import type { RequestAuth } from '../auth/current-auth.decorator';
 import { RequirePermission } from '../auth/require-permission.decorator';
-import { ChangeUserRoleDto, CreateUserDto } from './dto/user-input.dto';
+import {
+  ChangeUserRoleDto,
+  CreateUserDto,
+  UpdateUserDto,
+  UserStatusDto,
+} from './dto/user-input.dto';
 import { UsersService } from './users.service';
 import { RoleResponseDto, UserResponseDto } from './dto/user-response.dto';
 
@@ -48,8 +53,45 @@ export class UsersController {
   @ApiOperation({ summary: 'Crear un usuario con un rol existente' })
   @ApiCreatedResponse({ type: UserResponseDto })
   @ApiConflictResponse({ description: 'Ya existe un usuario con ese email.' })
-  create(@Body() dto: CreateUserDto) {
-    return this.users.create(dto);
+  create(@Body() dto: CreateUserDto, @CurrentAuth() auth: RequestAuth) {
+    return this.users.create(dto, auth.user.id);
+  }
+
+  @Patch(':id')
+  @RequirePermission('users:manage')
+  @ApiOperation({
+    summary:
+      'Editar nombre, apellido, email y DNI conservando la identidad y el historial',
+  })
+  @ApiOkResponse({ type: UserResponseDto })
+  @ApiConflictResponse({ description: 'Email o DNI duplicado.' })
+  @ApiNotFoundResponse({ description: 'El usuario no existe.' })
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateUserDto,
+    @CurrentAuth() auth: RequestAuth,
+  ) {
+    return this.users.update(id, dto, auth.user.id);
+  }
+
+  @Patch(':id/status')
+  @RequirePermission('users:manage')
+  @ApiOperation({
+    summary:
+      'Desactivar o reactivar una cuenta sin borrar su historial; la baja revoca todas sus sesiones',
+  })
+  @ApiOkResponse({ type: UserResponseDto })
+  @ApiConflictResponse({
+    description:
+      'No se permite desactivar la propia cuenta ni perder el último Administrador activo.',
+  })
+  @ApiNotFoundResponse({ description: 'El usuario no existe.' })
+  setStatus(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UserStatusDto,
+    @CurrentAuth() auth: RequestAuth,
+  ) {
+    return this.users.setStatus(id, dto.isActive, auth.user.id);
   }
 
   @Patch(':id/role')

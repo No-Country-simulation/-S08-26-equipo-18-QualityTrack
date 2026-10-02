@@ -1,14 +1,16 @@
 import { Transform } from 'class-transformer';
 import {
   IsEmail,
+  IsBoolean,
   IsInt,
   IsNotEmpty,
   IsString,
   Max,
   MaxLength,
   Min,
+  Matches,
 } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, PartialType } from '@nestjs/swagger';
 import { IsSupportedPassword } from '../../auth/password-length.validator';
 
 const trim = ({ value }: { value: unknown }) =>
@@ -26,7 +28,7 @@ export class ChangeUserRoleDto {
   roleId: number;
 }
 
-export class CreateUserDto extends ChangeUserRoleDto {
+export class UserProfileDto {
   @ApiProperty({ maxLength: 255 })
   @Transform(trim)
   @IsString()
@@ -48,6 +50,43 @@ export class CreateUserDto extends ChangeUserRoleDto {
   @IsEmail()
   @MaxLength(255)
   email: string;
+
+  @ApiProperty({
+    description: 'DNI de 7 u 8 dígitos; admite puntos y espacios.',
+    maxLength: 8,
+  })
+  @Transform(({ value }) =>
+    typeof value === 'string' && /^[\d.\s]+$/.test(value)
+      ? value.replace(/[.\s]/g, '')
+      : value,
+  )
+  @IsString()
+  @Matches(/^\d{7,8}$/, {
+    message: 'El DNI debe tener 7 u 8 dígitos numéricos.',
+  })
+  dni: string;
+}
+
+export class UpdateUserDto extends PartialType(UserProfileDto, {
+  skipNullProperties: false,
+}) {}
+
+export class UserStatusDto {
+  @ApiProperty()
+  @IsBoolean()
+  isActive: boolean;
+}
+
+export class CreateUserDto extends UserProfileDto {
+  @ApiProperty({
+    minimum: 1,
+    maximum: 2147483647,
+    description: 'ID de un rol existente.',
+  })
+  @IsInt()
+  @Min(1)
+  @Max(2147483647)
+  roleId: number;
 
   @ApiProperty({
     maxLength: 72,

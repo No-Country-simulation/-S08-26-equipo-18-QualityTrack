@@ -15,6 +15,7 @@ import Sidebar from "../../layouts/Sidebar";
 import ProtectedRoute from "../../routes/guards/ProtectedRoute";
 import UsersPage from "../UsersPage";
 import type { AuthUser } from "../../types/auth";
+import type { ManagedUser } from "../../services/userService";
 
 const roles = [
   "Administrador",
@@ -23,14 +24,18 @@ const roles = [
   "Calidad",
   "Administración",
 ].map((name, i) => ({ id: i + 1, name }));
-const admin: AuthUser = {
+const admin: ManagedUser = {
+  dni: null,
+  isActive: true,
   id: 1,
   firstName: "Admin",
   lastName: "Account",
   email: "admin@example.test",
   role: roles[0],
 };
-const other: AuthUser = {
+const other: ManagedUser = {
+  dni: "12345678",
+  isActive: true,
   id: 2,
   firstName: "Ana",
   lastName: "Cuenta",
@@ -55,7 +60,7 @@ const click = async (element: HTMLElement) => {
   });
 };
 
-function setup(users: AuthUser[] = [admin, other]) {
+function setup(users: ManagedUser[] = [admin, other]) {
   const get = vi.spyOn(api, "get").mockImplementation(async function response<
     T,
   >(endpoint: string): Promise<T> {
@@ -76,6 +81,7 @@ async function fill() {
     ["Nombre", " Nueva "],
     ["Apellido", " Cuenta "],
     ["Email", " NEW@EXAMPLE.TEST "],
+    ["DNI", "31.444.555"],
     ["Contraseña", " contraseña "],
   ]) {
     fireEvent.change(within(dialog).getByLabelText(label), {
@@ -89,6 +95,219 @@ async function fill() {
 }
 
 describe("Administración real de usuarios", () => {
+  it("edita datos personales y exige completar el DNI pendiente sin cambiar contraseña ni rol", async () => {
+    setup([admin, { ...other, dni: null }]);
+    const patch = vi
+      .spyOn(api, "patch")
+      .mockResolvedValue({
+        ...other,
+        firstName: "Editada",
+        email: "edited@example.test",
+        dni: "31444555",
+      });
+    await screen.findByText("ana@example.test");
+    await click(
+      screen.getByRole("button", { name: `Editar datos de ${other.email}` }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByLabelText("Nombre")).toHaveValue(
+      other.firstName,
+    );
+    expect(within(dialog).getByLabelText("DNI")).toHaveValue("");
+    expect(
+      within(dialog).queryByLabelText("Contraseña"),
+    ).not.toBeInTheDocument();
+    expect(within(dialog).queryByLabelText("Rol")).not.toBeInTheDocument();
+    await click(within(dialog).getByRole("button", { name: "Guardar datos" }));
+    expect(patch).not.toHaveBeenCalled();
+    expect(
+      screen.getByText("El DNI debe tener 7 u 8 dígitos numéricos"),
+    ).toBeInTheDocument();
+    for (const [label, value] of [
+      ["Nombre", " Editada "],
+      ["Email", " EDITED@EXAMPLE.TEST "],
+      ["DNI", "31.444.555"],
+    ]) {
+      fireEvent.change(within(dialog).getByLabelText(label), {
+        target: { value },
+      });
+    }
+    await click(within(dialog).getByRole("button", { name: "Guardar datos" }));
+    expect(patch).toHaveBeenCalledWith("/users/2", {
+      firstName: "Editada",
+      lastName: other.lastName,
+      email: "edited@example.test",
+      dni: "31444555",
+    });
+    expect(
+      await screen.findByText("Datos del usuario actualizados."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("cell", { name: "31444555" })).toBeInTheDocument();
+  });
+
+  it.each([409, 500])(
+    "un error al editar (%s) conserva el borrador y la fila",
+    async (status) => {
+      setup();
+      vi.spyOn(api, "patch").mockRejectedValue(
+        new ApiError("Email o DNI duplicado", status),
+      );
+      await screen.findByText("ana@example.test");
+      await click(
+        screen.getByRole("button", { name: `Editar datos de ${other.email}` }),
+      );
+      const dialog = await screen.findByRole("dialog");
+      fireEvent.change(within(dialog).getByLabelText("Nombre"), {
+        target: { value: "Borrador" },
+      });
+      await click(
+        within(dialog).getByRole("button", { name: "Guardar datos" }),
+      );
+      expect(
+        await screen.findByText("Email o DNI duplicado"),
+      ).toBeInTheDocument();
+      expect(within(dialog).getByLabelText("Nombre")).toHaveValue("Borrador");
+      expect(
+        screen.queryByText("Datos del usuario actualizados."),
+      ).not.toBeInTheDocument();
+      await click(within(dialog).getByRole("button", { name: "Cancelar" }));
+      await waitFor(() =>
+        expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+      );
+      expect(
+        screen.getByRole("cell", { name: other.firstName }),
+      ).toBeInTheDocument();
+    },
+  );
+
+  it("editar mi cuenta actualiza la identidad de la sesión sin guardar el DNI en ella", async () => {
+    setup();
+    vi.spyOn(api, "patch").mockResolvedValue({
+      ...admin,
+      firstName: "Renombrado",
+      email: "renamed@example.test",
+      dni: "31222333",
+    });
+    await screen.findByText(admin.email);
+    expect(
+      screen.getByRole("button", { name: `Desactivar a ${admin.email}` }),
+    ).toBeDisabled();
+    await click(
+      screen.getByRole("button", { name: `Editar datos de ${admin.email}` }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.change(within(dialog).getByLabelText("DNI"), {
+      target: { value: "31222333" },
+    });
+    await click(within(dialog).getByRole("button", { name: "Guardar datos" }));
+    await screen.findByText("Datos del usuario actualizados.");
+    expect(useAuthStore.getState().user?.email).toBe("renamed@example.test");
+    expect(Object.hasOwn(useAuthStore.getState().user!, "dni")).toBe(false);
+  });
+
+  it("desactiva con confirmación, conserva el registro y permite reactivarlo desde Inactivos", async () => {
+    setup();
+    const patch = vi
+      .spyOn(api, "patch")
+      .mockResolvedValueOnce({ ...other, isActive: false })
+      .mockResolvedValueOnce(other);
+    await screen.findByText(other.email);
+    await click(
+      screen.getByRole("button", { name: `Desactivar a ${other.email}` }),
+    );
+    let dialog = await screen.findByRole("dialog");
+    expect(
+      within(dialog).getByText(/Sus datos e historial se conservan/),
+    ).toBeInTheDocument();
+    expect(patch).not.toHaveBeenCalled();
+    await click(within(dialog).getByRole("button", { name: "Desactivar" }));
+    expect(patch).toHaveBeenCalledWith("/users/2/status", { isActive: false });
+    await screen.findByText("Usuario desactivado. Se cerraron sus sesiones.");
+    expect(
+      screen.queryByRole("cell", { name: other.email }),
+    ).not.toBeInTheDocument();
+    await click(screen.getByRole("button", { name: "Inactivos" }));
+    expect(screen.getByRole("cell", { name: other.email })).toBeInTheDocument();
+    expect(screen.getByRole("cell", { name: "12345678" })).toBeInTheDocument();
+    await click(
+      screen.getByRole("button", { name: `Reactivar a ${other.email}` }),
+    );
+    dialog = await screen.findByRole("dialog");
+    await click(within(dialog).getByRole("button", { name: "Reactivar" }));
+    expect(patch).toHaveBeenLastCalledWith("/users/2/status", {
+      isActive: true,
+    });
+    await screen.findByText(
+      "Usuario reactivado. Debe iniciar sesión nuevamente.",
+    );
+    await click(screen.getByRole("button", { name: "Activos" }));
+    expect(screen.getByRole("cell", { name: other.email })).toBeInTheDocument();
+  });
+
+  it.each([409, 500])(
+    "una baja rechazada (%s) conserva la cuenta activa y muestra el error en la confirmación",
+    async (status) => {
+      setup();
+      const patch = vi
+        .spyOn(api, "patch")
+        .mockRejectedValue(new ApiError("No se pudo desactivar", status));
+      await screen.findByText(other.email);
+      await click(
+        screen.getByRole("button", { name: `Desactivar a ${other.email}` }),
+      );
+      const dialog = await screen.findByRole("dialog");
+      await click(within(dialog).getByRole("button", { name: "Desactivar" }));
+      expect(
+        await screen.findByText("No se pudo desactivar"),
+      ).toBeInTheDocument();
+      expect(patch).toHaveBeenCalledOnce();
+      expect(
+        screen.queryByText("Usuario desactivado. Se cerraron sus sesiones."),
+      ).not.toBeInTheDocument();
+      await click(within(dialog).getByRole("button", { name: "Cancelar" }));
+      await waitFor(() =>
+        expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+      );
+      expect(
+        screen.getByRole("button", { name: `Desactivar a ${other.email}` }),
+      ).toBeEnabled();
+    },
+  );
+
+  it("rechaza DNI no numérico y protege la confirmación de doble envío", async () => {
+    setup();
+    await screen.findByText(other.email);
+    const post = vi.spyOn(api, "post");
+    let dialog = await fill();
+    fireEvent.change(within(dialog).getByLabelText("DNI"), {
+      target: { value: "ab31444555" },
+    });
+    await click(within(dialog).getByRole("button", { name: "Crear usuario" }));
+    expect(post).not.toHaveBeenCalled();
+    await click(within(dialog).getByRole("button", { name: "Cancelar" }));
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+    let resolve!: (user: ManagedUser) => void;
+    const patch = vi.spyOn(api, "patch").mockImplementation(
+      () =>
+        new Promise<ManagedUser>((done) => {
+          resolve = done;
+        }) as never,
+    );
+    await click(
+      screen.getByRole("button", { name: `Desactivar a ${other.email}` }),
+    );
+    dialog = await screen.findByRole("dialog");
+    const submit = within(dialog).getByRole("button", { name: "Desactivar" });
+    await click(submit);
+    expect(submit).toBeDisabled();
+    await click(submit);
+    expect(patch).toHaveBeenCalledOnce();
+    await act(async () => resolve({ ...other, isActive: false }));
+    await screen.findByText("Usuario desactivado. Se cerraron sus sesiones.");
+  });
+
   it.each([...roles.slice(1), { id: 99, name: "constructor" }])(
     "$name no ve el menú ni accede a la ruta",
     async (role) => {
@@ -158,13 +377,11 @@ describe("Administración real de usuarios", () => {
 
   it("crea con rol existente, normaliza los datos y conserva los espacios de la contraseña", async () => {
     setup([]);
-    const post = vi
-      .spyOn(api, "post")
-      .mockResolvedValue({
-        ...other,
-        email: "new@example.test",
-        role: roles[3],
-      });
+    const post = vi.spyOn(api, "post").mockResolvedValue({
+      ...other,
+      email: "new@example.test",
+      role: roles[3],
+    });
     await screen.findByText("No hay usuarios cargados");
     const dialog = await fill();
     await click(within(dialog).getByRole("button", { name: "Crear usuario" }));
@@ -175,6 +392,7 @@ describe("Administración real de usuarios", () => {
         email: "new@example.test",
         password: " contraseña ",
         roleId: 4,
+        dni: "31444555",
       }),
     );
     expect(await screen.findByText("Usuario creado.")).toBeInTheDocument();
