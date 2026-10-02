@@ -115,6 +115,9 @@ apiClient.interceptors.response.use(
             authHandlers?.onSessionExpired()
         }
 
+        if (error.response?.data instanceof Blob) {
+            try { error.response.data = JSON.parse(await error.response.data.text()) } catch { /* Keep the HTTP status if the error body is not JSON. */ }
+        }
         throw toApiError(error)
     },
 )

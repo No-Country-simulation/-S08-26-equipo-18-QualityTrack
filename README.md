@@ -428,6 +428,54 @@ reescribe registros anteriores ni cambia secretos. Aplicar con
 `docker compose run --rm --no-deps backend pnpm migration:up`; no ejecutar el
 seed para comprobar este flujo.
 
+### Documentos del expediente
+
+El detalle de OT permite adjuntar archivos a la propia orden o a su solicitud o
+cotización de origen. Incluye los documentos comerciales y directos sin duplicar
+IDs ni incorporar archivos asignados explícitamente a otra OT. La descarga usa
+la sesión vigente; no se publican rutas de almacenamiento ni URLs estáticas.
+
+Administrador y Supervisor adjuntan desde la OT usando su permiso de edición.
+Producción y Calidad consultan y descargan con su permiso de lectura de OT.
+La API también permite a Administración adjuntar y consultar documentos de
+solicitudes/cotizaciones con sus permisos comerciales existentes. No concede
+acceso general de Administración al módulo de OT.
+
+`POST /documents/upload` recibe multipart con `file`, `documentTypeId`, al menos
+uno de `workOrderId`, `requestId`, `quotationId`, y `description` opcional. Si se
+envían varios padres, deben corresponder al mismo origen. El servidor determina
+nombre privado, tamaño, MIME, SHA-256, autor y fecha; no acepta esos metadatos del
+navegador. `GET /documents/types` y `/documents/config` proporcionan el catálogo
+y las restricciones. `GET /documents/work-order/:id` agrega el expediente;
+`GET /documents/request/:id` y `/documents/quotation/:id` consultan documentos
+comerciales sin OT explícita. `GET /documents/:id/download` verifica permisos,
+tamaño e integridad antes de entregar los bytes como adjunto.
+
+El límite predeterminado es **10 MiB por archivo**. `DOCUMENT_MAX_FILE_BYTES`
+permite configurar entre 1 byte y 100 MiB: la implementación del MVP procesa un
+archivo en memoria y necesita una cota operativa. `DOCUMENT_ALLOWED_EXTENSIONS`
+permite reducir la lista `pdf,png,jpg,jpeg,txt,csv`; PDF e imágenes se validan
+por su firma y TXT/CSV deben ser texto UTF-8. No se admiten archivos vacíos ni
+formatos fuera de esa lista. El formulario consulta esta configuración al abrir.
+
+Compose guarda los archivos en el volumen persistente `document_files`, bajo
+`/app/uploads/documents`. Fuera de Compose, `DOCUMENT_STORAGE_DIR` define el
+directorio privado y debe conservarse entre reinicios. Los respaldos requieren
+**base de datos y volumen de archivos**; recrear el backend conserva ambos.
+Eliminar volúmenes con `down -v` también elimina los archivos locales.
+
+`Migration20261002220000_documents` incorpora el catálogo sin reemplazar tipos
+existentes, agrega SHA-256 nullable y protege los padres documentales contra
+borrado. Aplicar con `docker compose run --rm --no-deps backend pnpm migration:up`
+y recrear el backend con `docker compose up -d --no-deps backend` para montar el
+volumen. No requiere seed de usuarios. Los registros históricos se conservan;
+una ruta antigua sin archivo gestionado no se presenta como descargable. No hay
+borrado ni sustitución física de evidencia.
+
+Al cambiar de OT, el detalle limpia las relaciones, descarta respuestas tardías
+y muestra una vista 404 si la orden no existe. Los errores de consulta de cada
+sección se muestran como errores, sin confundirse con listas vacías.
+
 ### Comprobaciones antes de integrar cambios
 
 ```bash

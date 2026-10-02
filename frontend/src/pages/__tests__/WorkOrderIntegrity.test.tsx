@@ -16,7 +16,7 @@ function detail() {
 it('una OT inexistente no se reemplaza por una ficha de demostración', async () => {
   vi.spyOn(api, 'get').mockRejectedValue(new ApiError('Not Found', 404))
   detail()
-  expect(await screen.findByText('No se pudo cargar la orden de trabajo')).toBeInTheDocument()
+  expect(await screen.findByText('Orden de trabajo no encontrada')).toBeInTheDocument()
   expect(screen.queryByText(MOCK_WORK_ORDERS[0].title)).not.toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Reintentar' })).toBeEnabled()
 })

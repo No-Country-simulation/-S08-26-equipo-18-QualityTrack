@@ -29,6 +29,7 @@ services:
     volumes:
       - ./backend:/app
       - /app/node_modules
+      - document_files:/app/uploads
 
     environment:
       NODE_ENV: development
@@ -48,6 +49,9 @@ services:
       ADMIN_FIRST_NAME: ${ADMIN_FIRST_NAME:-Administrador}
       ADMIN_LAST_NAME: ${ADMIN_LAST_NAME:-QualityTrack}
       ADMIN_DNI: ${ADMIN_DNI:-}
+      DOCUMENT_STORAGE_DIR: /app/uploads/documents
+      DOCUMENT_MAX_FILE_BYTES: ${DOCUMENT_MAX_FILE_BYTES:-10485760}
+      DOCUMENT_ALLOWED_EXTENSIONS: ${DOCUMENT_ALLOWED_EXTENSIONS:-pdf,png,jpg,jpeg,txt,csv}
 
     depends_on:
       postgres:
@@ -75,3 +79,4 @@ services:
 
 volumes:
   postgres_data:
+  document_files:

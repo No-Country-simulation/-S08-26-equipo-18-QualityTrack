@@ -2,6 +2,18 @@
 
 Registro append-only, lo más nuevo arriba. Una entrada por ciclo de cambio cerrado.
 
+## 2026-10-02 · Archivos reales y expediente documental de OT
+Type: feature
+
+Carga multipart y descarga autenticada, almacenamiento privado persistente,
+metadatos y SHA-256 del servidor. Permisos derivados de lectura/edición del
+padre, límites y formatos configurables, referencias de origen coherentes y
+protección contra borrado de padres. El expediente agrega documentos de la
+solicitud, cotización y OT sin duplicarlos ni mezclar otras órdenes. Migración
+aditiva que conserva históricos sin inventar archivos. El detalle limpia sus
+secciones al navegar, descarta respuestas tardías y distingue errores de vacíos
+y de una OT inexistente. Sin cambios de secretos ni nuevas dependencias.
+
 ## 2026-10-02 · Inspecciones y entregas persistidas con origen y responsables reales
 Type: feature
 

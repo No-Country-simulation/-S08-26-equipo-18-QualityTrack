@@ -15,13 +15,11 @@ import {
   LuCalendar,
   LuCheck,
   LuClock,
-  LuDownload,
   LuFileSpreadsheet,
   LuFileText,
   LuPencil,
   LuPlus,
   LuShieldCheck,
-  LuUpload,
   LuWrench,
   LuX,
 } from "react-icons/lu";
@@ -61,23 +59,17 @@ import type {
   CreateWorkOrderDto, UpdateWorkOrderDto,
   WorkOrder,
 } from "../services/workOrderService";
-import { documentService } from "../services/documentService";
-import type { Document } from "../services/documentService";
 import { approvalService } from "../services/approvalService";
 import type { Approval } from "../services/approvalService";
 import type { Request } from "../services/requestService";
 
 import type { Quotation } from "../services/quotationService";
 
+import { DocumentsPanel } from "../modules/documents/DocumentsPanel";
 import { ProductionPanel } from "../modules/production/ProductionPanel";
 
 import { errorMessage } from "../utils/errorMessage";
-
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
-}
+import { ApiError } from "../services/api";
 
 export default function WorkOrderDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -98,15 +90,17 @@ export default function WorkOrderDetailPage() {
 
   const [qualityControls, setQualityControls] = useState<QualityControl[]>([]);
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
-  const [documents, setDocuments] = useState<Document[]>([]);
   const [availableClients, setAvailableClients] = useState<Client[]>([]);
   const [availableRequests, setAvailableRequests] = useState<Request[]>([]);
   const [availableQuotations, setAvailableQuotations] = useState<Quotation[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [notFound, setNotFound] = useState(false);
   const [sectionErrors, setSectionErrors] = useState<string[]>([]);
   const [actionError, setActionError] = useState<string | null>(null);
   const loadVersion = useRef(0);
+  const activeRoute = useRef(id);
+  activeRoute.current = id;
 
   const [notification, setNotification] = useState<{
     status: "success" | "error";
@@ -118,10 +112,10 @@ export default function WorkOrderDetailPage() {
     if (!id) return;
     setLoading(true);
     setLoadError(null);
+    setNotFound(false);
     setSectionErrors([]);
     setWorkOrder(null); setApproval(null);
     setQualityControls([]); setDeliveries([]);
-    setDocuments([]);
     setAvailableClients([]); setAvailableRequests([]); setAvailableQuotations([]);
     try {
       const activeWo = await workOrderService.getById(id);
@@ -134,27 +128,23 @@ export default function WorkOrderDetailPage() {
       await Promise.all([
         qualityService.getByWorkOrder(activeWo.id).then(data => { if (version === loadVersion.current) setQualityControls(data); }).catch(error => { failures.push("calidad: " + errorMessage(error)); }),
         canViewDeliveries && deliveryService.getByWorkOrder(activeWo.id).then(data => { if (version === loadVersion.current) setDeliveries(data); }).catch(error => { failures.push("entregas: " + errorMessage(error)); }),
-        documentService.getByWorkOrder(activeWo.id).then(data => { if (version === loadVersion.current) setDocuments(data); }).catch(error => { failures.push("documentos: " + errorMessage(error)); }),
         approvalService.getByWorkOrder(activeWo.id).then(data => { if (version === loadVersion.current) setApproval(data ?? null); }).catch(error => { failures.push("aprobación: " + errorMessage(error)); }),
       ]);
       if (version === loadVersion.current) setSectionErrors(failures);
     } catch (error) {
-      if (version === loadVersion.current) setLoadError(errorMessage(error));
+      if (version === loadVersion.current) {
+        setNotFound(error instanceof ApiError && error.status === 404);
+        setLoadError(errorMessage(error));
+      }
     } finally { if (version === loadVersion.current) setLoading(false); }
   }, [id, canViewDeliveries]);
 
   useEffect(() => {
+    setIsFormOpen(false); setIsQualityModalOpen(false); setIsDeliveryModalOpen(false);
+    setIsApprovalModalOpen(false); setActionError(null); setNotification(null);
     void loadWorkOrderData();
     return () => { loadVersion.current++; };
   }, [loadWorkOrderData]);
-
-  const handleDownloadDocument = (doc: Document) => {
-    showNotification(`La descarga de ${doc.fileName} no está disponible.`, "error");
-  };
-
-  const handleAttachDocument = () => {
-    showNotification("La carga de documentos no está disponible.", "error");
-  };
 
   const showNotification = (
     message: string,
@@ -186,6 +176,7 @@ export default function WorkOrderDetailPage() {
           comments:
             decisionComments.trim() || undefined,
         });
+        if (activeRoute.current !== id) return;
         setApproval(decided);
       } else {
         const created = await approvalService.create({
@@ -194,9 +185,11 @@ export default function WorkOrderDetailPage() {
           comments:
             decisionComments.trim() || undefined,
         });
+        if (activeRoute.current !== id) return;
         setApproval(created);
       }
     } catch (error) {
+      if (activeRoute.current !== id) return;
       setActionError(errorMessage(error));
       return;
     } finally { decisionBusy.current = false; setDecisionPending(false); }
@@ -228,30 +221,33 @@ export default function WorkOrderDetailPage() {
   const handleSave = async (formData: CreateWorkOrderDto | UpdateWorkOrderDto) => {
     if (!workOrder) return;
     const updated = await workOrderService.update(workOrder.id, formData);
+    if (activeRoute.current !== id) return;
     setWorkOrder(updated);
     showNotification("Orden de trabajo actualizada con éxito.");
   };
 
   const handleSaveQualityControl = async (data: CreateQualityControlDto) => {
     const created = await qualityService.create(data);
+    if (activeRoute.current !== id) return;
     setQualityControls(prev => [created, ...prev]);
     showNotification("Control de calidad registrado con éxito.");
   };
 
   const handleSaveDelivery = async (data: CreateDeliveryDto) => {
     const created = await deliveryService.create(data);
+    if (activeRoute.current !== id) return;
     setDeliveries(prev => [created, ...prev]);
     showNotification("Entrega registrada con éxito.");
   };
 
-  if (loading) return <Box aria-busy="true" p={6}><Text>Cargando orden de trabajo...</Text></Box>;
+  if (loading || (workOrder && workOrder.id !== Number(id))) return <Box aria-busy="true" p={6}><Text>Cargando orden de trabajo...</Text></Box>;
 
   if (!workOrder) {
     return (
       <Box p={6}>
         <Alert
           status="error"
-          title={loadError ? "No se pudo cargar la orden de trabajo" : "Orden de trabajo no encontrada"}
+          title={!notFound && loadError ? "No se pudo cargar la orden de trabajo" : "Orden de trabajo no encontrada"}
           description={loadError ?? `No se encontro ningun registro para el identificador #${id}.`}
         />
         <Button mt={4} onClick={() => void loadWorkOrderData()}>Reintentar</Button>
@@ -889,7 +885,7 @@ export default function WorkOrderDetailPage() {
           }
           description="Ensayos dimensionales, metrologia y pruebas tecnicas aplicadas sobre esta pieza"
         >
-          {qualityControls.length > 0 ? (
+          {sectionErrors.some(e => e.startsWith("calidad:")) ? <Alert status="error" title="Controles de calidad no disponibles" description="No se pudo consultar esta sección. Reintentá la carga."/> : qualityControls.length > 0 ? (
             <Box overflowX="auto">
               <Table.Root size="sm">
                 <Table.Header>
@@ -964,7 +960,7 @@ export default function WorkOrderDetailPage() {
           }
           description="Historial de despachos parciales o finales efectuados para esta orden"
         >
-          {deliveries.length > 0 ? (
+          {sectionErrors.some(e => e.startsWith("entregas:")) ? <Alert status="error" title="Entregas no disponibles" description="No se pudo consultar esta sección. Reintentá la carga."/> : deliveries.length > 0 ? (
             <Box overflowX="auto">
               <Table.Root size="sm">
                 <Table.Header>
@@ -1011,114 +1007,12 @@ export default function WorkOrderDetailPage() {
         </Card>
       </Box></Can>
 
-      {/* Tarea 3.7: Documentacion tecnica y comercial asociada */}
-      <Box mt={6}>
-        <Card
-          title={
-            <Flex justify="space-between" align="center" w="full" wrap="wrap" gap={2}>
-              <HStack gap={2}>
-                <Text fontWeight="bold" fontSize="md" color="gray.800">
-                  Documentacion asociada al expediente
-                </Text>
-                <Badge colorPalette="blue" variant="subtle">
-                  {documents.length} adjuntos
-                </Badge>
-              </HStack>
-              <Button
-                size="xs"
-                colorPalette="blue"
-                variant="outline"
-                onClick={handleAttachDocument}
-              >
-                <LuUpload style={{ marginRight: "4px" }} />
-                Adjuntar documento
-              </Button>
-            </Flex>
-          }
-          description="Planos constructivos, certificados de colada, ordenes de compra y protocolos de ensayos"
-        >
-          {documents.length > 0 ? (
-            <Box overflowX="auto">
-              <Table.Root size="sm">
-                <Table.Header>
-                  <Table.Row bg="gray.50">
-                    <Table.ColumnHeader fontSize="xs">Tipo de documento</Table.ColumnHeader>
-                    <Table.ColumnHeader fontSize="xs">Nombre del archivo</Table.ColumnHeader>
-                    <Table.ColumnHeader fontSize="xs">Descripcion tecnica</Table.ColumnHeader>
-                    <Table.ColumnHeader fontSize="xs">Version</Table.ColumnHeader>
-                    <Table.ColumnHeader fontSize="xs">Tamaño</Table.ColumnHeader>
-                    <Table.ColumnHeader fontSize="xs">Fecha carga</Table.ColumnHeader>
-                    <Table.ColumnHeader fontSize="xs" textAlign="right">Accion</Table.ColumnHeader>
-                  </Table.Row>
-                </Table.Header>
-                <Table.Body>
-                  {documents.map((doc) => (
-                    <Table.Row key={doc.id}>
-                      <Table.Cell fontSize="xs">
-                        <Badge
-                          size="xs"
-                          variant="subtle"
-                          colorPalette={
-                            doc.documentTypeId === 1
-                              ? "blue"
-                              : doc.documentTypeId === 2
-                                ? "teal"
-                                : doc.documentTypeId === 3
-                                  ? "green"
-                                  : doc.documentTypeId === 5
-                                    ? "purple"
-                                    : "gray"
-                          }
-                        >
-                          {doc.documentType?.name || "Documento"}
-                        </Badge>
-                      </Table.Cell>
-                      <Table.Cell fontSize="xs" fontFamily="mono" fontWeight="medium" color="blue.700">
-                        {doc.fileName}
-                      </Table.Cell>
-                      <Table.Cell fontSize="xs" color="gray.600">
-                        {doc.description || "—"}
-                      </Table.Cell>
-                      <Table.Cell fontSize="xs" fontFamily="mono" color="gray.600">
-                        v{doc.version}
-                      </Table.Cell>
-                      <Table.Cell fontSize="xs" fontFamily="mono" color="gray.500">
-                        {formatFileSize(doc.fileSize)}
-                      </Table.Cell>
-                      <Table.Cell fontSize="xs" whiteSpace="nowrap" color="gray.500">
-                        {formatDate(doc.uploadedAt)}
-                      </Table.Cell>
-                      <Table.Cell fontSize="xs" textAlign="right">
-                        <Button
-                          size="2xs"
-                          variant="ghost"
-                          colorPalette="blue"
-                          onClick={() => handleDownloadDocument(doc)}
-                          title="Descargar documento"
-                        >
-                          <LuDownload style={{ marginRight: "4px" }} />
-                          Descargar
-                        </Button>
-                      </Table.Cell>
-                    </Table.Row>
-                  ))}
-                </Table.Body>
-              </Table.Root>
-            </Box>
-          ) : (
-            <Box py={6} textAlign="center">
-              <Text fontSize="xs" color="gray.500" fontStyle="italic">
-                No hay documentacion tecnica ni planos adjuntos a este expediente.
-              </Text>
-            </Box>
-          )}
-        </Card>
-      </Box>
+      <DocumentsPanel key={workOrder.id} workOrder={workOrder}/>
 
       {/* Modal de edicion de OT */}
       <WorkOrderFormModal
         open={isFormOpen}
-        onOpenChange={({ open }) => setIsFormOpen(open)}
+        onOpenChange={({ open }) => { if (activeRoute.current === id) setIsFormOpen(open); }}
         workOrder={workOrder}
         clients={availableClients}
         requests={availableRequests}
@@ -1129,7 +1023,7 @@ export default function WorkOrderDetailPage() {
       {/* Modal para registrar Control de Calidad directamente desde la OT */}
       <QualityFormModal
         open={isQualityModalOpen}
-        onOpenChange={({ open }) => setIsQualityModalOpen(open)}
+        onOpenChange={({ open }) => { if (activeRoute.current === id) setIsQualityModalOpen(open); }}
         workOrders={workOrder ? [workOrder] : []}
         defaultWorkOrderId={workOrder?.id}
         onSave={handleSaveQualityControl}
@@ -1138,7 +1032,7 @@ export default function WorkOrderDetailPage() {
       {/* Modal para registrar Entrega directamente desde la OT */}
       <DeliveryFormModal
         open={isDeliveryModalOpen}
-        onOpenChange={({ open }) => setIsDeliveryModalOpen(open)}
+        onOpenChange={({ open }) => { if (activeRoute.current === id) setIsDeliveryModalOpen(open); }}
         workOrders={workOrder ? [workOrder] : []}
         defaultWorkOrderId={workOrder?.id}
         onSave={handleSaveDelivery}
