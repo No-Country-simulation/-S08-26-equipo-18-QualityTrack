@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { Box, Flex, Heading, HStack, Text } from "@chakra-ui/react";
-import { LuPencil, LuPlus, LuShieldCheck, LuTrash2 } from "react-icons/lu";
+import { LuPencil, LuPlus, LuShieldCheck } from "react-icons/lu";
 import { Alert } from "../components/Alert";
 import { Button } from "../components/Button";
 import { Can } from "../components/Can";
-import { ConfirmDialog } from "../components/ConfirmDialog";
 import { DataTable } from "../components/DataTable";
 import { QUALITY_COLUMNS, QualityFormModal } from "../modules/quality";
 import { errorMessage } from "../utils/errorMessage";
@@ -27,11 +26,6 @@ export default function QualityPage() {
   const [selectedControl, setSelectedControl] = useState<QualityControl | null>(
     null,
   );
-  const [deleteCandidate, setDeleteCandidate] = useState<QualityControl | null>(
-    null,
-  );
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
   const [notification, setNotification] = useState<{
     status: "success" | "error";
     message: string;
@@ -80,11 +74,6 @@ export default function QualityPage() {
     setIsFormOpen(true);
   };
 
-  const handleOpenDelete = (control: QualityControl) => {
-    setDeleteError(null);
-    setDeleteCandidate(control);
-  };
-
   const handleSaveControl = async (formData: CreateQualityControlDto) => {
     if (selectedControl) {
       const updated = await qualityService.update(selectedControl.id, formData);
@@ -101,22 +90,6 @@ export default function QualityPage() {
       setControls((prev) => [created as QualityControlRecord, ...prev]);
       showNotification("Control de calidad creada correctamente.");
     }
-  };
-
-  const handleConfirmDelete = async () => {
-    if (!deleteCandidate || isDeleting) return;
-    setIsDeleting(true);
-    setDeleteError(null);
-    try {
-      await qualityService.delete(deleteCandidate.id);
-      setControls((prev) =>
-        prev.filter((item) => item.id !== deleteCandidate.id),
-      );
-      setDeleteCandidate(null);
-      showNotification("Control de calidad eliminada correctamente.");
-    } catch (error) {
-      setDeleteError(errorMessage(error));
-    } finally { setIsDeleting(false); }
   };
 
   return (
@@ -194,19 +167,6 @@ export default function QualityPage() {
                 <LuPencil size={14} />
               </Button>
             </Can>
-
-            <Can perform="quality:inspect">
-              <Button
-                size="xs"
-                variant="ghost"
-                colorPalette="red"
-                onClick={() => handleOpenDelete(control)}
-                title="Eliminar control"
-                aria-label="Eliminar control"
-              >
-                <LuTrash2 size={14} />
-              </Button>
-            </Can>
           </HStack>
         )}
       />
@@ -218,23 +178,6 @@ export default function QualityPage() {
         control={selectedControl}
         workOrders={workOrders}
         onSave={handleSaveControl}
-      />
-
-      {/* Dialogo de confirmacion de eliminacion */}
-      <ConfirmDialog
-        error={deleteError}
-        isLoading={isDeleting}
-        open={Boolean(deleteCandidate)}
-        onOpenChange={({ open }) => {
-          if (!open) setDeleteCandidate(null);
-        }}
-        title="Eliminar control de calidad"
-        description={`Estas seguro de que deseas eliminar el control "#QC-${deleteCandidate?.id} - ${deleteCandidate?.specification}"? Esta accion no se puede deshacer.`}
-        confirmText="Eliminar"
-        cancelText="Cancelar"
-        confirmColorPalette="red"
-        onConfirm={handleConfirmDelete}
-        onCancel={() => setDeleteCandidate(null)}
       />
     </Box>
   );

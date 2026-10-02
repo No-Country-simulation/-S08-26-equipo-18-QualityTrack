@@ -9,37 +9,33 @@ import { Select } from "../../components/Select";
 import { Textarea } from "../../components/Textarea";
 import { useForm } from "../../hooks/useForm";
 import { toDateIso, validators } from "../../utils";
-import type { Client } from "../../services/clientService";
 import type {
   CreateDeliveryDto,
   Delivery,
 } from "../../services/deliveryService";
 import type { WorkOrder } from "../../services/workOrderService";
+import { businessDateInput } from "../quality/qualityValidation";
 
 export interface DeliveryFormModalProps {
   open: boolean;
   onOpenChange: (details: { open: boolean }) => void;
   delivery?: Delivery | null;
   workOrders: WorkOrder[];
-  clients: Client[];
   defaultWorkOrderId?: number;
-  defaultClientId?: number;
   onSave: (data: CreateDeliveryDto) => Promise<void> | void;
 }
 
 interface DeliveryFormValues {
   workOrderId: string;
-  clientId: string;
   deliveryDate: string;
   quantity: string;
   notes: string;
 }
 
-const getTodayDateString = () => new Date().toISOString().split("T")[0];
+const getTodayDateString = () => businessDateInput(new Date().toISOString());
 
 const DEFAULT_VALUES: DeliveryFormValues = {
   workOrderId: "",
-  clientId: "",
   deliveryDate: getTodayDateString(),
   quantity: "",
   notes: "",
@@ -50,9 +46,7 @@ export function DeliveryFormModal({
   onOpenChange,
   delivery,
   workOrders,
-  clients,
   defaultWorkOrderId,
-  defaultClientId,
   onSave,
 }: DeliveryFormModalProps) {
   const isEditing = Boolean(delivery);
@@ -60,13 +54,6 @@ export function DeliveryFormModal({
   const initialWoId =
     defaultWorkOrderId ??
     (workOrders.length === 1 ? workOrders[0].id : undefined);
-  const matchedWo = initialWoId
-    ? workOrders.find((wo) => wo.id === initialWoId)
-    : undefined;
-  const initialClientId =
-    defaultClientId ??
-    matchedWo?.clientId ??
-    (clients.length === 1 ? clients[0].id : undefined);
 
   const {
     values,
@@ -82,7 +69,6 @@ export function DeliveryFormModal({
     initialValues: {
       ...DEFAULT_VALUES,
       workOrderId: initialWoId ? String(initialWoId) : "",
-      clientId: initialClientId ? String(initialClientId) : "",
     },
     rules: {
       workOrderId: [
@@ -95,15 +81,44 @@ export function DeliveryFormModal({
       quantity: [
         validators.required("La cantidad de piezas es obligatoria"),
         validators.positiveNumber("La cantidad debe ser un numero mayor a 0"),
+        (value: string) =>
+          /^\d+$/.test(value) && Number(value) <= 2147483647
+            ? null
+            : "La cantidad debe ser un entero positivo de hasta 2147483647.",
       ],
+      notes: [validators.maxLength(5000)],
     },
     onSubmit: async (formValues) => {
+      const selectedWo = workOrders.find(
+        (wo) => String(wo.id) === formValues.workOrderId,
+      );
+      if (
+        !delivery &&
+        (!selectedWo?.quotationId ||
+          !selectedWo.clientId ||
+          selectedWo.status === "CANCELLED")
+      )
+        throw new Error(
+          "Seleccioná una OT con origen y destinatario documentados.",
+        );
+      const deliveryDate =
+        delivery &&
+        businessDateInput(delivery.deliveryDate) === formValues.deliveryDate
+          ? delivery.deliveryDate
+          : toDateIso(formValues.deliveryDate);
+      if (!deliveryDate) throw new Error("Indicá una fecha válida.");
+      if (
+        selectedWo &&
+        formValues.deliveryDate < businessDateInput(selectedWo.createdAt)
+      )
+        throw new Error(
+          "La entrega no puede ser anterior a la creación de la OT.",
+        );
       const dto: CreateDeliveryDto = {
         workOrderId: Number(formValues.workOrderId),
-        clientId: formValues.clientId ? Number(formValues.clientId) : undefined,
-        deliveryDate: toDateIso(formValues.deliveryDate) ?? new Date().toISOString(),
+        deliveryDate,
         quantity: Number(formValues.quantity),
-        notes: formValues.notes.trim() || undefined,
+        notes: formValues.notes.trim() || null,
       };
 
       await onSave(dto);
@@ -118,10 +133,7 @@ export function DeliveryFormModal({
     if (delivery) {
       reset({
         workOrderId: String(delivery.workOrderId),
-        clientId: delivery.clientId ? String(delivery.clientId) : "",
-        deliveryDate: delivery.deliveryDate
-          ? delivery.deliveryDate.split("T")[0]
-          : getTodayDateString(),
+        deliveryDate: businessDateInput(delivery.deliveryDate),
         quantity: String(delivery.quantity),
         notes: delivery.notes || "",
       });
@@ -130,10 +142,19 @@ export function DeliveryFormModal({
         ...DEFAULT_VALUES,
         deliveryDate: getTodayDateString(),
         workOrderId: initialWoId ? String(initialWoId) : "",
-        clientId: initialClientId ? String(initialClientId) : "",
       });
     }
-  }, [open, delivery, initialWoId, initialClientId, reset]);
+  }, [open, delivery, initialWoId, reset]);
+  const selectedWo = workOrders.find(
+    (wo) => String(wo.id) === values.workOrderId,
+  );
+  const recipient =
+    delivery?.client?.businessName ?? selectedWo?.client?.businessName ?? "";
+  const selectableOrders = delivery
+    ? workOrders
+    : workOrders.filter(
+        (wo) => wo.quotationId && wo.clientId && wo.status !== "CANCELLED",
+      );
 
   const handleClose = () => {
     onOpenChange({ open: false });
@@ -142,7 +163,9 @@ export function DeliveryFormModal({
   return (
     <Modal
       open={open}
-      onOpenChange={onOpenChange}
+      onOpenChange={(details) => {
+        if (!isSubmitting) onOpenChange(details);
+      }}
       title={isEditing ? "Editar entrega" : "Nueva entrega"}
       size="xl"
       footer={
@@ -158,6 +181,7 @@ export function DeliveryFormModal({
             colorPalette="blue"
             onClick={() => handleSubmit()}
             loading={isSubmitting}
+            disabled={!delivery && !selectableOrders.length}
           >
             {isEditing ? "Guardar cambios" : "Registrar entrega"}
           </Button>
@@ -182,19 +206,17 @@ export function DeliveryFormModal({
             helperText="Selecciona la OT a despachar"
           >
             <Select
+              aria-label="Orden de trabajo vinculada"
+              disabled={isEditing || Boolean(defaultWorkOrderId)}
               value={values.workOrderId}
               onChange={(e) => {
                 const selectedWoId = e.target.value;
                 handleChange("workOrderId", selectedWoId);
-                const matchedWo = workOrders.find((wo) => String(wo.id) === selectedWoId);
-                if (matchedWo?.clientId) {
-                  handleChange("clientId", String(matchedWo.clientId));
-                }
               }}
               onBlur={() => handleBlur("workOrderId")}
             >
               <option value="">-- Seleccionar orden de trabajo --</option>
-              {workOrders.map((wo) => (
+              {selectableOrders.map((wo) => (
                 <option key={wo.id} value={String(wo.id)}>
                   OT-{wo.workOrderNumber} — {wo.title}
                 </option>
@@ -204,20 +226,14 @@ export function DeliveryFormModal({
 
           <FormField
             label="Cliente destinatario"
-            helperText="Cliente que recibe el despacho"
+            helperText="Se obtiene del origen de la OT y no se puede cambiar en la entrega."
           >
-            <Select
-              value={values.clientId}
-              onChange={(e) => handleChange("clientId", e.target.value)}
-              onBlur={() => handleBlur("clientId")}
-            >
-              <option value="">-- Seleccionar cliente (opcional) --</option>
-              {clients.map((cli) => (
-                <option key={cli.id} value={String(cli.id)}>
-                  {cli.businessName}
-                </option>
-              ))}
-            </Select>
+            <Input
+              aria-label="Cliente destinatario"
+              readOnly
+              value={recipient}
+              placeholder="Seleccioná una OT con origen documentado"
+            />
           </FormField>
         </SimpleGrid>
 
@@ -230,6 +246,7 @@ export function DeliveryFormModal({
             helperText="Fecha de despacho o emision del remito"
           >
             <Input
+              aria-label="Fecha de entrega"
               type="date"
               value={values.deliveryDate}
               onChange={(e) => handleChange("deliveryDate", e.target.value)}
@@ -244,6 +261,10 @@ export function DeliveryFormModal({
             helperText="Unidades fisicas despachadas (mayor a 0)"
           >
             <Input
+              aria-label="Cantidad de piezas"
+              min={1}
+              max={2147483647}
+              step={1}
               type="number"
               placeholder="Ej: 50"
               value={values.quantity}
@@ -259,6 +280,8 @@ export function DeliveryFormModal({
           helperText="Expreso, chofer, nro. de remito fiscal o condiciones de embalaje"
         >
           <Textarea
+            aria-label="Notas de entrega"
+            maxLength={5000}
             placeholder="Ej: Despacho por Expreso Camionera del Sur. Remito 0001-0004523."
             rows={3}
             value={values.notes}

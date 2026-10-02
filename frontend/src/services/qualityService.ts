@@ -4,23 +4,47 @@ import type { WorkOrder } from "./workOrderService";
 export interface QualityControl {
   id: number;
   workOrderId: number;
-  workOrder?: WorkOrder;
-  operationId?: number;
-  specification?: string;
-  measuredValue?: string;
-  expectedValue?: string;
-  unit?: string;
-  observations?: string;
+  workOrder?: Pick<WorkOrder, "id" | "workOrderNumber" | "title" | "status">;
+  operationId?: number | null;
+  operation?: {
+    id: number;
+    routeSheetId: number;
+    operationNumber: string;
+    name: string;
+  } | null;
+  specification?: string | null;
+  measuredValue?: string | null;
+  expectedValue?: string | null;
+  unit?: string | null;
+  observations?: string | null;
   performedById?: number;
-  performedAt?: string;
+  performedBy?: {
+    id: number;
+    firstName: string;
+    lastName: string;
+    role: string;
+  };
+  updatedBy?: {
+    id: number;
+    firstName: string;
+    lastName: string;
+    role: string;
+  } | null;
+  performedAt?: string | null;
   createdAt?: string;
-  updatedAt?: string;
+  updatedAt?: string | null;
 }
 
-export type CreateQualityControlDto = Omit<
-  QualityControl,
-  "id" | "workOrder" | "createdAt" | "updatedAt"
->;
+export type CreateQualityControlDto = {
+  workOrderId: number;
+  operationId?: number | null;
+  specification: string;
+  expectedValue?: string | null;
+  measuredValue?: string | null;
+  unit?: string | null;
+  observations?: string | null;
+  performedAt?: string | null;
+};
 export type UpdateQualityControlDto = Partial<CreateQualityControlDto>;
 
 export const qualityService = {
@@ -41,9 +65,6 @@ export const qualityService = {
     data: UpdateQualityControlDto,
   ): Promise<QualityControl> {
     return api.put<QualityControl>(`/quality/${id}`, data);
-  },
-  delete(id: number | string): Promise<void> {
-    return api.delete<void>(`/quality/${id}`);
   },
 };
 

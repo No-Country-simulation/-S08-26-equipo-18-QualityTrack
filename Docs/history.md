@@ -2,6 +2,18 @@
 
 Registro append-only, lo más nuevo arriba. Una entrada por ciclo de cambio cerrado.
 
+## 2026-10-02 · Inspecciones y entregas persistidas con origen y responsables reales
+Type: feature
+
+API y permisos de calidad y entregas. Inspecciones visuales sin números
+artificiales; decimales numeric(14,4), tolerancia en especificación y operación
+validada contra la misma OT. Entregas al cliente derivado del origen, cantidad
+entera positiva y fechas por día de negocio de Argentina. Conservación de
+autores al editar, editor desde sesión, notas opcionales y migración aditiva
+sin completar responsables históricos. Consultas de entregas accesibles por
+Administración y Calidad sin depender de permisos de otros módulos. Formularios
+conservan borradores ante errores; sin borrado físico.
+
 ## 2026-10-02 · Producción con hojas de ruta, operaciones, materiales y personal reales
 Type: feature
 

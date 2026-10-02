@@ -4,7 +4,7 @@ import { Badge } from "../../components/Badge";
 import type { ColumnDef } from "../../components/DataTable";
 import type { QualityControl } from "../../services/qualityService";
 
-export function formatDate(isoString?: string): string {
+export function formatDate(isoString?: string | null): string {
   if (!isoString) return "—";
   try {
     const d = new Date(isoString);
@@ -63,7 +63,9 @@ export const QUALITY_COLUMNS: ColumnDef<QualityControl>[] = [
             mb={0.5}
             _hover={{ textDecoration: "underline", bg: "blue.100" }}
           >
-            OT-{item.workOrder?.workOrderNumber || item.workOrderId}
+            {item.workOrder?.workOrderNumber
+              ? `OT-${item.workOrder.workOrderNumber}`
+              : "Origen no documentado"}
           </Text>
         </Link>
         {item.workOrder?.title && (
@@ -107,7 +109,7 @@ export const QUALITY_COLUMNS: ColumnDef<QualityControl>[] = [
         borderRadius="sm"
         display="inline-block"
       >
-        {item.measuredValue}
+        {item.measuredValue ?? "—"}
       </Text>
     ),
   },
@@ -117,7 +119,7 @@ export const QUALITY_COLUMNS: ColumnDef<QualityControl>[] = [
     sortable: true,
     cell: (item: QualityControl) => (
       <Text fontSize="xs" color="gray.700" fontFamily="mono">
-        {item.expectedValue}
+        {item.expectedValue ?? "—"}
       </Text>
     ),
   },
@@ -143,5 +145,21 @@ export const QUALITY_COLUMNS: ColumnDef<QualityControl>[] = [
       </Text>
     ),
   },
+  {
+    header: "Responsable",
+    cell: (item) => (
+      <Box>
+        <Text fontSize="xs">
+          {item.performedBy
+            ? `${item.performedBy.firstName} ${item.performedBy.lastName}`
+            : "No documentado"}
+        </Text>
+        {item.updatedBy && (
+          <Text fontSize="xs" color="gray.500">
+            Editado por {item.updatedBy.firstName} {item.updatedBy.lastName}
+          </Text>
+        )}
+      </Box>
+    ),
+  },
 ];
-
