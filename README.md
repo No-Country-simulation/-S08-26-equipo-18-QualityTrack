@@ -2,6 +2,37 @@
 
 Sistema de gestión y trazabilidad para empresas de mecanizado industrial.
 
+Proyecto desarrollado en el marco de la simulación laboral de **No Country**.
+
+## Demo y enlaces
+
+| Recurso | Enlace |
+| --- | --- |
+| Aplicación publicada | [QualityTrack](https://qualitytrack.netlify.app/) |
+| Documentación de la API publicada | [QualityTrack API — Scalar](https://qualitytrack-demo-api.onrender.com/docs) |
+| Código fuente | [Repositorio en GitHub](https://github.com/No-Country-simulation/-S08-26-equipo-18-QualityTrack) |
+| Historial de cambios | [Docs/history.md](Docs/history.md) |
+
+La demo fue publicada el **3 de octubre de 2026** desde `develop`, commit
+`536cfaa`, con PR-10 integrada. El acceso a los módulos requiere una cuenta
+autorizada; no hay registro público ni credenciales de administrador publicadas.
+Utiliza una base nueva e independiente del despliegue anterior del equipo.
+
+### Alcance de la demo gratuita
+
+- El backend de Render se suspende por inactividad y puede tardar alrededor de
+  un minuto en arrancar. El frontend espera hasta 90 segundos por petición.
+- Los adjuntos se almacenan en el sistema de archivos temporal del backend:
+  pueden perderse al suspender, reiniciar o desplegar el servicio, aunque sus
+  metadatos permanezcan en PostgreSQL.
+- La base PostgreSQL gratuita vence el **2 de noviembre de 2026**.
+- Está destinada a evaluación con datos ficticios. No ofrece almacenamiento
+  permanente ni disponibilidad garantizada para una operación real.
+
+Estas limitaciones están descritas en la [documentación de Render](https://render.com/docs/free).
+Para conservar los documentos, el proyecto necesita un volumen persistente o
+una adaptación a almacenamiento externo.
+
 QualityTrack tiene como objetivo centralizar y conectar la información relacionada con el ciclo de vida de cada trabajo:
 
 ```text
@@ -28,35 +59,31 @@ El sistema busca permitir que, desde una Orden de Trabajo, se pueda reconstruir 
 
 ## Stack tecnológico
 
-### Backend
+| Área | Tecnologías |
+| --- | --- |
+| Lenguajes | TypeScript y JavaScript |
+| Frontend | React 19, Vite y React Router DOM |
+| Interfaz | Chakra UI 3, Emotion y React Icons |
+| Estado y comunicación HTTP | Zustand y Axios |
+| Backend | Node.js, NestJS 12 y Express |
+| Base de datos | PostgreSQL 17 |
+| ORM | MikroORM, migraciones y seeders |
+| Autenticación | JWT, refresh tokens con rotación y revocación, bcryptjs |
+| Autorización | Permisos por rol verificados en la API y en la interfaz |
+| Validación | class-validator y class-transformer |
+| Documentación de API | OpenAPI/Swagger y Scalar |
+| Archivos | Multipart mediante NestJS/Multer y almacenamiento configurable |
+| Pruebas frontend | Vitest, React Testing Library, jest-dom, user-event y jsdom |
+| Pruebas backend | Node.js Test Runner e integración HTTP con PostgreSQL aislado; Jest y Supertest incluidos como herramientas de desarrollo |
+| Calidad y compilación | TypeScript, ESLint, Prettier y SWC |
+| Entorno local | Docker y Docker Compose; imágenes Node.js 22 Alpine |
+| Dependencias | npm en frontend y pnpm en backend |
+| CI/CD | GitHub Actions |
+| Alojamiento de la demo | Netlify para frontend; Render para backend y PostgreSQL |
+| Control de versiones | Git y GitHub |
 
-* Node.js
-* NestJS
-* JavaScript
-
-### Frontend
-
-* React
-* Vite
-* JavaScript
-
-### Base de datos
-
-* PostgreSQL 17
-
-### ORM
-
-* MikroORM
-
-### Infraestructura
-
-* Docker
-* Docker Compose
-
-### Control de versiones
-
-* Git
-* GitHub
+Las versiones concretas se encuentran en [frontend/package.json](frontend/package.json)
+y [backend/package.json](backend/package.json), con sus respectivos lockfiles.
 
 ---
 
@@ -943,9 +970,11 @@ docker compose up
 
 ---
 
-# Arquitectura inicial
+# Arquitectura
 
-La arquitectura inicial del proyecto sigue esta estructura:
+La aplicación es una SPA que consume una API REST modular. MikroORM conecta
+el backend con PostgreSQL; los documentos se guardan en el directorio configurado
+y sus metadatos y relaciones se almacenan en la base de datos.
 
 ```text
                     ┌───────────────┐
@@ -991,24 +1020,23 @@ Docker Compose administra estos servicios durante el desarrollo:
 
 # Estado actual del proyecto
 
-La infraestructura inicial se encuentra preparada:
-
-* Repositorio Git → ✅
-* Backend NestJS → ✅
-* Frontend React + Vite → ✅
-* Dockerfile Backend → ✅
-* Dockerfile Frontend → ✅
-* Docker Compose → ✅
-* PostgreSQL 17 → ✅
-* Variables de entorno de ejemplo → ✅
-* `.gitignore` → ✅
-* Ejecución mediante Docker → ✅
-
 El MVP incorpora autenticación y revocación de sesiones, permisos por rol,
 administración de usuarios/clientes, origen comercial, OT y aprobación interna,
-producción, calidad, entregas y documentos privados persistentes. MikroORM,
+producción, calidad, entregas y carga/descarga de documentos privados. MikroORM,
 migraciones e interfaces están conectados a las APIs; el dashboard muestra
 indicadores de alcance explícito.
+
+PR-01 a PR-10 están integradas en `develop`. El cierre local de PR-10 aprobó
+builds/typecheck, 183 pruebas frontend y 80 pruebas backend, además de un
+recorrido completo con los cinco roles en una base aislada. Se verificaron
+persistencia después de reiniciar el backend e integridad de documentos por HTTP.
+
+En la demo publicada se comprobaron login, credenciales inválidas, sesión,
+logout con revocación, CORS, dashboard, consulta de usuarios, calidad, entregas
+y recarga directa de rutas. El circuito completo y la selección/descarga de
+adjuntos en el entorno publicado quedan pendientes de una validación propia.
+La persistencia documental depende del almacenamiento del despliegue; la demo
+gratuita tiene las limitaciones indicadas al comienzo de este README.
 
 Antes de promover `develop` a `main`, completar la revisión del PR y los checks
 de CI. Después de integrar, comprobar los despliegues de frontend/backend y
@@ -1021,8 +1049,6 @@ y de integración aislada no sustituyen esa verificación.
 
 QualityTrack — Proyecto de desarrollo colaborativo.
 
-Repositorio:
+Desarrollado en la simulación laboral de No Country.
 
-```text
-https://github.com/No-Country-simulation/-S08-26-equipo-18-QualityTrack
-```
+[Repositorio del equipo](https://github.com/No-Country-simulation/-S08-26-equipo-18-QualityTrack).
