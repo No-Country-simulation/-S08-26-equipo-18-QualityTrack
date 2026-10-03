@@ -54,7 +54,7 @@ apiClient.interceptors.request.use((request) => {
 
 // Estos endpoints no disparan un refresco ante un 401: el login con credenciales
 // inválidas o un refresco rechazado no se arreglan renovando.
-const ENDPOINTS_WITHOUT_REFRESH = ['/auth/login', '/auth/refresh', '/auth/logout']
+const ENDPOINTS_WITHOUT_REFRESH = ['/auth/login', '/auth/refresh']
 
 interface RetriableRequestConfig extends InternalAxiosRequestConfig {
     _retried?: boolean
@@ -115,6 +115,9 @@ apiClient.interceptors.response.use(
             authHandlers?.onSessionExpired()
         }
 
+        if (error.response?.data instanceof Blob) {
+            try { error.response.data = JSON.parse(await error.response.data.text()) } catch { /* Keep the HTTP status if the error body is not JSON. */ }
+        }
         throw toApiError(error)
     },
 )
@@ -128,11 +131,23 @@ function toApiError(error: AxiosError): ApiError {
     }
 
     const { status, statusText, data } = error.response
-    const backendMessage = (data as { message?: unknown } | undefined)?.message
-    const message =
-        (typeof backendMessage === 'string' ? backendMessage : null) ||
-        statusText ||
-        'Error en la petición'
+    const rawMessage = (data as { message?: unknown; error?: unknown } | undefined)?.message
+
+    let messageText: string | null = null
+    if (typeof rawMessage === 'string' && rawMessage.trim()) {
+        messageText = rawMessage.trim()
+    } else if (Array.isArray(rawMessage)) {
+        const validMessages = rawMessage.filter(
+            (m): m is string => typeof m === 'string' && m.trim().length > 0,
+        )
+        if (validMessages.length > 0) {
+            messageText = validMessages.join('. ')
+        }
+    } else if (typeof (data as { error?: unknown } | undefined)?.error === 'string') {
+        messageText = (data as { error: string }).error
+    }
+
+    const message = messageText || statusText || 'Error en la petición'
 
     return new ApiError(message, status, data)
 }

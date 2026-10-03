@@ -7,11 +7,12 @@ export interface SelectOption {
 
 export interface SelectProps extends NativeSelectFieldProps {
     items?: SelectOption[]
+    disabled?: boolean
 }
 
-export function Select ({ items, children, ...props}: SelectProps) {
+export function Select ({ items, children, disabled, ...props}: SelectProps) {
     return (
-        <NativeSelect.Root>
+        <NativeSelect.Root disabled={disabled}>
         <NativeSelect.Field {...props}>
          {items ? items.map((item) => (
         <option key={item.value} value={item.value}> {item.label} </option>

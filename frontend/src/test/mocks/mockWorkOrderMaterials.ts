@@ -1,0 +1,55 @@
+import type { WorkOrderMaterial } from "../../services/materialService";
+
+export const MOCK_WORK_ORDER_MATERIALS: WorkOrderMaterial[] = [
+  {
+    id: 1,
+    workOrderId: 1,
+    materialId: 1,
+    material: { id: 1, materialCode: "MAT-1", name: "Acero SAE 4140 Bonificado", specification: "ASTM A29 / IRAM-IAS U500-4140 (28-32 HRC)" },
+    materialName: "Acero SAE 4140 Bonificado",
+    specification: "ASTM A29 / IRAM-IAS U500-4140 (28-32 HRC)",
+    lotNumber: "COL-4140-9821",
+    certificateNumber: "CERT-MP-2026-0312",
+    quantity: "28.5",
+    unit: "kg (Barra Ø 75 mm x 900 mm)",
+    receivedAt: "2026-02-28T09:30:00Z",
+    notes:
+      "Control de dureza en recepcion conforme (30 HRC). Trazabilidad de colada verificada por control de calidad.",
+    createdAt: "2026-02-28T09:30:00Z",
+    updatedAt: "2026-02-28T09:30:00Z",
+  },
+  {
+    id: 2,
+    workOrderId: 2,
+    materialId: 2,
+    material: { id: 2, materialCode: "MAT-2", name: "Bronce Fosforado SAE 65 (CuSn10P)", specification: "ASTM B505 / UNS C90700" },
+    materialName: "Bronce Fosforado SAE 65 (CuSn10P)",
+    specification: "ASTM B505 / UNS C90700",
+    lotNumber: "L-BR-2026-044",
+    certificateNumber: "CERT-BR-8841",
+    quantity: "8.2",
+    unit: "kg (Tubo colada continua Ø 90x45 mm)",
+    receivedAt: "2026-02-12T14:00:00Z",
+    notes:
+      "Material suministrado directamente por el cliente con remito R-8831 y certificado de origen adjunto.",
+    createdAt: "2026-02-12T14:00:00Z",
+    updatedAt: "2026-02-12T14:00:00Z",
+  },
+  {
+    id: 3,
+    workOrderId: 3,
+    materialId: 3,
+    material: { id: 3, materialCode: "MAT-3", name: "Aluminio 7075-T6 Duraluminio", specification: "AMS 4045 / EN AW-7075" },
+    materialName: "Aluminio 7075-T6 Duraluminio",
+    specification: "AMS 4045 / EN AW-7075",
+    lotNumber: "L-AL-7075-102",
+    certificateNumber: "CERT-AL-2026-015",
+    quantity: "14.0",
+    unit: "kg (Bloque laminado 120x80x250 mm)",
+    receivedAt: "2026-02-20T11:00:00Z",
+    notes:
+      "Certificado de composicion quimica recibido. Pendiente liberacion final de aprobacion formal.",
+    createdAt: "2026-02-20T11:00:00Z",
+    updatedAt: "2026-02-20T11:00:00Z",
+  },
+];

@@ -1,40 +1,42 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Box, Flex, Heading, HStack, Text } from "@chakra-ui/react";
-import { LuPencil, LuPlus, LuReceiptText, LuTrash2 } from "react-icons/lu";
+import { LuPencil, LuPlus, LuReceiptText } from "react-icons/lu";
 import { Alert } from "../components/Alert";
 import { Button } from "../components/Button";
 import { Can } from "../components/Can";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { DataTable } from "../components/DataTable";
-import {
-  QUOTATION_COLUMNS,
-  QuotationFormModal,
-} from "../modules/quotations";
-import { MOCK_CLIENTS } from "../test/mocks/mockClients";
-import { MOCK_QUOTATIONS } from "../test/mocks/mockQuotations";
-import { MOCK_REQUESTS } from "../test/mocks/mockRequests";
+import { QUOTATION_COLUMNS, QuotationFormModal } from "../modules/quotations";
+import { errorMessage } from "../utils/errorMessage";
+import { clientService } from "../services/clientService";
 import type { Client } from "../services/clientService";
+import { quotationService } from "../services/quotationService";
 import type {
   CreateQuotationDto,
   Quotation,
 } from "../services/quotationService";
+import { requestService } from "../services/requestService";
 import type { Request } from "../services/requestService";
 
 type QuotationRecord = Quotation & Record<string, unknown>;
 
 export default function QuotationsPage() {
-  const [quotations, setQuotations] = useState<QuotationRecord[]>(
-    MOCK_QUOTATIONS as QuotationRecord[],
-  );
-  const [clients] = useState<Client[]>(MOCK_CLIENTS);
-  const [requests] = useState<Request[]>(MOCK_REQUESTS);
+  const [quotations, setQuotations] = useState<QuotationRecord[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [requests, setRequests] = useState<Request[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [readOnly, setReadOnly] = useState(false);
   const [selectedQuotation, setSelectedQuotation] = useState<Quotation | null>(
     null,
   );
-  const [deleteCandidate, setDeleteCandidate] = useState<Quotation | null>(
-    null,
-  );
+  const [decision, setDecision] = useState<{
+    quotation: Quotation;
+    status: "accepted" | "rejected";
+  } | null>(null);
+  const [decisionError, setDecisionError] = useState<string | null>(null);
+  const [decisionPending, setDecisionPending] = useState(false);
   const [notification, setNotification] = useState<{
     status: "success" | "error";
     message: string;
@@ -50,72 +52,91 @@ export default function QuotationsPage() {
     }, 4000);
   };
 
+  const load = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const [records, related0, related1] = await Promise.all([
+        quotationService.getAll(),
+        clientService.listActive(),
+        requestService.getAll(),
+      ]);
+      setQuotations(records as QuotationRecord[]);
+      setClients(related0);
+      setRequests(related1);
+    } catch (error) {
+      setLoadError(errorMessage(error));
+      setQuotations([]);
+      setClients([]);
+      setRequests([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
   const handleOpenCreate = () => {
+    setReadOnly(false);
     setSelectedQuotation(null);
     setIsFormOpen(true);
   };
 
   const handleOpenEdit = (quotation: Quotation) => {
+    setReadOnly(false);
     setSelectedQuotation(quotation);
     setIsFormOpen(true);
   };
 
-  const handleOpenDelete = (quotation: Quotation) => {
-    setDeleteCandidate(quotation);
-  };
-
   const handleSaveQuotation = async (formData: CreateQuotationDto) => {
-    const associatedClient = clients.find((c) => c.id === formData.clientId);
-    const associatedRequest = requests.find((r) => r.id === formData.requestId);
-
     if (selectedQuotation) {
-      // Edicion de cotizacion existente
+      const updated = await quotationService.update(
+        selectedQuotation.id,
+        formData,
+      );
       setQuotations((prev) =>
         prev.map((item) =>
           item.id === selectedQuotation.id
-            ? ({
-                ...item,
-                ...formData,
-                client: associatedClient,
-                request: associatedRequest,
-                updatedAt: new Date().toISOString(),
-              } as QuotationRecord)
+            ? (updated as QuotationRecord)
             : item,
         ),
       );
-      showNotification("Cotizacion actualizada correctamente.");
+      showNotification("Cotización actualizada correctamente.");
     } else {
-      // Alta de nueva cotizacion
-      const newId =
-        quotations.length > 0
-          ? Math.max(...quotations.map((q) => q.id)) + 1
-          : 1;
-      const newQuotation: QuotationRecord = {
-        id: newId,
-        ...formData,
-        client: associatedClient,
-        request: associatedRequest,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      } as QuotationRecord;
-
-      setQuotations((prev) => [newQuotation, ...prev]);
-      showNotification("Cotizacion creada con exito.");
+      const created = await quotationService.create(formData);
+      setQuotations((prev) => [created as QuotationRecord, ...prev]);
+      showNotification("Cotización creada correctamente.");
     }
   };
 
-  const handleConfirmDelete = () => {
-    if (!deleteCandidate) return;
-
-    setQuotations((prev) =>
-      prev.filter((item) => item.id !== deleteCandidate.id),
-    );
-    showNotification(
-      `Cotizacion "${deleteCandidate.quotationNumber}" eliminada.`,
-    );
-    setDeleteCandidate(null);
+  const handleDecision = async () => {
+    if (!decision || decisionPending) return;
+    setDecisionPending(true);
+    setDecisionError(null);
+    try {
+      const updated = await quotationService.decide(
+        decision.quotation.id,
+        decision.status,
+      );
+      setQuotations((current) =>
+        current.map((record) =>
+          record.id === updated.id ? (updated as QuotationRecord) : record,
+        ),
+      );
+      setDecision(null);
+      showNotification(
+        updated.decisionStatus === "accepted"
+          ? "Aceptación del cliente registrada."
+          : "Rechazo del cliente registrado.",
+      );
+    } catch (error) {
+      setDecisionError(errorMessage(error));
+    } finally {
+      setDecisionPending(false);
+    }
   };
-
   return (
     <Box>
       {/* Encabezado de la vista */}
@@ -139,23 +160,31 @@ export default function QuotationsPage() {
           </Text>
         </Box>
       </Flex>
-
       {/* Alerta de notificacion temporal */}
       {notification && (
         <Box mb={4}>
           <Alert status={notification.status} title={notification.message} />
         </Box>
       )}
-
       {/* Tabla universal con busqueda, ordenamiento y paginacion */}
       <DataTable<QuotationRecord>
         columns={QUOTATION_COLUMNS}
         data={quotations}
+        loading={loading}
+        error={loadError}
+        onRetry={load}
         searchFields={["quotationNumber", "description", "currency"]}
         searchPlaceholder="Buscar por nro. cotizacion o descripcion..."
+        emptyTitle="No hay cotizaciones registradas"
+        emptyDescription="Cuando crees la primera cotizacion, aparecera aqui."
         toolbarActions={
           <Can perform="quotations:create">
-            <Button colorPalette="blue" size="sm" onClick={handleOpenCreate}>
+            <Button
+              colorPalette="blue"
+              size="sm"
+              disabled={loading || Boolean(loadError)}
+              onClick={handleOpenCreate}
+            >
               <LuPlus style={{ marginRight: "6px" }} />
               Nueva cotizacion
             </Button>
@@ -163,35 +192,58 @@ export default function QuotationsPage() {
         }
         actions={(quotation) => (
           <HStack gap={1}>
+            <Button
+              size="xs"
+              variant="outline"
+              aria-label={`Ver detalle de ${quotation.quotationNumber}`}
+              onClick={() => {
+                setReadOnly(true);
+                setSelectedQuotation(quotation);
+                setIsFormOpen(true);
+              }}
+            >
+              Ver detalle
+            </Button>
             <Can perform="quotations:edit">
               <Button
                 size="xs"
                 variant="ghost"
                 colorPalette="blue"
+                disabled={Boolean(
+                  quotation.decisionStatus &&
+                  quotation.decisionStatus !== "pending",
+                )}
                 onClick={() => handleOpenEdit(quotation)}
                 title="Editar cotizacion"
                 aria-label="Editar cotizacion"
               >
                 <LuPencil size={14} />
               </Button>
-            </Can>
-
-            <Can perform="quotations:delete">
-              <Button
-                size="xs"
-                variant="ghost"
-                colorPalette="red"
-                onClick={() => handleOpenDelete(quotation)}
-                title="Eliminar cotizacion"
-                aria-label="Eliminar cotizacion"
-              >
-                <LuTrash2 size={14} />
-              </Button>
+            </Can>{" "}
+            <Can perform="quotations:approve">
+              {(!quotation.decisionStatus ||
+                quotation.decisionStatus === "pending") &&
+                (["accepted", "rejected"] as const).map((status) => (
+                  <Button
+                    key={status}
+                    size="xs"
+                    variant="outline"
+                    colorPalette={status === "accepted" ? "green" : "red"}
+                    aria-label={`${status === "accepted" ? "Registrar aceptación" : "Registrar rechazo"} de ${quotation.quotationNumber}`}
+                    onClick={() => {
+                      setDecision({ quotation, status });
+                      setDecisionError(null);
+                    }}
+                  >
+                    {status === "accepted"
+                      ? "Registrar aceptación"
+                      : "Registrar rechazo"}
+                  </Button>
+                ))}
             </Can>
           </HStack>
         )}
       />
-
       {/* Modal de formulario de Alta / Edicion */}
       <QuotationFormModal
         open={isFormOpen}
@@ -199,22 +251,25 @@ export default function QuotationsPage() {
         quotation={selectedQuotation}
         clients={clients}
         requests={requests}
+        readOnly={readOnly}
         onSave={handleSaveQuotation}
-      />
-
-      {/* Dialogo de confirmacion de eliminacion */}
+      />{" "}
       <ConfirmDialog
-        open={Boolean(deleteCandidate)}
+        open={Boolean(decision)}
         onOpenChange={({ open }) => {
-          if (!open) setDeleteCandidate(null);
+          if (!open && !decisionPending) setDecision(null);
         }}
-        title="Eliminar cotizacion"
-        description={`Estas seguro de que deseas eliminar la cotizacion "${deleteCandidate?.quotationNumber}"? Esta accion no se puede deshacer.`}
-        confirmText="Eliminar"
-        cancelText="Cancelar"
-        confirmColorPalette="red"
-        onConfirm={handleConfirmDelete}
-        onCancel={() => setDeleteCandidate(null)}
+        title={
+          decision?.status === "accepted"
+            ? "Registrar aceptación del cliente"
+            : "Registrar rechazo del cliente"
+        }
+        description={`Confirmá la decisión comunicada por el cliente sobre ${decision?.quotation.quotationNumber}. Se guardarán tu usuario y la fecha, y la oferta conservará sus datos comerciales.`}
+        confirmText="Registrar decisión"
+        confirmColorPalette={decision?.status === "accepted" ? "green" : "red"}
+        isLoading={decisionPending}
+        error={decisionError}
+        onConfirm={() => void handleDecision()}
       />
     </Box>
   );

@@ -1,27 +1,29 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Box, Flex, Heading, HStack, Text } from "@chakra-ui/react";
-import { LuClipboardList, LuPencil, LuPlus, LuTrash2 } from "react-icons/lu";
+import { LuClipboardList, LuPencil, LuPlus } from "react-icons/lu";
 import { Alert } from "../components/Alert";
 import { Button } from "../components/Button";
 import { Can } from "../components/Can";
-import { ConfirmDialog } from "../components/ConfirmDialog";
+import { usePermissions } from "../hooks/usePermissions";
 import { DataTable } from "../components/DataTable";
 import { REQUEST_COLUMNS, RequestFormModal } from "../modules/requests";
-import { MOCK_CLIENTS } from "../test/mocks/mockClients";
-import { MOCK_REQUESTS } from "../test/mocks/mockRequests";
+import { errorMessage } from "../utils/errorMessage";
+import { clientService } from "../services/clientService";
 import type { Client } from "../services/clientService";
+import { requestService } from "../services/requestService";
 import type { CreateRequestDto, Request } from "../services/requestService";
 
 type RequestRecord = Request & Record<string, unknown>;
 
 export default function RequestsPage() {
-  const [requests, setRequests] = useState<RequestRecord[]>(
-    MOCK_REQUESTS as RequestRecord[],
-  );
-  const [clients] = useState<Client[]>(MOCK_CLIENTS);
+  const { can } = usePermissions();
+  const canLoadClients = can("clients:view");
+  const [requests, setRequests] = useState<RequestRecord[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<Request | null>(null);
-  const [deleteCandidate, setDeleteCandidate] = useState<Request | null>(null);
   const [notification, setNotification] = useState<{
     status: "success" | "error";
     message: string;
@@ -37,6 +39,29 @@ export default function RequestsPage() {
     }, 4000);
   };
 
+  const load = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const [records, related0] = await Promise.all([
+        requestService.getAll(),
+        canLoadClients ? clientService.listActive() : Promise.resolve([]),
+      ]);
+      setRequests(records as RequestRecord[]);
+      setClients(related0);
+    } catch (error) {
+      setLoadError(errorMessage(error));
+      setRequests([]);
+      setClients([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [canLoadClients]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
   const handleOpenCreate = () => {
     setSelectedRequest(null);
     setIsFormOpen(true);
@@ -47,53 +72,20 @@ export default function RequestsPage() {
     setIsFormOpen(true);
   };
 
-  const handleOpenDelete = (req: Request) => {
-    setDeleteCandidate(req);
-  };
-
   const handleSaveRequest = async (formData: CreateRequestDto) => {
-    const associatedClient = clients.find((c) => c.id === formData.clientId);
-
     if (selectedRequest) {
-      // Edición de solicitud existente
+      const updated = await requestService.update(selectedRequest.id, formData);
       setRequests((prev) =>
         prev.map((item) =>
-          item.id === selectedRequest.id
-            ? ({
-                ...item,
-                ...formData,
-                client: associatedClient,
-                updatedAt: new Date().toISOString(),
-              } as RequestRecord)
-            : item,
+          item.id === selectedRequest.id ? (updated as RequestRecord) : item,
         ),
       );
       showNotification("Solicitud actualizada correctamente.");
     } else {
-      // Alta de nueva solicitud
-      const newId =
-        requests.length > 0 ? Math.max(...requests.map((r) => r.id)) + 1 : 1;
-      const newRequest: RequestRecord = {
-        id: newId,
-        ...formData,
-        client: associatedClient,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      } as RequestRecord;
-
-      setRequests((prev) => [newRequest, ...prev]);
-      showNotification("Solicitud creada con exito.");
+      const created = await requestService.create(formData);
+      setRequests((prev) => [created as RequestRecord, ...prev]);
+      showNotification("Solicitud creada correctamente.");
     }
-  };
-
-  const handleConfirmDelete = () => {
-    if (!deleteCandidate) return;
-
-    setRequests((prev) =>
-      prev.filter((item) => item.id !== deleteCandidate.id),
-    );
-    showNotification(`Solicitud "${deleteCandidate.requestNumber}" eliminada.`);
-    setDeleteCandidate(null);
   };
 
   return (
@@ -119,23 +111,31 @@ export default function RequestsPage() {
           </Text>
         </Box>
       </Flex>
-
       {/* Alerta de notificacion temporal */}
       {notification && (
         <Box mb={4}>
           <Alert status={notification.status} title={notification.message} />
         </Box>
       )}
-
       {/* Tabla universal con busqueda, ordenamiento y paginacion */}
       <DataTable<RequestRecord>
         columns={REQUEST_COLUMNS}
         data={requests}
+        loading={loading}
+        error={loadError}
+        onRetry={load}
         searchFields={["requestNumber", "title", "description"]}
         searchPlaceholder="Buscar por nro. solicitud, titulo o descripcion..."
+        emptyTitle="No hay solicitudes registradas"
+        emptyDescription="Cuando crees la primera solicitud, aparecera aqui."
         toolbarActions={
           <Can perform="requests:create">
-            <Button colorPalette="blue" size="sm" onClick={handleOpenCreate}>
+            <Button
+              colorPalette="blue"
+              size="sm"
+              disabled={loading || Boolean(loadError)}
+              onClick={handleOpenCreate}
+            >
               <LuPlus style={{ marginRight: "6px" }} />
               Nueva solicitud
             </Button>
@@ -155,23 +155,9 @@ export default function RequestsPage() {
                 <LuPencil size={14} />
               </Button>
             </Can>
-
-            <Can perform="requests:delete">
-              <Button
-                size="xs"
-                variant="ghost"
-                colorPalette="red"
-                onClick={() => handleOpenDelete(req)}
-                title="Eliminar solicitud"
-                aria-label="Eliminar solicitud"
-              >
-                <LuTrash2 size={14} />
-              </Button>
-            </Can>
           </HStack>
         )}
       />
-
       {/* Modal de formulario de Alta / Edicion */}
       <RequestFormModal
         open={isFormOpen}
@@ -179,22 +165,7 @@ export default function RequestsPage() {
         request={selectedRequest}
         clients={clients}
         onSave={handleSaveRequest}
-      />
-
-      {/* Dialogo de confirmacion de eliminacion */}
-      <ConfirmDialog
-        open={Boolean(deleteCandidate)}
-        onOpenChange={({ open }) => {
-          if (!open) setDeleteCandidate(null);
-        }}
-        title="Eliminar solicitud"
-        description={`Estas seguro de que deseas eliminar la solicitud "${deleteCandidate?.requestNumber} - ${deleteCandidate?.title}"? Esta accion no se puede deshacer.`}
-        confirmText="Eliminar"
-        cancelText="Cancelar"
-        confirmColorPalette="red"
-        onConfirm={handleConfirmDelete}
-        onCancel={() => setDeleteCandidate(null)}
-      />
+      />{" "}
     </Box>
   );
 }

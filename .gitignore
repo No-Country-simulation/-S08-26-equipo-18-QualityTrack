@@ -25,6 +25,7 @@ node_modules/
 dist/
 build/
 coverage/
+*.tsbuildinfo
 
 
 # ------------------------------------------
@@ -93,3 +94,7 @@ docker-compose.override.yml
 # ------------------------------------------
 
 *.tgz
+
+# Archivos de evidencia: almacenamiento privado fuera del código versionado.
+backend/uploads/
+uploads/

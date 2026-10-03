@@ -7,11 +7,11 @@ export interface Client {
   taxId: string;
   email: string;
   phone: string;
-  contactName?: string;
-  address?: string;
-  city?: string;
-  province?: string;
-  notes?: string;
+  contactName?: string | null;
+  address?: string | null;
+  city?: string | null;
+  province?: string | null;
+  notes?: string | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string | null;
@@ -41,6 +41,16 @@ export interface ClientPage {
 }
 
 export const clientService = {
+  async listActive(): Promise<Client[]> {
+    const items: Client[] = [];
+    let page = 1;
+    while (true) {
+      const result = await clientService.list({ page, limit: 100, status: "active" });
+      items.push(...result.items);
+      if (page * result.limit >= result.total || !result.items.length) return items;
+      page++;
+    }
+  },
   list(params: ListClientsParams = {}): Promise<ClientPage> {
     return api.get<ClientPage>("/clients", { params });
   },

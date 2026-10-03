@@ -19,20 +19,20 @@ export class ClientResponseDto {
     @ApiProperty({ example: "+54 11 4555-1234" })
     phone: string;
 
-    @ApiPropertyOptional({ example: "Ana Gómez" })
-    contactName?: string;
+    @ApiPropertyOptional({ type: String, example: "Ana Gómez", nullable: true })
+    contactName?: string | null;
 
-    @ApiPropertyOptional({ example: "Av. Mitre 1234" })
-    address?: string;
+    @ApiPropertyOptional({ type: String, example: "Av. Mitre 1234", nullable: true })
+    address?: string | null;
 
-    @ApiPropertyOptional({ example: "Avellaneda" })
-    city?: string;
+    @ApiPropertyOptional({ type: String, example: "Avellaneda", nullable: true })
+    city?: string | null;
 
-    @ApiPropertyOptional({ example: "Buenos Aires" })
-    province?: string;
+    @ApiPropertyOptional({ type: String, example: "Buenos Aires", nullable: true })
+    province?: string | null;
 
-    @ApiPropertyOptional()
-    notes?: string;
+    @ApiPropertyOptional({ type: String, nullable: true })
+    notes?: string | null;
 
     @ApiProperty({ description: "Un cliente desactivado no se lista ni se ofrece para trabajos nuevos" })
     isActive: boolean;

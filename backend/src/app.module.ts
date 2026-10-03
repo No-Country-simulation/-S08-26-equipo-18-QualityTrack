@@ -7,6 +7,12 @@ import databaseConfig from './config/database.config';
 import { validateEnv } from './config/env.validation';
 import { AuthModule } from './auth/auth.module';
 import { ClientsModule } from './clients/clients.module';
+import { UsersModule } from './users/users.module';
+import { CommercialModule } from './commercial/commercial.module';
+import { WorkOrdersModule } from './work-orders/work-orders.module';
+import { ProductionModule } from './production/production.module';
+import { QualityDeliveriesModule } from './quality-deliveries/quality-deliveries.module';
+import { DocumentsModule } from './documents/documents.module';
 
 @Module({
     imports: [
@@ -17,6 +23,12 @@ import { ClientsModule } from './clients/clients.module';
         MikroOrmModule.forRoot(databaseConfig),
         AuthModule,
         ClientsModule,
+        UsersModule,
+        CommercialModule,
+        WorkOrdersModule,
+        ProductionModule,
+        QualityDeliveriesModule,
+        DocumentsModule,
     ],
     controllers: [AppController],
     providers: [AppService],

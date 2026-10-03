@@ -2,6 +2,107 @@
 
 Registro append-only, lo más nuevo arriba. Una entrada por ciclo de cambio cerrado.
 
+## 2026-10-02 · Correcciones detectadas en el recorrido de usuarios
+Type: fix
+
+Los paneles de producción y documentos usan claves de React distintas por OT.
+Esto evita duplicar producción o conservar un formulario anterior al aprobar
+la orden o registrar ejecución. Prueba de regresión del detalle después de una
+aprobación. La cabecera y el acceso dejan de declarar un servidor operativo y
+un ping fijo que no estaban respaldados por una consulta de salud.
+
+Recorrido local aislado con los cinco roles desde alta de usuarios hasta cierre
+de OT, inspección y entrega, con verificación de persistencia después de reiniciar
+el backend. Carga/descarga de archivo comprobadas por HTTP y documento consultado
+en el expediente; selección y descarga nativas pendientes de comprobación manual
+por fallos del navegador de pruebas.
+
+## 2026-10-02 · Indicadores respaldados por datos y recorrido integrado del expediente
+Type: feature
+
+Dashboard conectado a consultas autorizadas por rol. Solicitudes sin cotización
+contadas por relación; cobertura explícitamente parcial de cinco elementos con
+documentos del origen y OT sin duplicados. Actividad ordenada por fecha, sin
+dictámenes de conformidad ni números de remito inventados. Errores diferenciados
+de cero y consultas vacías, reintento y protección ante cambio de sesión/rol.
+Prueba HTTP de un único expediente con usuarios de los cinco roles y
+recuperación desde una aplicación y sesión nuevas. Sin migraciones, ampliación
+de permisos, cambios de secretos ni dependencias adicionales.
+
+## 2026-10-02 · Archivos reales y expediente documental de OT
+Type: feature
+
+Carga multipart y descarga autenticada, almacenamiento privado persistente,
+metadatos y SHA-256 del servidor. Permisos derivados de lectura/edición del
+padre, límites y formatos configurables, referencias de origen coherentes y
+protección contra borrado de padres. El expediente agrega documentos de la
+solicitud, cotización y OT sin duplicarlos ni mezclar otras órdenes. Migración
+aditiva que conserva históricos sin inventar archivos. El detalle limpia sus
+secciones al navegar, descarta respuestas tardías y distingue errores de vacíos
+y de una OT inexistente. Sin cambios de secretos ni nuevas dependencias.
+
+## 2026-10-02 · Inspecciones y entregas persistidas con origen y responsables reales
+Type: feature
+
+API y permisos de calidad y entregas. Inspecciones visuales sin números
+artificiales; decimales numeric(14,4), tolerancia en especificación y operación
+validada contra la misma OT. Entregas al cliente derivado del origen, cantidad
+entera positiva y fechas por día de negocio de Argentina. Conservación de
+autores al editar, editor desde sesión, notas opcionales y migración aditiva
+sin completar responsables históricos. Consultas de entregas accesibles por
+Administración y Calidad sin depender de permisos de otros módulos. Formularios
+conservan borradores ante errores; sin borrado físico.
+
+## 2026-10-02 · Producción con hojas de ruta, operaciones, materiales y personal reales
+Type: feature
+
+Persistencia y permisos de planificación/asignación/ejecución desde el detalle de
+OT. Hojas y operaciones con números automáticos, catálogo de materiales con código
+único y partidas por FK con lote, cantidad y certificado. Usuarios activos reales,
+una asignación activa por persona/OT y baja conservando historial. La ejecución
+requiere aprobación interna, registra fechas y actor reales e inicia la OT de
+forma atómica. Migración aditiva con comprobación de duplicados y conservación de
+históricos, sin autores inventados. Formularios conservan datos ante errores y
+consultas incluyen todas las hojas de cada OT.
+
+## 2026-10-02 · Numeración automática de solicitudes y cotizaciones
+Type:     fix
+Change:   solicitudes y cotizaciones reciben números SOL/COT generados por el servidor mediante secuencias independientes. Los formularios indican que el número se asignará al guardar y muestran el número existente sin permitir edición.
+Reason:   evitar pedir al usuario identificadores manuales y garantizar números distintos en altas simultáneas.
+Impact:   DTOs de alta sin número del navegador, UNIQUE existente conservado y migración de secuencias que continúa desde correlativos históricos compatibles. Ningún registro previo se renumera; sus IDs y relaciones se conservan. Las secuencias pueden tener saltos por operaciones fallidas.
+
+## 2026-10-02 · Origen y aprobación interna de órdenes de trabajo
+Type:     add
+Change:   API y formulario de OT desde cotización aceptada, con cliente y solicitud derivados; numeración única de servidor y origen consultable desde el detalle. Administrador y Supervisor gestionan OT y su aprobación interna; Producción y Calidad consultan.
+Reason:   convertir el origen comercial aceptado en un trabajo persistido sin números calculados por el navegador ni relaciones inventadas.
+Impact:   secuencia PostgreSQL y UNIQUE, alta de OT/aprobación pendiente atómica, dictamen con actor y fecha reales y actualización transaccional del estado. Edición conserva identidad/origen, valida fechas y no elude aprobación. Sin borrado físico ni reapertura de OT cerradas. Migración conserva los datos históricos sin completar origen ficticio y se detiene ante números o aprobaciones duplicados para revisión explícita.
+
+Operaciones, materiales y personal corresponden a la siguiente etapa. Sin cambios de secretos ni nuevas dependencias.
+
+## 2026-10-02 · Solicitudes, cotizaciones y decisión comercial
+Type:     add
+Change:   APIs autenticadas de solicitudes y cotizaciones con ítems, formularios conectados y consulta del detalle. Administrador, Supervisor y Administración pueden gestionar el origen comercial; Producción consulta solicitudes. Administrador y Supervisor registran aceptación o rechazo con confirmación.
+Reason:   persistir el origen comercial del trabajo y registrar la decisión del cliente antes de incorporar el alta de OT.
+Impact:   cliente activo en altas, solicitud del mismo cliente, números únicos e inmutables, cantidades y precios decimales validados. Importes calculados por el servidor con redondeo a centavos e impuesto actual del 21 %, cotización e ítems en una transacción, autor y fechas del servidor. Decisión persistida e idempotente; cotizaciones decididas y solicitudes ya cotizadas conservan su contenido. Sin borrado físico. Migración aditiva y snapshot actualizado; las ofertas anteriores quedan pendientes y conservan sus datos, sin aceptación inventada.
+
+La aceptación comercial no equivale a aprobación interna de OT. El alta de OT y sus restricciones corresponden a la siguiente etapa. Sin cambios de secretos ni nuevas dependencias.
+
+## 2026-10-02 · Datos personales y baja lógica de usuarios
+Type:     add
+Change:   Administrador puede editar nombre, apellido, email y DNI, y desactivar o reactivar cuentas con confirmación. DNI obligatorio y único en las altas y el administrador inicial; cuentas existentes con DNI pendiente para completar al editar. Filtros Activos/Inactivos/Todos y datos conservados al dar de baja.
+Reason:   corregir datos de las personas y retirar el acceso cuando dejan de trabajar, manteniendo la cuenta vinculada a su historial.
+Impact:   baja y revocación de todas las sesiones en una transacción; cuentas inactivas no pueden entrar ni renovar/acceder con tokens previos. Reactivar requiere nuevo login. Protección del propio estado y último Administrador activo, incluso con cambios de rol/estado concurrentes. Migración aditiva para dni/is_active y snapshot actualizado; ADMIN_DNI manual para el primer seed, sin cambios de secretos.
+
+Recuperación y cambio de contraseña siguen fuera de alcance.
+
+## 2026-10-02 · Administración de usuarios y roles
+Type:     add
+Change:   Administrador puede listar cuentas y roles existentes, crear usuarios y cambiar sus roles desde Usuarios. Los demás roles no acceden a estas acciones, por interfaz ni por API. Email normalizado y único; contraseñas con bcrypt, sin hashes en respuestas y con el límite de 72 bytes UTF-8 compartido con login y seed.
+Reason:   incorporar cuentas de los cinco roles para operar el flujo con identidades reales, además del administrador inicial.
+Impact:   cambios de rol efectivos en la siguiente petición de sesiones vigentes; protección contra autodegradación y pérdida de administradores, incluidos cambios simultáneos. Sin migraciones ni nuevas dependencias.
+
+El editor de permisos, borrado/deshabilitación de cuentas y recuperación/cambio de contraseña siguen fuera de alcance.
+
 ## 2026-09-22 · Autenticación — F-001
 Type:     add
 Change:   cada persona entra con su cuenta y la aplicación sabe quién es y qué rol tiene mientras la usa. Inicio de sesión con correo y contraseña, opción "Recordarme", renovación de la sesión sin volver a pedir la contraseña, cierre de sesión y recuperación de la sesión vigente al reabrir la aplicación.

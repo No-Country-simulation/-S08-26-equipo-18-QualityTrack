@@ -9,15 +9,15 @@ export interface Request {
   title: string;
   description: string;
   receivedAt: string;
-  requestedDeliveryDate?: string;
+  requestedDeliveryDate?: string | null;
   createdById?: number;
   createdAt: string;
-  updatedAt: string;
+  updatedAt: string | null;
 }
 
-export type CreateRequestDto = Omit<
+export type CreateRequestDto = Pick<
   Request,
-  "id" | "client" | "createdAt" | "updatedAt"
+  "clientId" | "title" | "description" | "receivedAt" | "requestedDeliveryDate"
 >;
 export type UpdateRequestDto = Partial<CreateRequestDto>;
 
@@ -33,9 +33,6 @@ export const requestService = {
   },
   update(id: number | string, data: UpdateRequestDto): Promise<Request> {
     return api.put<Request>(`/requests/${id}`, data);
-  },
-  delete(id: number | string): Promise<void> {
-    return api.delete<void>(`/requests/${id}`);
   },
 };
 

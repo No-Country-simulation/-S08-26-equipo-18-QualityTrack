@@ -1,6 +1,7 @@
 import { type FormEvent, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
+    chakra,
     Box,
     Checkbox,
     Field,
@@ -74,18 +75,8 @@ export default function LoginPage() {
                     borderRadius="full"
                     boxShadow="xs"
                 >
-                    <Box position="relative" w={2} h={2}>
-                        <Box position="absolute" inset={0} borderRadius="full" bg="emerald.400" opacity={0.75} animation="pulse 2s infinite" />
-                        <Box position="relative" w={2} h={2} borderRadius="full" bg="emerald.500" />
-                    </Box>
                     <Text fontSize="xs" fontWeight="medium" color="gray.600">
-                        Estado Servidor MES:{' '}
-                        <Text as="span" color="emerald.700" fontWeight="semibold">
-                            Operativo
-                        </Text>{' '}
-                        <Text as="span" color="gray.400">
-                            (Ping 12ms)
-                        </Text>
+                        Acceso con credenciales administradas
                     </Text>
                 </HStack>
             </Flex>
@@ -185,8 +176,8 @@ export default function LoginPage() {
                                     <InputGroup
                                         startElement={<LockIcon boxSize={5} color="gray.400" />}
                                         endElement={
-                                            <Box
-                                                as="button"
+                                            <chakra.button
+                                                type="button"
                                                 aria-label="Mostrar u ocultar contraseña"
                                                 onClick={() => setShowPassword((v) => !v)}
                                                 color={showPassword ? 'brand.600' : 'gray.400'}
@@ -195,7 +186,7 @@ export default function LoginPage() {
                                                 alignItems="center"
                                             >
                                                 {showPassword ? <EyeOffIcon boxSize={5} /> : <EyeIcon boxSize={5} />}
-                                            </Box>
+                                            </chakra.button>
                                         }
                                     >
                                         <Input

@@ -25,7 +25,7 @@ export class Request extends BaseEntity {
     receivedAt: Date;
 
     @Property({ type: "timestamptz", nullable: true })
-    requestedDeliveryDate?: Date;
+    requestedDeliveryDate?: Date | null;
 
     // TODO revisar: status (posible enum, sin definir en el diagrama)
     // @Property({ type: "varchar" })

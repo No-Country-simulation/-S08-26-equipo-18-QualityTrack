@@ -85,13 +85,18 @@ export const useAuthStore = create<AuthState>()(
             },
 
             logout: async () => {
+                let revocationWarning: string | null = null
                 try {
                     await authService.logout()
                 } catch {
-                    // La sesión local se cierra igual: sin el token de refresco en el
-                    // navegador, la sesión del servidor ya no se puede usar.
+                    revocationWarning = 'Se cerró la sesión en este navegador, pero no se pudo confirmar su revocación en el servidor.'
                 } finally {
                     get().clearSession()
+                    if (revocationWarning) {
+                        set({ error: revocationWarning })
+                        // persist también escribe al cambiar el aviso; retirar ese registro vacío.
+                        useAuthStore.persist.clearStorage()
+                    }
                 }
             },
 

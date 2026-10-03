@@ -62,21 +62,66 @@ export function ClientFormModal({
   } = useForm<ClientFormValues>({
     initialValues: DEFAULT_VALUES,
     rules: {
-      businessName: [validators.required("La razon social es obligatoria")],
+      businessName: [
+        validators.required("La razon social es obligatoria"),
+        validators.maxLength(
+          1000,
+          "La razon social no puede superar los 1000 caracteres",
+        ),
+      ],
       taxId: [
         validators.required("El CUIT es obligatorio"),
-        validators.cuit("El CUIT debe tener 11 digitos numericos"),
+        validators.cuit("El CUIT debe tener exactamente 11 digitos numericos"),
+      ],
+      contactName: [
+        validators.maxLength(
+          255,
+          "El nombre de contacto no puede superar los 255 caracteres",
+        ),
       ],
       email: [
         validators.required("El email es obligatorio"),
         validators.email("Ingresa un correo electronico valido"),
+        validators.maxLength(
+          255,
+          "El email no puede superar los 255 caracteres",
+        ),
       ],
-      phone: [validators.required("El telefono es obligatorio")],
+      phone: [
+        validators.required("El telefono es obligatorio"),
+        validators.phone(),
+        validators.maxLength(
+          255,
+          "El telefono no puede superar los 255 caracteres",
+        ),
+      ],
+      city: [
+        validators.maxLength(
+          255,
+          "La ciudad no puede superar los 255 caracteres",
+        ),
+      ],
+      province: [
+        validators.maxLength(
+          255,
+          "La provincia no puede superar los 255 caracteres",
+        ),
+      ],
+      address: [
+        validators.maxLength(
+          255,
+          "La direccion no puede superar los 255 caracteres",
+        ),
+      ],
+      notes: [
+        validators.maxLength(
+          5000,
+          "Las notas no pueden superar los 5000 caracteres",
+        ),
+      ],
     },
     onSubmit: async (formValues) => {
-      // Los opcionales vacios viajan ausentes, no como texto vacio: "no lo se" y
-      // "esta vacio" no son lo mismo.
-      const optional = (value: string) => value.trim() || undefined;
+      const optional = (value: string) => value.trim() || (isEditing ? null : undefined);
       await onSave({
         businessName: formValues.businessName.trim(),
         taxId: formValues.taxId.replace(/\D/g, ""),
@@ -158,6 +203,7 @@ export function ClientFormModal({
             <Input
               placeholder="Ej: Metalurgica Andina S.A."
               value={values.businessName}
+              maxLength={1000}
               onChange={(e) => handleChange("businessName", e.target.value)}
               onBlur={() => handleBlur("businessName")}
             />
@@ -167,10 +213,10 @@ export function ClientFormModal({
             label="CUIT (11 digitos)"
             required
             error={touched.taxId ? errors.taxId : null}
-            helperText="Sin guiones ni espacios"
+            helperText="11 dígitos; se admiten guiones, puntos y espacios"
           >
             <Input
-              placeholder="Ej: 30712345678"
+              placeholder="Ej: 20432906505"
               value={values.taxId}
               onChange={(e) => handleChange("taxId", e.target.value)}
               onBlur={() => handleBlur("taxId")}
@@ -180,12 +226,13 @@ export function ClientFormModal({
 
         <SimpleGrid columns={{ base: 1, md: 2 }} gap={3}>
           <FormField
-            label="Persona de Contacto"
+            label="Persona de contacto"
             error={touched.contactName ? errors.contactName : null}
           >
             <Input
               placeholder="Ej: Carlos Mendez"
               value={values.contactName}
+              maxLength={255}
               onChange={(e) => handleChange("contactName", e.target.value)}
               onBlur={() => handleBlur("contactName")}
             />
@@ -200,6 +247,7 @@ export function ClientFormModal({
               type="email"
               placeholder="contacto@empresa.com.ar"
               value={values.email}
+              maxLength={255}
               onChange={(e) => handleChange("email", e.target.value)}
               onBlur={() => handleBlur("email")}
             />
@@ -215,43 +263,60 @@ export function ClientFormModal({
             <Input
               placeholder="+54 11 4522-8900"
               value={values.phone}
+              maxLength={255}
               onChange={(e) => handleChange("phone", e.target.value)}
               onBlur={() => handleBlur("phone")}
             />
           </FormField>
 
-          <FormField label="Ciudad">
+          <FormField
+            label="Ciudad"
+            error={touched.city ? errors.city : null}
+          >
             <Input
               placeholder="Ej: Rosario"
               value={values.city}
+              maxLength={255}
               onChange={(e) => handleChange("city", e.target.value)}
               onBlur={() => handleBlur("city")}
             />
           </FormField>
 
-          <FormField label="Provincia">
+          <FormField
+            label="Provincia"
+            error={touched.province ? errors.province : null}
+          >
             <Input
               placeholder="Ej: Santa Fe"
               value={values.province}
+              maxLength={255}
               onChange={(e) => handleChange("province", e.target.value)}
               onBlur={() => handleBlur("province")}
             />
           </FormField>
         </SimpleGrid>
 
-        <FormField label="Direccion">
+        <FormField
+          label="Direccion"
+          error={touched.address ? errors.address : null}
+        >
           <Input
             placeholder="Av. Industrial 4500"
             value={values.address}
+            maxLength={255}
             onChange={(e) => handleChange("address", e.target.value)}
             onBlur={() => handleBlur("address")}
           />
         </FormField>
 
-        <FormField label="Notas u observaciones">
+        <FormField
+          label="Notas u observaciones"
+          error={touched.notes ? errors.notes : null}
+        >
           <Textarea
             placeholder="Informacion adicional sobre el cliente, requerimientos especiales de calidad, etc."
             value={values.notes}
+            maxLength={5000}
             onChange={(e) => handleChange("notes", e.target.value)}
             onBlur={() => handleBlur("notes")}
             rows={3}
@@ -263,4 +328,3 @@ export function ClientFormModal({
 }
 
 export default ClientFormModal;
-

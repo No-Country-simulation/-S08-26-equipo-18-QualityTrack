@@ -20,7 +20,7 @@ export class Client extends BaseEntity {
     taxId: string;
 
     @Property({type: "varchar", nullable: true})
-    contactName?: string;
+    contactName?: string | null;
 
     @Property({type: "varchar"})
     email: string;
@@ -29,16 +29,16 @@ export class Client extends BaseEntity {
     phone: string;
 
     @Property({type: "varchar", nullable: true})
-    address?: string;
+    address?: string | null;
 
     @Property({type: "varchar", nullable: true})
-    city?: string;
+    city?: string | null;
 
     @Property({type: "varchar", nullable: true})
-    province?: string;
+    province?: string | null;
 
     @Property({type: "varchar", length: 5000, nullable: true})
-    notes?: string;
+    notes?: string | null;
 
     // Los clientes no se borran: se desactivan, para que el trabajo ya registrado
     // siga mostrando de quién era.

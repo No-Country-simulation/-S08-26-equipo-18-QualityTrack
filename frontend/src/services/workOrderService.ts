@@ -1,12 +1,11 @@
 import { api } from "./api";
+import type { Client } from "./clientService";
+import type { Request } from "./requestService";
+import type { Quotation } from "./quotationService";
 
 export type WorkOrderPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
 export type WorkOrderStatus =
-  | "PENDING"
-  | "APPROVED"
-  | "IN_PROGRESS"
-  | "COMPLETED"
-  | "CANCELLED";
+  "PENDING" | "APPROVED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
 
 export interface WorkOrder {
   id: number;
@@ -15,21 +14,39 @@ export interface WorkOrder {
   description: string;
   priority: WorkOrderPriority;
   status: WorkOrderStatus;
+  // Relaciones con entidades padre para trazabilidad completa del expediente
+  clientId: number | null;
+  client?: Client | null;
+  requestId?: number | null;
+  request?: Request | null;
+  quotationId?: number | null;
+  quotation?: Quotation | null;
   plannedStartDate: string;
   plannedEndDate: string;
-  actualStartDate?: string;
-  actualEndDate?: string;
+  actualStartDate?: string | null;
+  actualEndDate?: string | null;
   createdById?: number;
   createdAt: string;
-  updatedAt: string;
+  updatedAt: string | null;
 }
 
-export type CreateWorkOrderDto = Omit<
+export type CreateWorkOrderDto = Pick<
   WorkOrder,
-  "id" | "createdAt" | "updatedAt"
+  "title" | "description" | "priority" | "plannedStartDate" | "plannedEndDate"
+> & { quotationId: number };
+export type UpdateWorkOrderDto = Partial<
+  Pick<
+    WorkOrder,
+    | "title"
+    | "description"
+    | "priority"
+    | "plannedStartDate"
+    | "plannedEndDate"
+    | "actualStartDate"
+    | "actualEndDate"
+    | "status"
+  >
 >;
-export type UpdateWorkOrderDto = Partial<CreateWorkOrderDto>;
-
 export const workOrderService = {
   getAll(): Promise<WorkOrder[]> {
     return api.get<WorkOrder[]>("/work-orders");
@@ -42,9 +59,6 @@ export const workOrderService = {
   },
   update(id: number | string, data: UpdateWorkOrderDto): Promise<WorkOrder> {
     return api.put<WorkOrder>(`/work-orders/${id}`, data);
-  },
-  delete(id: number | string): Promise<void> {
-    return api.delete<void>(`/work-orders/${id}`);
   },
 };
 

@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { IsBoolean, IsEmail, IsNotEmpty, IsOptional, IsString, MaxLength } from "class-validator";
+import { IsSupportedPassword } from "../password-length.validator";
 
 export class LoginDto {
     @ApiProperty({ example: "admin@qualitytrack.local", maxLength: 255 })
@@ -7,10 +8,10 @@ export class LoginDto {
     @MaxLength(255)
     email: string;
 
-    @ApiProperty({ maxLength: 200 })
+    @ApiProperty({ description: "Contraseña de hasta 72 bytes UTF-8.", maxLength: 72 })
     @IsString()
     @IsNotEmpty()
-    @MaxLength(200)
+    @IsSupportedPassword()
     password: string;
 
     @ApiPropertyOptional({

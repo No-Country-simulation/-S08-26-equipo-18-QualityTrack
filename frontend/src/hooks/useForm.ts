@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError } from "../services/api";
 import { validateField, type ValidatorFn } from "../utils/validators";
 
@@ -49,11 +49,15 @@ export function useForm<T extends Record<string, any>>({
   onSuccess,
   resetOnSuccess = false,
 }: UseFormOptions<T>): UseFormReturn<T> {
+  // Mantener reset estable aunque el caller construya initialValues al renderizar.
+  const initialValuesRef = useRef(initialValues);
+  useEffect(() => { initialValuesRef.current = initialValues }, [initialValues]);
   const [values, setValues] = useState<T>(initialValues);
   const [errors, setErrors] = useState<Partial<Record<keyof T, string>>>({});
   const [touched, setTouched] = useState<Partial<Record<keyof T, boolean>>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const submittingRef = useRef(false);
 
   // Valida un solo campo según sus reglas configuradas
   const validateSingleField = useCallback(
@@ -114,19 +118,20 @@ export function useForm<T extends Record<string, any>>({
 
   const reset = useCallback(
     (newValues?: T) => {
-      setValues(newValues || initialValues);
+      setValues(newValues ?? initialValuesRef.current);
       setErrors({});
       setTouched({});
       setIsSubmitting(false);
       setSubmitError(null);
     },
-    [initialValues],
+    [],
   );
 
   const handleSubmit = async (e?: React.SubmitEvent | React.SyntheticEvent) => {
     if (e && typeof e.preventDefault === "function") {
       e.preventDefault();
     }
+    if (submittingRef.current) return;
 
     const allTouched: Partial<Record<keyof T, boolean>> = {};
     for (const key of Object.keys(values) as (keyof T)[]) {
@@ -140,6 +145,7 @@ export function useForm<T extends Record<string, any>>({
       return;
     }
 
+    submittingRef.current = true;
     setIsSubmitting(true);
     setSubmitError(null);
 
@@ -167,6 +173,7 @@ export function useForm<T extends Record<string, any>>({
         setSubmitError("Ocurrió un error inesperado al guardar el formulario.");
       }
     } finally {
+      submittingRef.current = false;
       setIsSubmitting(false);
     }
   };

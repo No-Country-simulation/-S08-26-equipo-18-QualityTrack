@@ -13,6 +13,14 @@ export class User extends BaseEntity {
     @Property({ type: "varchar" })
     lastName: string;
 
+    // Los usuarios previos a esta migración conservan un DNI pendiente.
+    @Unique()
+    @Property({ type: "varchar", length: 8, nullable: true })
+    dni?: string | null;
+
+    @Property({ type: "boolean", default: true })
+    isActive: boolean = true;
+
     // Se estableció una relación ManyToOne porque un rol general
     // puede estar asignado a múltiples usuarios, mientras que cada
     // usuario tiene un único rol dentro del sistema.
